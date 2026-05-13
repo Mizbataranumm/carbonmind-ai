@@ -1,0 +1,142 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 7 (Electric & Neon) combined with Archetype 5 (Jewel & Luxury)",
+  "vibe": "Futuristic, Apple-level smooth UI, Tesla Dashboard, Notion AI",
+  "typography": {
+    "headings": {
+      "family": "Outfit",
+      "weights": ["300", "500", "700"],
+      "classes": "font-sans tracking-tight"
+    },
+    "body": {
+      "family": "Manrope",
+      "weights": ["400", "500"],
+      "classes": "font-sans leading-relaxed"
+    },
+    "data_and_metrics": {
+      "family": "JetBrains Mono",
+      "weights": ["400", "700"],
+      "classes": "font-mono tracking-tight"
+    }
+  },
+  "colors": {
+    "background": {
+      "primary": "#071014",
+      "secondary": "#0a161c",
+      "accent": "#0d1f27"
+    },
+    "neon": {
+      "green": "#00FFB2",
+      "cyan": "#00D9FF"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#9EABBC",
+      "muted": "#5C6B7A"
+    },
+    "surface": {
+      "glass": "rgba(255, 255, 255, 0.02)",
+      "border": "rgba(255, 255, 255, 0.08)",
+      "hover": "rgba(255, 255, 255, 0.05)"
+    },
+    "status": {
+      "success": "#00FFB2",
+      "warning": "#FFD166",
+      "danger": "#FF4D4D",
+      "info": "#00D9FF"
+    }
+  },
+  "layout_and_spacing": {
+    "grid": "Bento Grid protocol with intense asymmetry for marketing, tight control room grid for dashboard.",
+    "spacing_scale": "Tailwind standard, but highly generous. p-6 to p-12 for containers.",
+    "containers": "All containers with borders must have internal padding of p-6 or p-8 to prevent text collision."
+  },
+  "surface_strategies": {
+    "cards": {
+      "type": "Glassmorphism / Crystal Variant",
+      "classes": "bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_8px_32px_rgba(0,255,178,0.03)]",
+      "hover_classes": "hover:bg-white/[0.04] hover:border-white/20 hover:shadow-[0_8px_32px_rgba(0,255,178,0.08)] transition-all duration-300"
+    },
+    "headers": {
+      "type": "Sticky Crystal Glass",
+      "classes": "sticky top-0 z-50 bg-[#071014]/70 backdrop-blur-2xl border-b border-white/10"
+    },
+    "buttons": {
+      "primary": "bg-gradient-to-r from-[#00FFB2] to-[#00D9FF] text-black font-semibold rounded-full px-6 py-3 hover:shadow-[0_0_20px_rgba(0,255,178,0.4)] transition-all",
+      "secondary": "bg-white/5 border border-white/10 text-white rounded-full px-6 py-3 hover:bg-white/10 transition-all",
+      "icon": "rounded-full bg-white/5 p-3 hover:bg-white/10 border border-white/10 text-[#00FFB2]"
+    }
+  },
+  "motion_and_interactions": {
+    "framer_motion": {
+      "page_transition": {
+        "initial": { "opacity": 0, "y": 20 },
+        "animate": { "opacity": 1, "y": 0 },
+        "transition": { "duration": 0.5, "ease": "easeOut" }
+      },
+      "stagger_children": {
+        "transition": { "staggerChildren": 0.1 }
+      },
+      "hover_card": {
+        "whileHover": { "y": -5, "scale": 1.01 }
+      }
+    }
+  },
+  "components": {
+    "charts": "Recharts for data visualization. Dark mode theme. Tooltips must use glassmorphism styles. Lines/Area charts should use #00FFB2 and #00D9FF.",
+    "navigation": "Use lucide-react icons. Desktop nav must have visible links. Mobile use Shadcn Sheet. Never use a transparent header over content without blur.",
+    "modals": "Shadcn Dialog customized with dark glassmorphism. #071014 background with border-white/10.",
+    "data_testid": "MANDATORY. Format: kebab-case, role-based. e.g., data-testid='carbon-score-card'"
+  },
+  "3d_and_visualizers": {
+    "globe": "react-globe.gl for the main hero section and Earth Reaction System. Use transparent background 'rgba(0,0,0,0)' to blend smoothly with #071014. Use glowing green arcs for connections.",
+    "carbon_dna": "Framer Motion animated SVG or an abstract CSS particle system using glowing #00FFB2 and #00D9FF."
+  },
+  "media_urls": {
+    "abstract_backgrounds": [
+      {
+        "url": "https://images.unsplash.com/photo-1778146007014-92b2982b588e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHw0fHxhYnN0cmFjdCUyMG5lb24lMjBncmVlbiUyMGN5YW4lMjBkYXJrJTIwc3BhY2V8ZW58MHx8fHwxNzc4NjgxNDY1fDA&ixlib=rb-4.1.0&q=85",
+        "category": "hero_background",
+        "description": "Abstract green and blue glowing light background for high-tech sections"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1778146007001-a729e4f38173?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1Mjh8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMG5lb24lMjBncmVlbiUyMGN5YW4lMjBkYXJrJTIwc3BhY2V8ZW58MHx8fHwxNzc4NjgxNDY1fDA&ixlib=rb-4.1.0&q=85",
+        "category": "login_background",
+        "description": "Abstract glowing green and blue light patterns for split-screen login"
+      }
+    ],
+    "nature_simulator": [
+      {
+        "url": "https://images.unsplash.com/photo-1667754781128-78c8917493fc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHxkYXJrJTIwbW9vZHklMjBjaW5lbWF0aWMlMjBmb3Jlc3QlMjBuYXR1cmV8ZW58MHx8fHwxNzc4NjgxNDYwfDA&ixlib=rb-4.1.0&q=85",
+        "category": "simulator_background",
+        "description": "Dark moody cinematic forest for AI Future Simulator (Positive path)"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1745335463628-3d619586ffea?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHw0fHxkYXJrJTIwbW9vZHklMjBjaW5lbWF0aWMlMjBmb3Jlc3QlMjBuYXR1cmV8ZW58MHx8fHwxNzc4NjgxNDYwfDA&ixlib=rb-4.1.0&q=85",
+        "category": "recommendation_card",
+        "description": "Dark forest path for smart eco recommendation cards"
+      }
+    ],
+    "avatars": [
+      {
+        "url": "https://images.unsplash.com/photo-1633766307019-b21a10a0e008?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwyfHxjeWJlcnB1bmslMjBwb3J0cmFpdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3ODY4MTQ2MHww&ixlib=rb-4.1.0&q=85",
+        "category": "community_avatar",
+        "description": "Cyberpunk portrait 1"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1777891257485-fb26c465076f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHw0fHxjeWJlcnB1bmslMjBwb3J0cmFpdCUyMGRhcmslMjBiYWNrZ3JvdW5kfGVufDB8fHx8MTc3ODY4MTQ2MHww&ixlib=rb-4.1.0&q=85",
+        "category": "community_avatar",
+        "description": "Cyberpunk portrait 2"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install dependencies: framer-motion, recharts, lucide-react, react-globe.gl, @fontsource/outfit, @fontsource/manrope, @fontsource/jetbrains-mono.",
+    "Ensure all components use the .js or .jsx extension. No TS.",
+    "Do NOT use pure #000000 for the background, strictly stick to #071014 for the app layout.",
+    "Implement the Carbon Score circular progress using Recharts PieChart or an SVG with Framer Motion, glowing with #00FFB2.",
+    "For the 3D globe, use react-globe.gl on the landing page and simulator. Set backgroundColor='rgba(0,0,0,0)' so it blends.",
+    "Apply 'data-testid' to every interactive element (buttons, cards, links, inputs).",
+    "Use standard Tailwind scales (p-4, p-6, p-8) and keep the UI dense but readable with glassmorphism."
+  ]
+}
