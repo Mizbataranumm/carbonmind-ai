@@ -10,6 +10,13 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 
+# Optional AI integration — falls back gracefully if not installed
+try:
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+    HAS_LLM = True
+except ImportError:
+    HAS_LLM = False
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -229,8 +236,13 @@ async def community_feed():
 # ====== AI Chat via Emergent Universal Key ======
 @api_router.post("/chat/sustainability", response_model=ChatResponse)
 async def chat_sustainability(req: ChatRequest):
+    fallback = (
+        "Quick tip: shifting just 2 weekly car trips to cycling or transit can save ~1.2 kg CO₂/day. "
+        "Want me to break down your top emission category?"
+    )
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        if not HAS_LLM:
+            return ChatResponse(reply=fallback, session_id=req.session_id)
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
             raise HTTPException(status_code=500, detail="LLM key missing")
@@ -248,11 +260,6 @@ async def chat_sustainability(req: ChatRequest):
         return ChatResponse(reply=str(reply), session_id=req.session_id)
     except Exception as e:
         logger.exception("Chat failed")
-        # graceful demo fallback
-        fallback = (
-            "Quick tip: shifting just 2 weekly car trips to cycling or transit can save ~1.2 kg CO₂/day. "
-            "Want me to break down your top emission category?"
-        )
         return ChatResponse(reply=fallback, session_id=req.session_id)
 
 
