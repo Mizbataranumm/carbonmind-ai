@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, AreaChart, Area, Legend } from "recharts";
-import { Flame, Bike, Leaf, Sun, TrendingDown, TrendingUp, Send, Mic, Sparkles, ArrowUpRight, Volume2 } from "lucide-react";
+import { Flame, Bike, Leaf, Sun, TrendingDown, TrendingUp, Send, Mic, Sparkles, ArrowUpRight, Volume2, PhoneCall } from "lucide-react";
 import { getCarbonStats, sendChat } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
+import VoiceCallModal from "@/components/VoiceCallModal";
 
 const iconMap = { flame: Flame, bike: Bike, leaf: Leaf, sun: Sun };
 
@@ -11,6 +12,7 @@ const Dashboard = () => {
   const { user } = useUser();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [callOpen, setCallOpen] = useState(false);
 
   useEffect(() => {
     getCarbonStats().then((d) => { setStats(d); setLoading(false); }).catch(() => setLoading(false));
@@ -22,6 +24,32 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6" data-testid="dashboard-root">
+      {/* AI Call banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass p-5 glass-hover flex flex-wrap items-center justify-between gap-4"
+        data-testid="ai-call-banner"
+      >
+        <div className="flex items-center gap-4">
+          <div className="relative h-11 w-11 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
+            <PhoneCall className="h-5 w-5 text-[#071014]" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#FF4D4D] border-2 border-[#071014] animate-pulse" />
+          </div>
+          <div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Voice Briefing available</div>
+            <div className="font-display text-lg">CarbonMind wants to call you about this week.</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setCallOpen(true)}
+          className="btn-primary text-sm inline-flex items-center gap-2"
+          data-testid="answer-call-btn"
+        >
+          <PhoneCall className="h-4 w-4" /> Receive AI call
+        </button>
+      </motion.div>
+
       {/* Top metrics row */}
       <div className="grid lg:grid-cols-3 gap-5">
         <CarbonScoreCard stats={stats} user={user} />
@@ -41,6 +69,14 @@ const Dashboard = () => {
         <AchievementsCard items={stats.achievements} />
         <RecommendationsCard items={stats.recommendations} />
       </div>
+
+      <VoiceCallModal
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        userName={user?.name || "there"}
+        weeklyKg={stats.week_kg}
+        topCategory={stats.breakdown[0]?.name || "Transport"}
+      />
     </div>
   );
 };

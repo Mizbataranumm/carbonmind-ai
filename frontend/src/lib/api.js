@@ -11,3 +11,7 @@ export const getTrackerLive = () => api.get("/tracker/live").then(r => r.data);
 export const simulateFuture = (payload) => api.post("/future/simulate", payload).then(r => r.data);
 export const getCommunityFeed = () => api.get("/community/feed").then(r => r.data);
 export const sendChat = (session_id, message) => api.post("/chat/sustainability", { session_id, message }).then(r => r.data);
+export const predictDay = (payload) => api.post("/predict/day", payload).then(r => r.data);
+export const getVoiceTips = (payload) => api.post("/voice/call-tips", payload).then(r => r.data);
+export const scanFood = (payload) => api.post("/food/scan", payload).then(r => r.data);
+export const generateCertificate = (payload) => api.post("/certificate/generate", payload).then(r => r.data);

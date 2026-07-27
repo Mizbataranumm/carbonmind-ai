@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell } from "lucide-react";
+import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
   { to: "/tracker", label: "Live Tracker", icon: Activity, testid: "nav-tracker" },
+  { to: "/predict", label: "Predict Day", icon: TrendingUp, testid: "nav-predict" },
   { to: "/future", label: "Future Simulator", icon: Sparkles, testid: "nav-future" },
+  { to: "/scan", label: "Food Scanner", icon: ScanLine, testid: "nav-scan" },
+  { to: "/certificate", label: "Certificate", icon: Award, testid: "nav-certificate" },
   { to: "/community", label: "Community", icon: Users, testid: "nav-community" },
 ];
 
@@ -143,7 +146,15 @@ const AppLayout = () => {
 };
 
 const getTitle = (path) => {
-  const map = { "/dashboard": "Carbon Overview", "/tracker": "Live Activity Tracker", "/future": "AI Future Simulator", "/community": "Eco Community" };
+  const map = {
+    "/dashboard": "Carbon Overview",
+    "/tracker": "Live Activity Tracker",
+    "/predict": "Predictive Budget Alert",
+    "/future": "AI Future Simulator",
+    "/scan": "Food Carbon Scanner",
+    "/certificate": "Verified Certificate",
+    "/community": "Eco Community",
+  };
   return map[path] || "CarbonMind";
 };
 

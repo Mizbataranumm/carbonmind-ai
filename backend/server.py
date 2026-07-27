@@ -45,6 +45,69 @@ class ChatResponse(BaseModel):
     reply: str
     session_id: str
 
+class MorningActivity(BaseModel):
+    type: str  # transport / electricity / food / devices
+    kg: float
+
+class PredictDayRequest(BaseModel):
+    morning_activities: List[MorningActivity]
+    daily_budget_kg: float = 6.5
+
+class PredictDayResponse(BaseModel):
+    predicted_full_day_kg: float
+    budget_kg: float
+    exceeds: bool
+    over_pct: float
+    hourly_curve: List[dict]
+    equivalents: dict
+    breakdown_by_type: List[dict]
+    ai_headline: str
+
+class VoiceTipsRequest(BaseModel):
+    weekly_kg: float
+    top_category: str
+    user_name: str = "there"
+
+class VoiceTipsResponse(BaseModel):
+    greeting: str
+    body: str
+    tips: List[str]
+    signoff: str
+    full_script: str
+
+class FoodScanRequest(BaseModel):
+    image_base64: Optional[str] = None
+    hint: Optional[str] = None  # optional description hint
+
+class FoodItem(BaseModel):
+    name: str
+    portion: str
+    co2_kg: float
+    category: str
+    tip: str
+
+class FoodScanResponse(BaseModel):
+    items: List[FoodItem]
+    total_co2_kg: float
+    ai_note: str
+
+class CertificateRequest(BaseModel):
+    user_name: str
+    month: Optional[str] = None
+    co2_saved_kg: Optional[float] = None
+    grade: Optional[str] = "A-"
+
+class CertificateResponse(BaseModel):
+    cert_id: str
+    user_name: str
+    month: str
+    co2_saved_kg: float
+    grade: str
+    equivalents: dict
+    issued_at: str
+    signature: str
+    verify_url: str
+
 class SimulateRequest(BaseModel):
     transport: str  # car / public / bike / mixed
     diet: str  # meat / mixed / vegetarian / vegan
@@ -227,33 +290,211 @@ async def community_feed():
 
 
 # ====== AI Chat via Emergent Universal Key ======
-@api_router.post("/chat/sustainability", response_model=ChatResponse)
-async def chat_sustainability(req: ChatRequest):
+async def _gemini_chat(session_id: str, system: str, message: str) -> Optional[str]:
+    """Helper to call Gemini via emergentintegrations. Returns None on failure."""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         api_key = os.environ.get('EMERGENT_LLM_KEY')
         if not api_key:
-            raise HTTPException(status_code=500, detail="LLM key missing")
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=req.session_id,
-            system_message=(
-                "You are CarbonMind, a friendly, concise AI sustainability coach. "
-                "Reply in 2-4 short sentences. Be warm, practical, and specific. "
-                "Recommend actionable carbon-reduction tips. Avoid lecturing. Use plain text, no markdown headings."
-            ),
-        ).with_model("gemini", "gemini-3-flash-preview")
-        user_msg = UserMessage(text=req.message)
-        reply = await chat.send_message(user_msg)
-        return ChatResponse(reply=str(reply), session_id=req.session_id)
-    except Exception as e:
-        logger.exception("Chat failed")
-        # graceful demo fallback
-        fallback = (
+            return None
+        chat = LlmChat(api_key=api_key, session_id=session_id, system_message=system).with_model("gemini", "gemini-3-flash-preview")
+        reply = await chat.send_message(UserMessage(text=message))
+        return str(reply)
+    except Exception:
+        logger.exception("Gemini call failed")
+        return None
+
+
+@api_router.post("/chat/sustainability", response_model=ChatResponse)
+async def chat_sustainability(req: ChatRequest):
+    system = (
+        "You are CarbonMind, a friendly, concise AI sustainability coach. "
+        "Reply in 2-4 short sentences. Be warm, practical, and specific. "
+        "Recommend actionable carbon-reduction tips. Avoid lecturing. Use plain text, no markdown headings."
+    )
+    reply = await _gemini_chat(req.session_id, system, req.message)
+    if not reply:
+        reply = (
             "Quick tip: shifting just 2 weekly car trips to cycling or transit can save ~1.2 kg CO₂/day. "
             "Want me to break down your top emission category?"
         )
-        return ChatResponse(reply=fallback, session_id=req.session_id)
+    return ChatResponse(reply=reply, session_id=req.session_id)
+
+
+# ====== NOVEL FEATURE 1: Predictive Carbon Budget Alert ======
+@api_router.post("/predict/day", response_model=PredictDayResponse)
+async def predict_day(req: PredictDayRequest):
+    """
+    Predict full-day CO₂ from morning activities (first 2 hrs).
+    Inspired by CarbonTracker first-epoch prediction.
+    """
+    morning_total = sum(a.kg for a in req.morning_activities)
+    # Simple linear extrapolation: morning 2hr = ~18% of day
+    if morning_total == 0:
+        predicted = 0.5
+    else:
+        predicted = round(morning_total / 0.18, 2)
+
+    breakdown_map = {}
+    for a in req.morning_activities:
+        breakdown_map[a.type] = breakdown_map.get(a.type, 0) + a.kg
+    breakdown = [
+        {"type": k, "morning_kg": round(v, 2), "predicted_day_kg": round(v / 0.18, 2)}
+        for k, v in breakdown_map.items()
+    ]
+
+    exceeds = predicted > req.daily_budget_kg
+    over_pct = round(((predicted - req.daily_budget_kg) / req.daily_budget_kg) * 100, 1) if req.daily_budget_kg else 0
+
+    # Hourly curve (24 points) — morning known, rest extrapolated
+    curve = []
+    for h in range(24):
+        if h < 8:
+            v = morning_total * (h / 8) * 0.4
+        elif h < 12:
+            v = morning_total + (predicted - morning_total) * ((h - 8) / 16) * 0.6
+        else:
+            v = morning_total + (predicted - morning_total) * ((h - 8) / 16)
+        curve.append({"hour": f"{h:02d}:00", "kg": round(v, 2), "predicted": h >= 10})
+
+    # Relatable equivalents (IPCC-ish factors)
+    equivalents = {
+        "trees_to_offset": max(1, round(predicted * 0.9)),
+        "km_by_car": round(predicted * 5.4, 1),
+        "smartphone_charges": round(predicted * 121000),
+        "beef_burgers": round(predicted / 3.0, 1),
+    }
+
+    if exceeds:
+        headline = f"⚠ On track to exceed budget by {over_pct}% — that's like {equivalents['km_by_car']} km of car driving today."
+    else:
+        headline = f"✓ You're on track — projected {predicted} kg, {abs(over_pct)}% under budget. Keep it up."
+
+    return PredictDayResponse(
+        predicted_full_day_kg=predicted,
+        budget_kg=req.daily_budget_kg,
+        exceeds=exceeds,
+        over_pct=over_pct,
+        hourly_curve=curve,
+        equivalents=equivalents,
+        breakdown_by_type=breakdown,
+        ai_headline=headline,
+    )
+
+
+# ====== NOVEL FEATURE 2: AI Agent Voice Call ======
+@api_router.post("/voice/call-tips", response_model=VoiceTipsResponse)
+async def voice_call_tips(req: VoiceTipsRequest):
+    """Generate a conversational voice-call script with 3 personalized tips."""
+    system = (
+        "You are CarbonMind, calling a user on the phone about their weekly emissions. "
+        "Respond ONLY in this format on separate lines: "
+        "GREETING: <one warm sentence> | BODY: <one sentence about their weekly kg and top category> | "
+        "TIP1: <one specific action> | TIP2: <one specific action> | TIP3: <one specific action> | "
+        "SIGNOFF: <one warm closing sentence>. Keep each line under 22 words. Plain text, no markdown."
+    )
+    user_prompt = (
+        f"User {req.user_name} emitted {req.weekly_kg} kg CO2 this week (top category: {req.top_category}). "
+        f"Give a warm phone-style briefing."
+    )
+    reply = await _gemini_chat(f"voice_{req.user_name}", system, user_prompt)
+
+    parsed = {"GREETING": None, "BODY": None, "TIP1": None, "TIP2": None, "TIP3": None, "SIGNOFF": None}
+    if reply:
+        # Split on | and newlines
+        for chunk in reply.replace("\n", "|").split("|"):
+            for key in parsed:
+                if chunk.strip().upper().startswith(key + ":"):
+                    parsed[key] = chunk.split(":", 1)[1].strip()
+
+    # Fill in fallbacks
+    greeting = parsed["GREETING"] or f"Hey {req.user_name}, it's CarbonMind checking in on your week."
+    body = parsed["BODY"] or f"You emitted {req.weekly_kg} kg of CO₂ this week — {req.top_category} was your biggest source."
+    tips = [
+        parsed["TIP1"] or f"Try swapping two {req.top_category.lower()} trips with cycling or public transit.",
+        parsed["TIP2"] or "Unplug idle devices and switch to LED bulbs to shave off standby power.",
+        parsed["TIP3"] or "Add three plant-based dinners next week — small change, big impact.",
+    ]
+    signoff = parsed["SIGNOFF"] or "You've got this. I'll check back in seven days. Take care."
+
+    full = f"{greeting} {body} Here are three quick tips. One, {tips[0]} Two, {tips[1]} Three, {tips[2]} {signoff}"
+    return VoiceTipsResponse(greeting=greeting, body=body, tips=tips, signoff=signoff, full_script=full)
+
+
+# ====== NOVEL FEATURE 3: Food Carbon Scanner ======
+FOOD_DB = [
+    {"name": "Beef Burger", "portion": "1 patty (200g)", "co2_kg": 3.10, "category": "meat", "tip": "Try a bean burger — 90% less CO₂."},
+    {"name": "Cheddar Cheese", "portion": "50g slice", "co2_kg": 0.65, "category": "dairy", "tip": "Plant-based cheese cuts this by 70%."},
+    {"name": "Chicken Curry", "portion": "1 bowl", "co2_kg": 1.20, "category": "poultry", "tip": "Sub with paneer or tofu for 60% less impact."},
+    {"name": "White Rice", "portion": "1 cup cooked", "co2_kg": 0.45, "category": "grain", "tip": "Millets are 4x lower carbon."},
+    {"name": "Avocado Toast", "portion": "1 slice", "co2_kg": 0.30, "category": "produce", "tip": "Local produce reduces transport emissions."},
+    {"name": "Coffee (with milk)", "portion": "1 cup", "co2_kg": 0.28, "category": "beverage", "tip": "Oat milk = ~50% less CO₂."},
+    {"name": "Salmon Fillet", "portion": "150g", "co2_kg": 1.80, "category": "seafood", "tip": "Freshwater fish has lower carbon."},
+    {"name": "Green Salad", "portion": "1 bowl", "co2_kg": 0.12, "category": "produce", "tip": "You're already doing great here!"},
+    {"name": "Dal & Roti", "portion": "1 plate", "co2_kg": 0.35, "category": "vegetarian", "tip": "Excellent low-carbon choice."},
+    {"name": "Chocolate Cake", "portion": "1 slice", "co2_kg": 0.85, "category": "dessert", "tip": "Fruit desserts cut CO₂ by 80%."},
+    {"name": "Grilled Paneer", "portion": "100g", "co2_kg": 0.55, "category": "vegetarian", "tip": "Try tofu for even lower impact."},
+    {"name": "Pizza Margherita", "portion": "2 slices", "co2_kg": 0.95, "category": "mixed", "tip": "Veggie toppings > pepperoni."},
+    {"name": "Banana", "portion": "1 medium", "co2_kg": 0.08, "category": "fruit", "tip": "Perfect low-carbon snack."},
+    {"name": "Boiled Eggs", "portion": "2 eggs", "co2_kg": 0.55, "category": "protein", "tip": "Tofu scramble is 4x lower."},
+]
+
+@api_router.post("/food/scan", response_model=FoodScanResponse)
+async def food_scan(req: FoodScanRequest):
+    """
+    Demo food scan: returns plausible detections from curated IPCC-based food DB.
+    In production this would call a vision model on `image_base64`.
+    """
+    import random
+    # Use hint if provided to bias detection
+    if req.hint:
+        hint_lower = req.hint.lower()
+        matched = [f for f in FOOD_DB if any(t in hint_lower for t in f["name"].lower().split())]
+        pool = matched if matched else FOOD_DB
+    else:
+        pool = FOOD_DB
+    count = random.randint(2, 4)
+    picks = random.sample(pool, min(count, len(pool)))
+    items = [FoodItem(**p) for p in picks]
+    total = round(sum(p["co2_kg"] for p in picks), 2)
+
+    if total < 0.5:
+        note = "🌿 Excellent — this meal is very light on the planet."
+    elif total < 1.2:
+        note = "🙂 Balanced. Swap one item for a plant-based option to go even lower."
+    elif total < 2.5:
+        note = "⚠ Moderate impact. Try meat-free tomorrow to offset."
+    else:
+        note = "🚨 High-carbon meal. Consider vegetarian alternatives twice this week."
+
+    return FoodScanResponse(items=items, total_co2_kg=total, ai_note=note)
+
+
+# ====== NOVEL FEATURE 4: Verified Carbon Reduction Certificate ======
+@api_router.post("/certificate/generate", response_model=CertificateResponse)
+async def generate_certificate(req: CertificateRequest):
+    import hashlib
+    cert_id = "CM-" + hashlib.sha256(f"{req.user_name}-{req.month or datetime.now().strftime('%Y-%m')}".encode()).hexdigest()[:10].upper()
+    month = req.month or datetime.now().strftime("%B %Y")
+    saved = req.co2_saved_kg if req.co2_saved_kg is not None else 24.8
+    equivalents = {
+        "trees_planted_equivalent": max(1, round(saved * 0.9)),
+        "km_by_car_avoided": round(saved * 5.4, 1),
+        "smartphone_charges_saved": round(saved * 121000),
+    }
+    signature = "CarbonMind AI · Verified Chain #" + hashlib.sha256((cert_id + str(saved)).encode()).hexdigest()[:16]
+    verify_url = f"https://carbonmind-ai-ashen.vercel.app/verify/{cert_id}"
+    return CertificateResponse(
+        cert_id=cert_id,
+        user_name=req.user_name,
+        month=month,
+        co2_saved_kg=round(saved, 2),
+        grade=req.grade or "A-",
+        equivalents=equivalents,
+        issued_at=datetime.now(timezone.utc).isoformat(),
+        signature=signature,
+        verify_url=verify_url,
+    )
 
 
 app.include_router(api_router)
