@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
-import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Plus, Sparkles, TrendingUp, Smartphone, Beef, X, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
+import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Smartphone, Beef, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { predictDay } from "@/lib/api";
 

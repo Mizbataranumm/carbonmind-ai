@@ -22,7 +22,7 @@ function App() {
     <UserProvider>
       <BrowserRouter>
         <div className="aurora" />
-        <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.25)", color: "#fff" } }} />
+        <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.25)", color: "#fff" } }} />
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<Landing />} />
