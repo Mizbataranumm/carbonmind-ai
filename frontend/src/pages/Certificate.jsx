@@ -30,6 +30,7 @@ const Certificate = () => {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#071014",
+        skipFonts: true,
       });
       const link = document.createElement("a");
       link.download = `carbonmind-certificate-${cert.cert_id}.png`;

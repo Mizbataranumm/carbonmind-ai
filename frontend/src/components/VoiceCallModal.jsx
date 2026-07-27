@@ -176,24 +176,32 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
 
                 {/* Buttons */}
                 {phase === "ringing" && (
-                  <div className="mt-7 flex items-center justify-center gap-6">
-                    <button
-                      onClick={decline}
-                      className="h-14 w-14 rounded-full bg-[#FF4D4D] flex items-center justify-center hover:scale-105 transition"
-                      style={{ boxShadow: "0 0 20px rgba(255,77,77,0.4)" }}
-                      data-testid="call-decline-btn"
-                    >
-                      <PhoneOff className="h-6 w-6 text-white" />
-                    </button>
-                    <button
-                      onClick={accept}
-                      disabled={!tips}
-                      className="h-14 w-14 rounded-full bg-[#00FFB2] flex items-center justify-center hover:scale-105 transition disabled:opacity-50"
-                      style={{ boxShadow: "0 0 20px rgba(0,255,178,0.55)" }}
-                      data-testid="call-accept-btn"
-                    >
-                      <Phone className="h-6 w-6 text-[#071014]" />
-                    </button>
+                  <div className="mt-7 flex flex-col items-center gap-3">
+                    <div className="flex items-center justify-center gap-6">
+                      <button
+                        onClick={decline}
+                        className="h-14 w-14 rounded-full bg-[#FF4D4D] flex items-center justify-center hover:scale-105 transition"
+                        style={{ boxShadow: "0 0 20px rgba(255,77,77,0.4)" }}
+                        data-testid="call-decline-btn"
+                      >
+                        <PhoneOff className="h-6 w-6 text-white" />
+                      </button>
+                      <button
+                        onClick={accept}
+                        disabled={!tips}
+                        className="h-14 w-14 rounded-full bg-[#00FFB2] flex items-center justify-center hover:scale-105 transition disabled:opacity-50"
+                        style={{ boxShadow: "0 0 20px rgba(0,255,178,0.55)" }}
+                        data-testid="call-accept-btn"
+                      >
+                        <Phone className="h-6 w-6 text-[#071014]" />
+                      </button>
+                    </div>
+                    {!tips && (
+                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC] flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#00FFB2] animate-pulse" />
+                        Preparing personalized briefing...
+                      </div>
+                    )}
                   </div>
                 )}
 
