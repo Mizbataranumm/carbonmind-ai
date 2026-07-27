@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award } from "lucide-react";
+import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 
 const navItems = [
@@ -14,10 +14,20 @@ const navItems = [
   { to: "/community", label: "Community", icon: Users, testid: "nav-community" },
 ];
 
+const notifications = [
+  { id: 1, title: "Weekly briefing ready", body: "Your AI coach is waiting on the dashboard.", tag: "AI", time: "just now", unread: true },
+  { id: 2, title: "New challenge: No-AC Week", body: "421 eco-citizens have joined — 3 days left.", tag: "Community", time: "1h", unread: true },
+  { id: 3, title: "Streak milestone!", body: "14 days below your daily target. Legendary.", tag: "Reward", time: "5h", unread: false },
+  { id: 4, title: "Prediction alert", body: "Morning transport was above baseline. Consider cycling.", tag: "Predict", time: "1d", unread: false },
+];
+
 const AppLayout = () => {
   const { user, setUser } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifs, setNotifs] = useState(notifications);
+  const unreadCount = notifs.filter(n => n.unread).length;
 
   useEffect(() => {
     if (!user) navigate("/auth");
@@ -29,6 +39,8 @@ const AppLayout = () => {
     setUser(null);
     navigate("/");
   };
+
+  const markAllRead = () => setNotifs(notifs.map(n => ({ ...n, unread: false })));
 
   return (
     <div className="min-h-screen flex bg-[#071014] text-white">
@@ -115,8 +127,17 @@ const AppLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="h-9 w-9 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center hover:bg-white/[0.08] transition" data-testid="notifications-btn">
+            <button
+              onClick={() => setNotifOpen(v => !v)}
+              className="relative h-9 w-9 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center hover:bg-white/[0.08] transition"
+              data-testid="notifications-btn"
+            >
               <Bell className="h-4 w-4 text-[#9EABBC]" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-[#00FFB2] text-[#071014] text-[9px] font-mono-data font-bold flex items-center justify-center" style={{ boxShadow: "0 0 8px #00FFB2" }}>
+                  {unreadCount}
+                </span>
+              )}
             </button>
             <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-white/10">
               <div className="text-right">
@@ -126,6 +147,58 @@ const AppLayout = () => {
             </div>
           </div>
         </header>
+
+        {/* Notifications panel */}
+        <AnimatePresence>
+          {notifOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-30 bg-[#071014]/40"
+                onClick={() => setNotifOpen(false)}
+              />
+              <motion.div
+                initial={{ opacity: 0, x: 20, y: -8 }}
+                animate={{ opacity: 1, x: 0, y: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="fixed right-6 top-16 z-40 w-[360px] glass p-4 max-h-[70vh] overflow-y-auto"
+                data-testid="notifications-panel"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Alerts</div>
+                    <div className="font-display text-base">Notifications</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={markAllRead} className="font-mono-data text-[10px] text-[#00FFB2] hover:underline" data-testid="mark-read-btn">Mark all read</button>
+                    <button onClick={() => setNotifOpen(false)} className="h-6 w-6 rounded-md bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center">
+                      <X className="h-3 w-3 text-[#9EABBC]" />
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {notifs.map(n => (
+                    <div key={n.id} className={`p-3 rounded-xl border ${n.unread ? "bg-[#00FFB2]/5 border-[#00FFB2]/20" : "bg-white/[0.02] border-white/[0.05]"}`} data-testid={`notif-${n.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {n.unread && <Circle className="h-2 w-2 fill-[#00FFB2] text-[#00FFB2] flex-shrink-0" />}
+                            <div className="font-medium text-sm truncate">{n.title}</div>
+                          </div>
+                          <div className="text-xs text-[#9EABBC] mt-1 leading-relaxed">{n.body}</div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className="font-mono-data text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-[#9EABBC]">{n.tag}</span>
+                          <div className="font-mono-data text-[10px] text-[#5C6B7A] mt-1">{n.time}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         <main className="px-6 lg:px-10 py-8">
           <AnimatePresence mode="wait">

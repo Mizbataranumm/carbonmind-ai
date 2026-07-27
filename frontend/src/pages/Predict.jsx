@@ -1,34 +1,53 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
-import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Plus, Sparkles, TrendingUp, Trees, Smartphone, Beef } from "lucide-react";
+import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Plus, Sparkles, TrendingUp, Smartphone, Beef, X, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { predictDay } from "@/lib/api";
 
 const iconMap = { transport: Car, electricity: Zap, food: Utensils, devices: Monitor };
+const typeColors = { transport: "#00FFB2", electricity: "#00D9FF", food: "#FFD166", devices: "#FF66E1" };
+
+const presets = [
+  { id: "commute", label: "Typical commute", icon: Coffee, items: [
+    { type: "transport", kg: 1.4 }, { type: "electricity", kg: 0.4 }, { type: "food", kg: 0.3 },
+  ]},
+  { id: "wfh", label: "Work from home", icon: Home, items: [
+    { type: "electricity", kg: 0.9 }, { type: "devices", kg: 0.3 }, { type: "food", kg: 0.3 },
+  ]},
+  { id: "errands", label: "Weekend errands", icon: ShoppingCart, items: [
+    { type: "transport", kg: 2.1 }, { type: "food", kg: 0.7 },
+  ]},
+];
 
 const Predict = () => {
-  const [activities, setActivities] = useState([
-    { type: "transport", kg: 1.4 },
-    { type: "electricity", kg: 0.6 },
-  ]);
+  const [activities, setActivities] = useState(presets[0].items);
   const [budget, setBudget] = useState(6.5);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const morningTotal = useMemo(() => activities.reduce((s, a) => s + (parseFloat(a.kg) || 0), 0), [activities]);
+
+  const applyPreset = (p) => { setActivities(p.items); setResult(null); };
   const add = (type) => setActivities([...activities, { type, kg: 0.5 }]);
   const remove = (i) => setActivities(activities.filter((_, idx) => idx !== i));
   const updateKg = (i, kg) => setActivities(activities.map((a, idx) => idx === i ? { ...a, kg } : a));
+  const updateType = (i, type) => setActivities(activities.map((a, idx) => idx === i ? { ...a, type } : a));
 
   const run = async () => {
+    if (activities.length === 0) { toast.error("Add at least one morning activity"); return; }
     setLoading(true);
     try {
       const r = await predictDay({ morning_activities: activities, daily_budget_kg: budget });
       setResult(r);
-    } finally { setLoading(false); }
+      setTimeout(() => document.getElementById("predict-result-anchor")?.scrollIntoView({ behavior: "smooth" }), 100);
+    } catch { toast.error("Prediction failed"); }
+    finally { setLoading(false); }
   };
 
   return (
     <div className="space-y-6" data-testid="predict-root">
+      {/* Header */}
       <div className="glass p-7 glass-hover">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -44,82 +63,162 @@ const Predict = () => {
           </span>
         </div>
 
-        {/* Morning activities editor */}
-        <div className="mt-6 grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-3">
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Morning activities (first 2 hrs)</div>
+        {/* Quick presets */}
+        <div className="mt-6">
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC] mb-2">Quick scenarios</div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {presets.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p)}
+                className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-[#00FFB2]/30 hover:bg-white/[0.04] transition text-left group"
+                data-testid={`preset-${p.id}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-[#00FFB2]/10 border border-[#00FFB2]/20 flex items-center justify-center group-hover:bg-[#00FFB2]/20 transition">
+                    <p.icon className="h-4 w-4 text-[#00FFB2]" />
+                  </div>
+                  <div className="font-medium text-sm">{p.label}</div>
+                </div>
+                <div className="font-mono-data text-[10px] text-[#9EABBC] mt-1.5">
+                  {p.items.reduce((s, i) => s + i.kg, 0).toFixed(1)} kg · {p.items.length} activities
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Editor */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="glass p-6 glass-hover lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Morning activities (first 2 hrs)</div>
+              <div className="font-display text-xl mt-1">Log what you did</div>
+            </div>
+            <div className="text-right">
+              <div className="font-mono-data text-[10px] text-[#9EABBC] uppercase tracking-widest">Morning so far</div>
+              <div className="font-mono-data text-2xl neon-text-green">{morningTotal.toFixed(2)} <span className="text-sm text-[#9EABBC]">kg</span></div>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {activities.length === 0 && (
+              <div className="text-sm text-[#9EABBC] p-6 text-center border border-dashed border-white/10 rounded-xl">
+                No activities yet. Pick a preset or add one below.
+              </div>
+            )}
             {activities.map((a, i) => {
               const Icon = iconMap[a.type] || Car;
+              const color = typeColors[a.type];
               return (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06]"
+                  className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/15 transition"
+                  data-testid={`activity-row-${i}`}
                 >
-                  <div className="h-9 w-9 rounded-lg bg-[#00FFB2]/10 border border-[#00FFB2]/20 flex items-center justify-center">
-                    <Icon className="h-4 w-4 text-[#00FFB2]" />
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg border flex items-center justify-center flex-shrink-0" style={{ background: `${color}15`, borderColor: `${color}40` }}>
+                      <Icon className="h-5 w-5" style={{ color }} />
+                    </div>
+                    <div className="flex-1 grid grid-cols-2 sm:grid-cols-[1fr_1fr] gap-2">
+                      <div>
+                        <div className="font-mono-data text-[9px] uppercase tracking-widest text-[#9EABBC] mb-1">Category</div>
+                        <select
+                          value={a.type}
+                          onChange={(e) => updateType(i, e.target.value)}
+                          className="input-glass !py-2 !px-3 text-sm w-full cursor-pointer"
+                          data-testid={`activity-type-${i}`}
+                        >
+                          <option value="transport">🚗 Transport</option>
+                          <option value="electricity">⚡ Electricity</option>
+                          <option value="food">🍽 Food</option>
+                          <option value="devices">💻 Devices</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div className="font-mono-data text-[9px] uppercase tracking-widest text-[#9EABBC] mb-1">CO₂ (kg)</div>
+                        <input
+                          type="number" step="0.1" min="0"
+                          value={a.kg}
+                          onChange={(e) => updateKg(i, parseFloat(e.target.value) || 0)}
+                          className="input-glass !py-2 !px-3 text-sm w-full font-mono-data"
+                          data-testid={`activity-kg-${i}`}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => remove(i)}
+                      className="h-9 w-9 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:bg-[#FF4D4D]/10 hover:border-[#FF4D4D]/30 hover:text-[#FF4D4D] text-[#9EABBC] transition flex items-center justify-center"
+                      data-testid={`activity-remove-${i}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                  <select
-                    value={a.type}
-                    onChange={(e) => setActivities(activities.map((x, idx) => idx === i ? { ...x, type: e.target.value } : x))}
-                    className="input-glass !py-2 !px-3 text-sm w-40"
-                    data-testid={`activity-type-${i}`}
-                  >
-                    <option value="transport">Transport</option>
-                    <option value="electricity">Electricity</option>
-                    <option value="food">Food</option>
-                    <option value="devices">Devices</option>
-                  </select>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={a.kg}
-                    onChange={(e) => updateKg(i, parseFloat(e.target.value) || 0)}
-                    className="input-glass !py-2 !px-3 text-sm flex-1"
-                    placeholder="kg CO₂"
-                    data-testid={`activity-kg-${i}`}
-                  />
-                  <button onClick={() => remove(i)} className="text-xs text-[#5C6B7A] hover:text-[#FF4D4D] px-2" data-testid={`activity-remove-${i}`}>×</button>
                 </motion.div>
               );
             })}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {["transport", "electricity", "food", "devices"].map(t => (
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-4 mt-4 border-t border-white/[0.05]">
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC] w-full mb-1">Add activity</div>
+            {["transport", "electricity", "food", "devices"].map(t => {
+              const Icon = iconMap[t];
+              return (
                 <button
                   key={t}
                   onClick={() => add(t)}
-                  className="text-xs px-3 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.08] text-[#9EABBC] hover:text-white hover:border-[#00FFB2]/30 transition"
+                  className="text-xs px-3 py-2 rounded-full bg-white/[0.03] border border-white/[0.08] text-[#9EABBC] hover:text-white hover:border-[#00FFB2]/30 hover:bg-white/[0.06] transition inline-flex items-center gap-1.5"
                   data-testid={`add-${t}`}
                 >
-                  <Plus className="h-3 w-3 inline-block mr-1" /> {t}
+                  <Icon className="h-3 w-3" /> <span className="capitalize">{t}</span>
                 </button>
-              ))}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Budget + Run */}
+        <div className="glass p-6 glass-hover space-y-5">
+          <div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Daily budget</div>
+            <div className="font-display text-xl mt-1">Set your target</div>
+            <input
+              type="range" min="3" max="12" step="0.5" value={budget}
+              onChange={(e) => setBudget(parseFloat(e.target.value))}
+              className="w-full mt-4 accent-[#00FFB2]"
+              data-testid="budget-slider"
+            />
+            <div className="flex items-baseline justify-between mt-2">
+              <div className="font-mono-data text-[10px] text-[#5C6B7A]">3 kg</div>
+              <div className="font-mono-data text-3xl neon-text-green">{budget}<span className="text-sm text-[#9EABBC] ml-1">kg</span></div>
+              <div className="font-mono-data text-[10px] text-[#5C6B7A]">12 kg</div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Daily budget (kg CO₂)</div>
-              <input
-                type="range" min="3" max="12" step="0.5" value={budget}
-                onChange={(e) => setBudget(parseFloat(e.target.value))}
-                className="w-full mt-2 accent-[#00FFB2]"
-                data-testid="budget-slider"
-              />
-              <div className="font-mono-data text-2xl neon-text-green mt-1">{budget} kg</div>
+          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Live extrapolation</div>
+            <div className="font-mono-data text-lg mt-1 text-white">
+              ≈ {(morningTotal / 0.18).toFixed(2)} <span className="text-xs text-[#9EABBC]">kg by end of day</span>
             </div>
-            <button
-              onClick={run}
-              disabled={loading}
-              className="btn-primary w-full inline-flex items-center justify-center gap-2"
-              data-testid="predict-btn"
-            >
-              {loading ? "Predicting..." : (<>Predict full day <Sparkles className="h-4 w-4" /></>)}
-            </button>
+            <div className="text-[11px] text-[#5C6B7A] mt-1">Based on 2hr → 100% morning ratio (18%)</div>
           </div>
+
+          <button
+            onClick={run}
+            disabled={loading}
+            className="btn-primary w-full inline-flex items-center justify-center gap-2 !py-3.5"
+            data-testid="predict-btn"
+          >
+            {loading ? "Analyzing..." : (<>Predict full day <Sparkles className="h-4 w-4" /></>)}
+          </button>
         </div>
       </div>
+
+      <div id="predict-result-anchor" />
 
       {result && (
         <motion.div
@@ -128,46 +227,33 @@ const Predict = () => {
           className="space-y-6"
           data-testid="predict-result"
         >
-          {/* Alert banner */}
-          <div className={`glass p-6 glass-hover relative overflow-hidden glow-ring ${result.exceeds ? "" : ""}`}>
+          <div className="glass p-6 glass-hover relative overflow-hidden glow-ring">
             <div className="flex items-start gap-4">
-              <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${result.exceeds ? "bg-[#FFD166]/10 border border-[#FFD166]/30" : "bg-[#00FFB2]/10 border border-[#00FFB2]/30"}`}>
+              <div className={`h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 ${result.exceeds ? "bg-[#FFD166]/10 border border-[#FFD166]/30" : "bg-[#00FFB2]/10 border border-[#00FFB2]/30"}`}>
                 {result.exceeds ? <AlertTriangle className="h-6 w-6 text-[#FFD166]" /> : <TrendingUp className="h-6 w-6 text-[#00FFB2]" />}
               </div>
               <div className="flex-1">
                 <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Prediction</div>
-                <div className="font-display text-2xl mt-1">{result.ai_headline}</div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  <div>
-                    <div className="font-mono-data text-[10px] text-[#9EABBC]">Predicted</div>
-                    <div className="font-mono-data text-2xl neon-text-green">{result.predicted_full_day_kg} kg</div>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div>
-                    <div className="font-mono-data text-[10px] text-[#9EABBC]">Budget</div>
-                    <div className="font-mono-data text-2xl text-white">{result.budget_kg} kg</div>
-                  </div>
-                  <div className="h-8 w-px bg-white/10" />
-                  <div>
-                    <div className="font-mono-data text-[10px] text-[#9EABBC]">Delta</div>
-                    <div className={`font-mono-data text-2xl ${result.exceeds ? "text-[#FFD166]" : "text-[#00FFB2]"}`}>
-                      {result.over_pct > 0 ? "+" : ""}{result.over_pct}%
-                    </div>
-                  </div>
+                <div className="font-display text-xl sm:text-2xl mt-1 leading-tight">{result.ai_headline}</div>
+                <div className="mt-4 grid grid-cols-3 gap-4 max-w-xl">
+                  <MetricBlock label="Predicted" value={`${result.predicted_full_day_kg} kg`} color="#00FFB2" />
+                  <MetricBlock label="Budget" value={`${result.budget_kg} kg`} color="#FFFFFF" />
+                  <MetricBlock label="Delta" value={`${result.over_pct > 0 ? "+" : ""}${result.over_pct}%`} color={result.exceeds ? "#FFD166" : "#00FFB2"} />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Equivalents */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Equiv icon={<TreePine className="h-5 w-5" />} value={result.equivalents.trees_to_offset} label="trees to offset" />
-            <Equiv icon={<Car className="h-5 w-5" />} value={result.equivalents.km_by_car} label="km by car" suffix=" km" />
-            <Equiv icon={<Smartphone className="h-5 w-5" />} value={result.equivalents.smartphone_charges.toLocaleString()} label="phone charges" />
-            <Equiv icon={<Beef className="h-5 w-5" />} value={result.equivalents.beef_burgers} label="beef burger equiv" />
+          <div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC] mb-3">// Real-world equivalents</div>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Equiv icon={<TreePine className="h-5 w-5" />} value={result.equivalents.trees_to_offset} label="trees to offset" />
+              <Equiv icon={<Car className="h-5 w-5" />} value={result.equivalents.km_by_car} label="km by car" />
+              <Equiv icon={<Smartphone className="h-5 w-5" />} value={result.equivalents.smartphone_charges.toLocaleString()} label="phone charges" />
+              <Equiv icon={<Beef className="h-5 w-5" />} value={result.equivalents.beef_burgers} label="beef burger equiv" />
+            </div>
           </div>
 
-          {/* Hourly curve */}
           <div className="glass p-6 glass-hover">
             <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// 24-hour projection</div>
             <div className="font-display text-xl mt-1">Predicted emission curve</div>
@@ -196,12 +282,19 @@ const Predict = () => {
   );
 };
 
-const Equiv = ({ icon, value, label, suffix = "" }) => (
+const MetricBlock = ({ label, value, color }) => (
+  <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
+    <div className="font-mono-data text-[9px] uppercase tracking-widest text-[#9EABBC]">{label}</div>
+    <div className="font-mono-data text-xl mt-1" style={{ color }}>{value}</div>
+  </div>
+);
+
+const Equiv = ({ icon, value, label }) => (
   <div className="glass p-5 glass-hover">
     <div className="h-9 w-9 rounded-lg bg-[#00FFB2]/10 border border-[#00FFB2]/20 flex items-center justify-center text-[#00FFB2] mb-3">
       {icon}
     </div>
-    <div className="font-mono-data text-2xl">{value}{suffix}</div>
+    <div className="font-mono-data text-2xl">{value}</div>
     <div className="text-xs text-[#9EABBC] mt-1">{label}</div>
   </div>
 );
