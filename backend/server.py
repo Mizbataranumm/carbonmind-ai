@@ -466,6 +466,114 @@ async def chat_sustainability(req: ChatRequest):
         return ChatResponse(reply=fallback, session_id=req.session_id)
 
 
+
+# ====== Predictive Budget Alert ======
+@api_router.post("/predict/day")
+async def predict_day(req: dict):
+    activities = req.get("morning_activities", [])
+    budget = req.get("daily_budget_kg", 6.5)
+    morning_total = sum(float(a.get("kg", 0)) for a in activities)
+    # Extrapolate: morning 2hrs ≈ 18% of day
+    predicted = round(morning_total / 0.18, 2)
+    exceeds = predicted > budget
+    over_pct = round((predicted - budget) / budget * 100, 1)
+    # Build 24-hour hourly curve
+    hourly_curve = []
+    for h in range(25):
+        frac = h / 24
+        # Simple S-curve accumulation
+        kg = round(predicted * (frac ** 0.85), 2)
+        hourly_curve.append({"hour": f"{h:02d}:00", "kg": kg})
+    return {
+        "predicted_full_day_kg": predicted,
+        "budget_kg": budget,
+        "exceeds": exceeds,
+        "over_pct": over_pct,
+        "ai_headline": (
+            f"You're on track to emit {predicted} kg today — {abs(over_pct)}% {'above' if exceeds else 'below'} your {budget} kg budget."
+            if exceeds else
+            f"Great pacing! Projected {predicted} kg — {abs(over_pct)}% under your {budget} kg target."
+        ),
+        "hourly_curve": hourly_curve,
+        "equivalents": {
+            "trees_to_offset": round(predicted / 21.7, 1),
+            "km_by_car": round(predicted * 6.3, 1),
+            "smartphone_charges": round(predicted * 122),
+            "beef_burgers": round(predicted / 3.6, 1),
+        },
+    }
+
+
+# ====== Voice Eco Tips ======
+@api_router.post("/voice/call-tips")
+async def voice_call_tips(req: dict):
+    tips = [
+        "Switch off devices on standby — they drain up to 10% of your home energy.",
+        "Cycling for trips under 5 km saves around 1.2 kg CO₂ per trip versus driving.",
+        "A plant-based meal produces 50% less carbon than a beef-based one.",
+        "Line-drying clothes instead of tumble drying saves 2.4 kg CO₂ per load.",
+        "Reducing your shower by 2 minutes saves roughly 0.2 kg CO₂ daily.",
+    ]
+    import random
+    return {
+        "tips": random.sample(tips, min(3, len(tips))),
+        "session_id": req.get("session_id", str(uuid.uuid4())),
+    }
+
+
+# ====== Food Carbon Scanner ======
+@api_router.post("/food/scan")
+async def food_scan(req: dict):
+    food_name = req.get("food_name", "").lower()
+    # Simple lookup table for demo
+    db_table = {
+        "beef": {"kg_co2": 6.6, "category": "meat", "tip": "Try lentils — 98% lower footprint."},
+        "chicken": {"kg_co2": 1.8, "category": "meat", "tip": "Great lower-carbon protein choice."},
+        "rice": {"kg_co2": 0.9, "category": "grain", "tip": "Use a rice cooker to save energy."},
+        "bread": {"kg_co2": 0.5, "category": "grain", "tip": "Local bakeries reduce transport emissions."},
+        "milk": {"kg_co2": 1.2, "category": "dairy", "tip": "Oat milk uses 70% less land."},
+        "egg": {"kg_co2": 0.4, "category": "protein", "tip": "Eggs are one of the lowest-carbon animal proteins."},
+        "apple": {"kg_co2": 0.1, "category": "fruit", "tip": "Local seasonal fruit has near-zero footprint."},
+        "banana": {"kg_co2": 0.07, "category": "fruit", "tip": "Even with shipping, bananas are carbon-efficient."},
+        "pasta": {"kg_co2": 0.5, "category": "grain", "tip": "Pair with vegetables for a low-carbon meal."},
+        "salmon": {"kg_co2": 2.9, "category": "seafood", "tip": "Wild-caught is generally lower footprint than farmed."},
+    }
+    match = None
+    for key, val in db_table.items():
+        if key in food_name or food_name in key:
+            match = val
+            break
+    if not match:
+        match = {"kg_co2": 0.8, "category": "mixed", "tip": "Eat local and seasonal to reduce your food footprint."}
+    return {
+        "food": food_name or "Unknown food",
+        "kg_co2_per_serving": match["kg_co2"],
+        "category": match["category"],
+        "carbon_label": "A+" if match["kg_co2"] < 0.5 else "A" if match["kg_co2"] < 1.5 else "B" if match["kg_co2"] < 3 else "C",
+        "tip": match["tip"],
+    }
+
+
+# ====== Carbon Certificate Generator ======
+@api_router.post("/certificate/generate")
+async def generate_certificate(req: dict):
+    user_name = req.get("user_name", "Eco Explorer")
+    grade = req.get("grade", "A-")
+    xp = req.get("xp", 0)
+    streak = req.get("streak", 0)
+    return {
+        "certificate_id": str(uuid.uuid4()),
+        "user_name": user_name,
+        "grade": grade,
+        "xp": xp,
+        "streak": streak,
+        "issued_at": datetime.now(timezone.utc).isoformat(),
+        "title": "CarbonMind Sustainability Certificate",
+        "message": f"{user_name} has demonstrated outstanding commitment to reducing their carbon footprint, achieving a grade of {grade} with {xp} XP and a {streak}-day streak.",
+        "badge": "https://api.dicebear.com/7.x/identicon/svg?seed=" + user_name,
+    }
+
+
 app.include_router(api_router)
 
 app.add_middleware(
