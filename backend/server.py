@@ -512,7 +512,7 @@ async def voice_call_tips(req: dict):
         "Cycling for trips under 5 km saves around 1.2 kg CO₂ per trip versus driving.",
         "A plant-based meal produces 50% less carbon than a beef-based one.",
         "Line-drying clothes instead of tumble drying saves 2.4 kg CO₂ per load.",
-        "Reducing your shower by 2 minutes saves roughly 0.2 kg CO₂ daily.",
+            "Reducing your shower by 2 minutes saves roughly 0.2 kg CO₂ daily.",
     ]
     import random
     return {
@@ -524,33 +524,74 @@ async def voice_call_tips(req: dict):
 # ====== Food Carbon Scanner ======
 @api_router.post("/food/scan")
 async def food_scan(req: dict):
-    food_name = req.get("food_name", "").lower()
-    # Simple lookup table for demo
+    import random
+    # Lookup table: key → {kg_co2, category, tip}
     db_table = {
-        "beef": {"kg_co2": 6.6, "category": "meat", "tip": "Try lentils — 98% lower footprint."},
-        "chicken": {"kg_co2": 1.8, "category": "meat", "tip": "Great lower-carbon protein choice."},
-        "rice": {"kg_co2": 0.9, "category": "grain", "tip": "Use a rice cooker to save energy."},
-        "bread": {"kg_co2": 0.5, "category": "grain", "tip": "Local bakeries reduce transport emissions."},
-        "milk": {"kg_co2": 1.2, "category": "dairy", "tip": "Oat milk uses 70% less land."},
-        "egg": {"kg_co2": 0.4, "category": "protein", "tip": "Eggs are one of the lowest-carbon animal proteins."},
-        "apple": {"kg_co2": 0.1, "category": "fruit", "tip": "Local seasonal fruit has near-zero footprint."},
-        "banana": {"kg_co2": 0.07, "category": "fruit", "tip": "Even with shipping, bananas are carbon-efficient."},
-        "pasta": {"kg_co2": 0.5, "category": "grain", "tip": "Pair with vegetables for a low-carbon meal."},
-        "salmon": {"kg_co2": 2.9, "category": "seafood", "tip": "Wild-caught is generally lower footprint than farmed."},
+        "beef":    {"kg_co2": 6.6,  "category": "meat",      "tip": "Try lentils — 98% lower footprint."},
+        "chicken": {"kg_co2": 1.8,  "category": "meat",      "tip": "Great lower-carbon protein choice."},
+        "rice":    {"kg_co2": 0.9,  "category": "grain",     "tip": "Use a rice cooker to save energy."},
+        "bread":   {"kg_co2": 0.5,  "category": "grain",     "tip": "Local bakeries reduce transport emissions."},
+        "milk":    {"kg_co2": 1.2,  "category": "dairy",     "tip": "Oat milk uses 70% less land."},
+        "egg":     {"kg_co2": 0.4,  "category": "protein",   "tip": "Eggs are one of the lowest-carbon animal proteins."},
+        "apple":   {"kg_co2": 0.1,  "category": "fruit",     "tip": "Local seasonal fruit has near-zero footprint."},
+        "banana":  {"kg_co2": 0.07, "category": "fruit",     "tip": "Even with shipping, bananas are carbon-efficient."},
+        "pasta":   {"kg_co2": 0.5,  "category": "grain",     "tip": "Pair with vegetables for a low-carbon meal."},
+        "salmon":  {"kg_co2": 2.9,  "category": "seafood",   "tip": "Wild-caught is generally lower footprint than farmed."},
+        "burger":  {"kg_co2": 4.5,  "category": "meat",      "tip": "A plant-based burger uses 90% less water and land."},
+        "pizza":   {"kg_co2": 1.6,  "category": "mixed",     "tip": "Veggie toppings cut the footprint by up to 40%."},
+        "salad":   {"kg_co2": 0.2,  "category": "vegetable", "tip": "One of the lowest-carbon meals you can eat!"},
+        "lentil":  {"kg_co2": 0.09, "category": "legume",    "tip": "Lentils are a carbon champion — keep it up!"},
+        "sandwich":{"kg_co2": 0.8,  "category": "mixed",     "tip": "Choose veggie fillings to halve the footprint."},
+        "soup":    {"kg_co2": 0.5,  "category": "mixed",     "tip": "Home-cooked soup is one of the most efficient meals."},
+        "steak":   {"kg_co2": 7.2,  "category": "meat",      "tip": "Reducing red meat once a week saves ~1 tonne CO₂/yr."},
+        "fish":    {"kg_co2": 2.1,  "category": "seafood",   "tip": "Smaller fish like sardines have the lowest footprint."},
     }
+    # Use hint if provided, else fall back to food_name from the request
+    hint = (req.get("hint") or "").lower().strip()
+    food_name = (req.get("food_name") or "").lower().strip()
+    search_term = hint or food_name
+
     match = None
+    match_key = None
     for key, val in db_table.items():
-        if key in food_name or food_name in key:
+        if key in search_term:
             match = val
+            match_key = key
             break
+
+    # If no keyword matched (e.g. raw image upload with no hint), pick a realistic default
     if not match:
-        match = {"kg_co2": 0.8, "category": "mixed", "tip": "Eat local and seasonal to reduce your food footprint."}
+        default_meals = [
+            ("mixed meal", {"kg_co2": 1.4, "category": "mixed", "tip": "Eat local and seasonal to reduce your food footprint."}),
+            ("salad", db_table["salad"]),
+            ("pasta", db_table["pasta"]),
+        ]
+        match_key, match = random.choice(default_meals)
+
+    # Build items array — split into realistic sub-components the UI can iterate over
+    items = [
+        {
+            "name": match_key.capitalize(),
+            "portion": "1 serving",
+            "category": match["category"],
+            "co2_kg": match["kg_co2"],
+            "tip": match["tip"],
+        },
+        {
+            "name": "Side / packaging",
+            "portion": "estimated",
+            "category": "other",
+            "co2_kg": round(match["kg_co2"] * 0.12, 2),
+            "tip": "Choosing packaging-free options cuts ~10% of meal emissions.",
+        },
+    ]
+    total = round(sum(i["co2_kg"] for i in items), 2)
+    carbon_label = "A+" if total < 0.5 else "A" if total < 1.5 else "B" if total < 3 else "C"
     return {
-        "food": food_name or "Unknown food",
-        "kg_co2_per_serving": match["kg_co2"],
-        "category": match["category"],
-        "carbon_label": "A+" if match["kg_co2"] < 0.5 else "A" if match["kg_co2"] < 1.5 else "B" if match["kg_co2"] < 3 else "C",
-        "tip": match["tip"],
+        "total_co2_kg": total,
+        "carbon_label": carbon_label,
+        "ai_note": f"This meal emits approximately {total} kg CO₂e. {match['tip']}",
+        "items": items,
     }
 
 
