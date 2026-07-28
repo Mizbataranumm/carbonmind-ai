@@ -1,9 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, AreaChart, Area, Legend } from "recharts";
-import { Flame, Bike, Leaf, Sun, TrendingDown, TrendingUp, Send, Mic, Sparkles, ArrowUpRight, Volume2 } from "lucide-react";
+import { Flame, Bike, Leaf, Sun, TrendingDown, TrendingUp, Send, Mic, Sparkles, ArrowUpRight, Volume2, PhoneCall } from "lucide-react";
+import { toast } from "sonner";
 import { getCarbonStats, sendChat } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
+import VoiceCallModal from "@/components/VoiceCallModal";
 
 const iconMap = { flame: Flame, bike: Bike, leaf: Leaf, sun: Sun };
 
@@ -11,6 +13,7 @@ const Dashboard = () => {
   const { user } = useUser();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [callOpen, setCallOpen] = useState(false);
 
   useEffect(() => {
     getCarbonStats().then((d) => { setStats(d); setLoading(false); }).catch(() => setLoading(false));
@@ -22,6 +25,32 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6" data-testid="dashboard-root">
+      {/* AI Call banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass p-5 glass-hover flex flex-wrap items-center justify-between gap-4"
+        data-testid="ai-call-banner"
+      >
+        <div className="flex items-center gap-4">
+          <div className="relative h-11 w-11 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
+            <PhoneCall className="h-5 w-5 text-[#071014]" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#FF4D4D] border-2 border-[#071014] animate-pulse" />
+          </div>
+          <div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Voice Briefing available</div>
+            <div className="font-display text-lg">CarbonMind wants to call you about this week.</div>
+          </div>
+        </div>
+        <button
+          onClick={() => setCallOpen(true)}
+          className="btn-primary text-sm inline-flex items-center gap-2"
+          data-testid="answer-call-btn"
+        >
+          <PhoneCall className="h-4 w-4" /> Receive AI call
+        </button>
+      </motion.div>
+
       {/* Top metrics row */}
       <div className="grid lg:grid-cols-3 gap-5">
         <CarbonScoreCard stats={stats} user={user} />
@@ -41,6 +70,14 @@ const Dashboard = () => {
         <AchievementsCard items={stats.achievements} />
         <RecommendationsCard items={stats.recommendations} />
       </div>
+
+      <VoiceCallModal
+        open={callOpen}
+        onClose={() => setCallOpen(false)}
+        userName={user?.name || "there"}
+        weeklyKg={stats.week_kg}
+        topCategory={stats.breakdown[0]?.name || "Transport"}
+      />
     </div>
   );
 };
@@ -339,48 +376,79 @@ const VoiceCard = ({ stats }) => {
   );
 };
 
-const AchievementsCard = ({ items }) => (
-  <div className="glass p-6 glass-hover" data-testid="achievements-card">
-    <div className="flex items-center justify-between">
-      <div>
-        <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Eco XP</div>
-        <div className="font-display text-xl mt-1">Achievements</div>
-      </div>
-      <ArrowUpRight className="h-4 w-4 text-[#9EABBC]" />
-    </div>
-    <div className="grid grid-cols-2 gap-3 mt-4">
-      {items.map((a) => {
-        const Icon = iconMap[a.icon] || Leaf;
-        return (
-          <div key={a.id} className={`p-3 rounded-xl border ${a.earned ? "bg-[#00FFB2]/[0.04] border-[#00FFB2]/20" : "bg-white/[0.02] border-white/[0.05] opacity-60"}`}>
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${a.earned ? "bg-[#00FFB2]/15 text-[#00FFB2]" : "bg-white/5 text-[#9EABBC]"}`}>
-              <Icon className="h-4 w-4" />
-            </div>
-            <div className="font-medium text-sm">{a.title}</div>
-            <div className="text-[11px] text-[#9EABBC] mt-0.5">{a.desc}</div>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
-
-const RecommendationsCard = ({ items }) => (
-  <div className="glass p-6 glass-hover" data-testid="recommendations-card">
-    <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Smart tips</div>
-    <div className="font-display text-xl mt-1">Recommendations</div>
-    <div className="mt-3 space-y-2">
-      {items.map((r) => (
-        <div key={r.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-[#00FFB2]/20 hover:bg-white/[0.04] transition group cursor-pointer">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">{r.title}</div>
-            <ArrowUpRight className="h-4 w-4 text-[#5C6B7A] group-hover:text-[#00FFB2] transition" />
-          </div>
-          <div className="font-mono-data text-[11px] mt-1 text-[#00FFB2]">{r.impact}</div>
+const AchievementsCard = ({ items }) => {
+  const show = (a) => {
+    if (a.earned) {
+      toast.success(`${a.title} unlocked`, { description: a.desc });
+    } else {
+      toast(`${a.title}`, { description: `Not yet earned — ${a.desc}`, icon: "🔒" });
+    }
+  };
+  return (
+    <div className="glass p-6 glass-hover" data-testid="achievements-card">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Eco XP</div>
+          <div className="font-display text-xl mt-1">Achievements</div>
         </div>
-      ))}
+        <ArrowUpRight className="h-4 w-4 text-[#9EABBC]" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 mt-4">
+        {items.map((a) => {
+          const Icon = iconMap[a.icon] || Leaf;
+          return (
+            <button
+              key={a.id}
+              onClick={() => show(a)}
+              className={`text-left p-3 rounded-xl border transition hover:scale-[1.02] ${a.earned ? "bg-[#00FFB2]/[0.04] border-[#00FFB2]/20 hover:border-[#00FFB2]/40" : "bg-white/[0.02] border-white/[0.05] opacity-60 hover:opacity-80"}`}
+              data-testid={`achievement-${a.id}`}
+            >
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${a.earned ? "bg-[#00FFB2]/15 text-[#00FFB2]" : "bg-white/5 text-[#9EABBC]"}`}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <div className="font-medium text-sm">{a.title}</div>
+              <div className="text-[11px] text-[#9EABBC] mt-0.5">{a.desc}</div>
+            </button>
+          );
+        })}
+      </div>
     </div>
-  </div>
-);
+  );
+};
+
+const RecommendationsCard = ({ items: initial }) => {
+  const [items, setItems] = useState(initial);
+  const apply = (rec) => {
+    setItems(items.map(i => i.id === rec.id ? { ...i, applied: true } : i));
+    toast.success(`Applied: ${rec.title}`, { description: `+50 XP · ${rec.impact} projected saving` });
+  };
+  return (
+    <div className="glass p-6 glass-hover" data-testid="recommendations-card">
+      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Smart tips</div>
+      <div className="font-display text-xl mt-1">Recommendations</div>
+      <div className="mt-3 space-y-2">
+        {items.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => !r.applied && apply(r)}
+            disabled={r.applied}
+            className={`w-full text-left p-3 rounded-xl border transition group ${r.applied ? "bg-[#00FFB2]/[0.06] border-[#00FFB2]/30" : "bg-white/[0.02] border-white/[0.05] hover:border-[#00FFB2]/20 hover:bg-white/[0.04]"}`}
+            data-testid={`rec-${r.id}`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-sm">{r.title}</div>
+              {r.applied ? (
+                <span className="font-mono-data text-[10px] text-[#00FFB2] flex items-center gap-1">✓ Applied</span>
+              ) : (
+                <ArrowUpRight className="h-4 w-4 text-[#5C6B7A] group-hover:text-[#00FFB2] transition" />
+              )}
+            </div>
+            <div className="font-mono-data text-[11px] mt-1 text-[#00FFB2]">{r.impact}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default Dashboard;

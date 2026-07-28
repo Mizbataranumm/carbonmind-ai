@@ -11,6 +11,9 @@ import Dashboard from "@/pages/Dashboard";
 import Tracker from "@/pages/Tracker";
 import Future from "@/pages/Future";
 import Community from "@/pages/Community";
+import Predict from "@/pages/Predict";
+import Scan from "@/pages/Scan";
+import Certificate from "@/pages/Certificate";
 import AppLayout from "@/components/AppLayout";
 import { UserProvider } from "@/lib/UserContext";
 
@@ -19,7 +22,7 @@ function App() {
     <UserProvider>
       <BrowserRouter>
         <div className="aurora" />
-        <Toaster theme="dark" position="top-right" toastOptions={{ style: { background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.25)", color: "#fff" } }} />
+        <Toaster theme="dark" position="bottom-right" toastOptions={{ style: { background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.25)", color: "#fff" } }} />
         <AnimatePresence mode="wait">
           <Routes>
             <Route path="/" element={<Landing />} />
@@ -27,7 +30,10 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/tracker" element={<Tracker />} />
+              <Route path="/predict" element={<Predict />} />
               <Route path="/future" element={<Future />} />
+              <Route path="/scan" element={<Scan />} />
+              <Route path="/certificate" element={<Certificate />} />
               <Route path="/community" element={<Community />} />
             </Route>
           </Routes>

@@ -13,25 +13,33 @@ glassmorphism, Framer Motion animations. Inspired by CarbonTracker, EcoTrack, Ec
 - **AI**: Gemini 3 Flash via Emergent Universal LLM Key (`emergentintegrations`).
 - **Auth**: Demo-only (no JWT). Stores user in localStorage via `UserContext`.
 
-## Pages Implemented (2026-02-13)
+## Pages Implemented
 - `/` Landing — animated Earth orb, particle field, hero CTA, feature grid, research section.
 - `/auth` Split-screen futuristic login with demo-login.
 - `/dashboard` Carbon Score (circular SVG), weekly trend (area chart), breakdown (pie),
   prediction (line + risk meters), AI chat (Gemini), voice assistant (browser TTS),
-  achievements, recommendations.
+  achievements, recommendations. **NEW: AI Call banner opening Voice Call modal.**
 - `/tracker` Live emissions area chart, 4 category cards, activity feed, 56-cell heatmap.
-- `/future` AI Future Simulator — lifestyle form → cinematic result with Earth visual,
-  10-year trajectory chart, AI prescriptive actions.
+- `/predict` **NEW — Novel Feature 01**: Predictive Carbon Budget Alert — morning 2hr → full-day CO₂ prediction with equivalents (trees, km, phone charges, burgers) + 24-hour projection chart.
+- `/future` AI Future Simulator — lifestyle form → cinematic result.
+- `/scan` **NEW — Novel Feature 03**: Food Carbon Scanner — camera capture / upload → detected items with CO₂ + tips.
+- `/certificate` **NEW — Novel Feature 04**: Verified Carbon Reduction Certificate — beautiful downloadable PNG (html-to-image) with signature + equivalents.
 - `/community` Sustainability feed, eco-challenges, leaderboard.
+
+**Novel Feature 02**: AI Voice Call — full-screen incoming-call modal with ripple animation, Gemini-generated personalized 3-tip script spoken via browser SpeechSynthesis + live captions.
 
 ## Backend Endpoints
 - `GET /api/` health
 - `POST /api/auth/demo-login` — returns mock user profile
 - `GET /api/carbon/stats` — dashboard mock data
 - `GET /api/tracker/live` — tracker mock data
-- `POST /api/future/simulate` — computed projection (real math, mock model)
+- `POST /api/future/simulate` — computed projection
 - `GET /api/community/feed` — feed mock data
-- `POST /api/chat/sustainability` — Gemini 3 Flash (graceful fallback)
+- `POST /api/chat/sustainability` — Gemini 3 Flash with graceful fallback
+- `POST /api/predict/day` — **NEW**: morning-to-full-day CO₂ prediction + equivalents
+- `POST /api/voice/call-tips` — **NEW**: Gemini-generated call script + fallback
+- `POST /api/food/scan` — **NEW**: food detection (curated IPCC DB)
+- `POST /api/certificate/generate` — **NEW**: monthly certificate + signature
 
 ## Implementation Notes
 - Fonts: Outfit (display), Manrope (body), JetBrains Mono (data) — avoided Inter.

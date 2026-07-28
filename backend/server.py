@@ -52,6 +52,69 @@ class ChatResponse(BaseModel):
     reply: str
     session_id: str
 
+class MorningActivity(BaseModel):
+    type: str  # transport / electricity / food / devices
+    kg: float
+
+class PredictDayRequest(BaseModel):
+    morning_activities: List[MorningActivity]
+    daily_budget_kg: float = 6.5
+
+class PredictDayResponse(BaseModel):
+    predicted_full_day_kg: float
+    budget_kg: float
+    exceeds: bool
+    over_pct: float
+    hourly_curve: List[dict]
+    equivalents: dict
+    breakdown_by_type: List[dict]
+    ai_headline: str
+
+class VoiceTipsRequest(BaseModel):
+    weekly_kg: float
+    top_category: str
+    user_name: str = "there"
+
+class VoiceTipsResponse(BaseModel):
+    greeting: str
+    body: str
+    tips: List[str]
+    signoff: str
+    full_script: str
+
+class FoodScanRequest(BaseModel):
+    image_base64: Optional[str] = None
+    hint: Optional[str] = None  # optional description hint
+
+class FoodItem(BaseModel):
+    name: str
+    portion: str
+    co2_kg: float
+    category: str
+    tip: str
+
+class FoodScanResponse(BaseModel):
+    items: List[FoodItem]
+    total_co2_kg: float
+    ai_note: str
+
+class CertificateRequest(BaseModel):
+    user_name: str
+    month: Optional[str] = None
+    co2_saved_kg: Optional[float] = None
+    grade: Optional[str] = "A-"
+
+class CertificateResponse(BaseModel):
+    cert_id: str
+    user_name: str
+    month: str
+    co2_saved_kg: float
+    grade: str
+    equivalents: dict
+    issued_at: str
+    signature: str
+    verify_url: str
+
 class SimulateRequest(BaseModel):
     transport: str  # car / public / bike / mixed
     diet: str  # meat / mixed / vegetarian / vegan
@@ -210,19 +273,75 @@ async def simulate(req: SimulateRequest):
 
 
 @api_router.get("/community/feed")
-async def community_feed():
+async def community_feed(user_id: Optional[str] = None):
+    """Returns feed with real like counts, join status, and any user-created posts."""
+    # Seed defaults into MongoDB on first call
+    posts_col = db.community_posts
+    challenges_col = db.community_challenges
+    likes_col = db.community_likes
+    joins_col = db.community_joins
+
+    if await posts_col.count_documents({}) == 0:
+        seed_posts = [
+            {"post_id": "p1", "user": "Aiko Tanaka", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=aiko", "time": "2h", "text": "Hit a 30-day cycling streak! Saved ~12kg CO₂ this month.", "base_likes": 124, "tag": "Transport", "comments": [], "created_at": datetime.now(timezone.utc).isoformat()},
+            {"post_id": "p2", "user": "Marco Silva", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=marco", "time": "5h", "text": "Switched my home to a 100% renewable plan. Bill went DOWN.", "base_likes": 89, "tag": "Electricity", "comments": [], "created_at": datetime.now(timezone.utc).isoformat()},
+            {"post_id": "p3", "user": "Priya Rao", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=priya", "time": "1d", "text": "Plant-based week complete. The lentil curry recipe is a banger.", "base_likes": 211, "tag": "Food", "comments": [], "created_at": datetime.now(timezone.utc).isoformat()},
+            {"post_id": "p4", "user": "Lena Volkov", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=lena", "time": "2d", "text": "My Carbon DNA shifted into emerald spiral mode. New aura unlocked ✨", "base_likes": 67, "tag": "Milestone", "comments": [], "created_at": datetime.now(timezone.utc).isoformat()},
+        ]
+        await posts_col.insert_many(seed_posts)
+    if await challenges_col.count_documents({}) == 0:
+        seed_ch = [
+            {"challenge_id": "c1", "title": "Meatless March", "base_members": 1240, "days_left": 12, "reward": "+500 XP", "description": "Skip meat for 30 days"},
+            {"challenge_id": "c2", "title": "Cycle 100km", "base_members": 870, "days_left": 7, "reward": "Bike Knight badge", "description": "Log 100km cycling this month"},
+            {"challenge_id": "c3", "title": "No-AC Week", "base_members": 421, "days_left": 3, "reward": "+300 XP", "description": "One week without air conditioning"},
+            {"challenge_id": "c4", "title": "Plastic-Free Fortnight", "base_members": 640, "days_left": 14, "reward": "+400 XP", "description": "14 days zero single-use plastic"},
+            {"challenge_id": "c5", "title": "Public Transit Only", "base_members": 285, "days_left": 5, "reward": "Commuter badge", "description": "No personal vehicle for 5 days"},
+        ]
+        await challenges_col.insert_many(seed_ch)
+
+    # Fetch posts
+    posts_docs = await posts_col.find().sort("created_at", -1).to_list(length=100)
+    posts_out = []
+    for p in posts_docs:
+        pid = p["post_id"]
+        extra_likes = await likes_col.count_documents({"post_id": pid})
+        liked_by_me = False
+        if user_id:
+            liked_by_me = (await likes_col.count_documents({"post_id": pid, "user_id": user_id})) > 0
+        posts_out.append({
+            "id": pid,
+            "user": p["user"],
+            "avatar": p["avatar"],
+            "time": p.get("time", "now"),
+            "text": p["text"],
+            "likes": p.get("base_likes", 0) + extra_likes,
+            "liked_by_me": liked_by_me,
+            "tag": p.get("tag", "Milestone"),
+            "comments": p.get("comments", []),
+        })
+
+    # Fetch challenges
+    ch_docs = await challenges_col.find().to_list(length=100)
+    challenges_out = []
+    for c in ch_docs:
+        cid = c["challenge_id"]
+        extra_members = await joins_col.count_documents({"challenge_id": cid})
+        joined_by_me = False
+        if user_id:
+            joined_by_me = (await joins_col.count_documents({"challenge_id": cid, "user_id": user_id})) > 0
+        challenges_out.append({
+            "id": cid,
+            "title": c["title"],
+            "members": c.get("base_members", 0) + extra_members,
+            "days_left": c.get("days_left", 7),
+            "reward": c.get("reward", "+100 XP"),
+            "description": c.get("description", ""),
+            "joined_by_me": joined_by_me,
+        })
+
     return {
-        "posts": [
-            {"id": 1, "user": "Aiko Tanaka", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=aiko", "time": "2h", "text": "Hit a 30-day cycling streak! Saved ~12kg CO₂ this month.", "likes": 124, "tag": "Transport"},
-            {"id": 2, "user": "Marco Silva", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=marco", "time": "5h", "text": "Switched my home to a 100% renewable plan. Bill went DOWN.", "likes": 89, "tag": "Electricity"},
-            {"id": 3, "user": "Priya Rao", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=priya", "time": "1d", "text": "Plant-based week complete. The lentil curry recipe is a banger.", "likes": 211, "tag": "Food"},
-            {"id": 4, "user": "Lena Volkov", "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=lena", "time": "2d", "text": "My Carbon DNA shifted into emerald spiral mode. New aura unlocked ✨", "likes": 67, "tag": "Milestone"},
-        ],
-        "challenges": [
-            {"id": 1, "title": "Meatless March", "members": 1240, "days_left": 12, "reward": "+500 XP"},
-            {"id": 2, "title": "Cycle 100km", "members": 870, "days_left": 7, "reward": "Bike Knight badge"},
-            {"id": 3, "title": "No-AC Week", "members": 421, "days_left": 3, "reward": "+300 XP"},
-        ],
+        "posts": posts_out,
+        "challenges": challenges_out,
         "leaderboard": [
             {"rank": 1, "user": "Aiko Tanaka", "xp": 9820, "grade": "A+"},
             {"rank": 2, "user": "Priya Rao", "xp": 8730, "grade": "A+"},
@@ -231,6 +350,90 @@ async def community_feed():
             {"rank": 5, "user": "You", "xp": 2480, "grade": "A-"},
         ],
     }
+
+
+class LikeRequest(BaseModel):
+    user_id: str
+    post_id: str
+
+@api_router.post("/community/like")
+async def like_post(req: LikeRequest):
+    likes_col = db.community_likes
+    posts_col = db.community_posts
+    existing = await likes_col.find_one({"post_id": req.post_id, "user_id": req.user_id})
+    if existing:
+        await likes_col.delete_one({"_id": existing["_id"]})
+        liked = False
+    else:
+        await likes_col.insert_one({"post_id": req.post_id, "user_id": req.user_id, "at": datetime.now(timezone.utc).isoformat()})
+        liked = True
+    post = await posts_col.find_one({"post_id": req.post_id})
+    extra = await likes_col.count_documents({"post_id": req.post_id})
+    total = (post.get("base_likes", 0) if post else 0) + extra
+    return {"liked": liked, "likes": total}
+
+
+class CommentRequest(BaseModel):
+    user_id: str
+    user_name: str
+    post_id: str
+    text: str
+
+@api_router.post("/community/comment")
+async def add_comment(req: CommentRequest):
+    posts_col = db.community_posts
+    comment = {"id": str(uuid.uuid4()), "user": req.user_name, "text": req.text[:500], "at": datetime.now(timezone.utc).isoformat()}
+    r = await posts_col.update_one({"post_id": req.post_id}, {"$push": {"comments": comment}})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return {"ok": True, "comment": comment}
+
+
+class JoinRequest(BaseModel):
+    user_id: str
+    challenge_id: str
+
+@api_router.post("/community/join")
+async def join_challenge(req: JoinRequest):
+    joins_col = db.community_joins
+    challenges_col = db.community_challenges
+    existing = await joins_col.find_one({"challenge_id": req.challenge_id, "user_id": req.user_id})
+    if existing:
+        await joins_col.delete_one({"_id": existing["_id"]})
+        joined = False
+    else:
+        await joins_col.insert_one({"challenge_id": req.challenge_id, "user_id": req.user_id, "at": datetime.now(timezone.utc).isoformat()})
+        joined = True
+    ch = await challenges_col.find_one({"challenge_id": req.challenge_id})
+    extra = await joins_col.count_documents({"challenge_id": req.challenge_id})
+    total = (ch.get("base_members", 0) if ch else 0) + extra
+    return {"joined": joined, "members": total}
+
+
+class CreatePostRequest(BaseModel):
+    user_id: str
+    user_name: str
+    avatar: Optional[str] = None
+    text: str
+    tag: Optional[str] = "Milestone"
+
+@api_router.post("/community/post")
+async def create_post(req: CreatePostRequest):
+    posts_col = db.community_posts
+    doc = {
+        "post_id": "u_" + uuid.uuid4().hex[:10],
+        "user": req.user_name,
+        "avatar": req.avatar or f"https://api.dicebear.com/7.x/avataaars/svg?seed={req.user_name}",
+        "time": "now",
+        "text": req.text[:600],
+        "base_likes": 0,
+        "tag": req.tag or "Milestone",
+        "comments": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": req.user_id,
+    }
+    await posts_col.insert_one(doc)
+    return {"ok": True, "post_id": doc["post_id"]}
 
 
 # ====== AI Chat via Emergent Universal Key ======
