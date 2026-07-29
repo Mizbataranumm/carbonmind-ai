@@ -598,20 +598,28 @@ async def food_scan(req: dict):
 # ====== Carbon Certificate Generator ======
 @api_router.post("/certificate/generate")
 async def generate_certificate(req: dict):
+    import hashlib
     user_name = req.get("user_name", "Eco Explorer")
     grade = req.get("grade", "A-")
-    xp = req.get("xp", 0)
-    streak = req.get("streak", 0)
+    co2_saved_kg = req.get("co2_saved_kg", 24.8)
+    cert_id = "CM-" + str(uuid.uuid4())[:8].upper()
+    month = datetime.now(timezone.utc).strftime("%B %Y")
+    # Deterministic signature based on cert content
+    sig_raw = f"{cert_id}:{user_name}:{co2_saved_kg}:{month}"
+    signature = hashlib.sha256(sig_raw.encode()).hexdigest()[:48]
     return {
-        "certificate_id": str(uuid.uuid4()),
+        "cert_id": cert_id,
         "user_name": user_name,
         "grade": grade,
-        "xp": xp,
-        "streak": streak,
+        "co2_saved_kg": round(float(co2_saved_kg), 1),
+        "month": month,
         "issued_at": datetime.now(timezone.utc).isoformat(),
-        "title": "CarbonMind Sustainability Certificate",
-        "message": f"{user_name} has demonstrated outstanding commitment to reducing their carbon footprint, achieving a grade of {grade} with {xp} XP and a {streak}-day streak.",
-        "badge": "https://api.dicebear.com/7.x/identicon/svg?seed=" + user_name,
+        "equivalents": {
+            "trees_planted_equivalent": round(float(co2_saved_kg) / 21.7, 1),
+            "km_by_car_avoided": round(float(co2_saved_kg) * 6.3, 1),
+        },
+        "signature": signature,
+        "verify_url": f"https://carbonmind.ai/verify/{cert_id}",
     }
 
 
