@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle } from "lucide-react";
+import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle, Menu } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 
 const navItems = [
@@ -26,6 +26,7 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifs, setNotifs] = useState(notifications);
   const unreadCount = notifs.filter(n => n.unread).length;
 
@@ -118,7 +119,14 @@ const AppLayout = () => {
         {/* Top bar */}
         <header className="sticky top-0 z-20 px-6 lg:px-10 py-4 flex items-center justify-between bg-[#071014]/70 backdrop-blur-xl border-b border-white/[0.06]">
           <div className="flex items-center gap-3">
-            <div className="lg:hidden h-8 w-8 rounded-lg bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden h-9 w-9 rounded-lg border border-white/10 flex items-center justify-center hover:bg-white/[0.04]"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5 text-white" />
+            </button>
+            <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] items-center justify-center">
               <Leaf className="h-4 w-4 text-[#071014]" />
             </div>
             <div>
@@ -147,6 +155,79 @@ const AppLayout = () => {
             </div>
           </div>
         </header>
+
+        {/* Mobile Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-[#071014]/80 backdrop-blur-sm lg:hidden"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              <motion.div
+                initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="fixed left-0 top-0 bottom-0 z-50 w-[260px] flex flex-col p-6 bg-[#0a161c] border-r border-white/[0.06] lg:hidden"
+              >
+                <div className="flex items-center justify-between mb-10">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
+                      <Leaf className="h-4.5 w-4.5 text-[#071014]" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div className="font-display font-bold text-lg leading-none">CarbonMind</div>
+                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2] mt-0.5">AI · v1.0</div>
+                    </div>
+                  </div>
+                  <button onClick={() => setMobileMenuOpen(false)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5">
+                    <X className="h-5 w-5 text-[#9EABBC]" />
+                  </button>
+                </div>
+                
+                <nav className="flex flex-col gap-1 overflow-y-auto">
+                  {navItems.map(item => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={({ isActive }) =>
+                        `group relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
+                          isActive
+                            ? "bg-white/[0.04] text-white border border-[#00FFB2]/20"
+                            : "text-[#9EABBC] hover:text-white hover:bg-white/[0.03] border border-transparent"
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <item.icon className="h-4 w-4" />
+                          <span className="font-medium">{item.label}</span>
+                          {isActive && (
+                            <motion.span
+                              layoutId="nav-pill-mobile"
+                              className="absolute right-3 h-1.5 w-1.5 rounded-full bg-[#00FFB2]"
+                              style={{ boxShadow: "0 0 12px #00FFB2" }}
+                            />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </nav>
+
+                <div className="mt-auto pt-6 border-t border-white/[0.06]">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full text-sm flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] text-[#9EABBC] hover:text-white transition-all border border-white/5"
+                  >
+                    <LogOut className="h-4 w-4" /> Sign out
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Notifications panel */}
         <AnimatePresence>
