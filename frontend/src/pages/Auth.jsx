@@ -4,14 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { Leaf, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/lib/UserContext";
-import { demoLogin } from "@/lib/api";
+import { demoLogin, registerUser, loginUser } from "@/lib/api";
 import AnimatedEarth from "@/components/AnimatedEarth";
 import ParticleField from "@/components/ParticleField";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { setUser } = useUser();
-  const [mode, setMode] = useState("login"); // login | register
+  const [mode, setMode] = useState("register"); // login | register
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

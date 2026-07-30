@@ -62,14 +62,14 @@ const Profile = () => {
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-widget text-secondary mb-2">
               <Award className="h-5 w-5 text-cyan" />
             </div>
-            <div className="font-mono-data text-xl font-bold">12</div>
+            <div className="font-mono-data text-xl font-bold">{user.xp === 0 ? 0 : 12}</div>
             <div className="text-xs text-secondary mt-1">Badges</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-widget text-secondary mb-2">
               <Leaf className="h-5 w-5 text-green" />
             </div>
-            <div className="font-mono-data text-xl font-bold">8.4<span className="text-xs">kg</span></div>
+            <div className="font-mono-data text-xl font-bold">{user.xp === 0 ? '0.0' : '8.4'}<span className="text-xs">kg</span></div>
             <div className="text-xs text-secondary mt-1">Daily Avg</div>
           </div>
         </div>

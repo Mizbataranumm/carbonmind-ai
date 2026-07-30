@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 class DemoLoginRequest(BaseModel):
     name: Optional[str] = "Eco Explorer"
 
+class RegisterRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
 class UserProfile(BaseModel):
     id: str
     name: str
@@ -152,6 +161,40 @@ async def demo_login(req: DemoLoginRequest):
         "grade": "A-" if is_demo else "Newbie",
     }
     return user
+
+@api_router.post("/auth/register", response_model=UserProfile)
+async def register(req: RegisterRequest):
+    users_col = db.users
+    existing = await users_col.find_one({"email": req.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="User already exists")
+    user_doc = {
+        "id": str(uuid.uuid4()),
+        "name": req.name,
+        "email": req.email.lower(),
+        "password": req.password,
+        "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=" + req.name,
+        "carbon_aura": "#9EABBC",
+        "streak": 0,
+        "xp": 0,
+        "grade": "Newbie",
+    }
+    await users_col.insert_one(user_doc.copy())
+    return user_doc
+
+@api_router.post("/auth/login", response_model=UserProfile)
+async def login(req: LoginRequest):
+    if req.email.lower() == "demo@carbonmind.ai" or req.email.lower() == "demo":
+        return await demo_login(DemoLoginRequest(name="Eco Explorer"))
+    
+    users_col = db.users
+    user_doc = await users_col.find_one({"email": req.email.lower(), "password": req.password})
+    if not user_doc:
+        raise HTTPException(status_code=401, detail="Invalid credentials or user not found")
+    
+    # Exclude MongoDB specific internal id to match UserProfile schema
+    user_doc.pop("_id", None)
+    return user_doc
 
 
 @api_router.get("/carbon/stats")

@@ -6,6 +6,8 @@ export const API = `${BACKEND_URL}/api`;
 export const api = axios.create({ baseURL: API });
 
 export const demoLogin = (name) => api.post("/auth/demo-login", { name }).then(r => r.data);
+export const registerUser = (name, email, password) => api.post("/auth/register", { name, email, password }).then(r => r.data);
+export const loginUser = (email, password) => api.post("/auth/login", { email, password }).then(r => r.data);
 export const getCarbonStats = (isNew) => api.get("/carbon/stats", { params: isNew ? { is_new: true } : {} }).then(r => r.data);
 export const getTrackerLive = (isNew) => api.get("/tracker/live", { params: isNew ? { is_new: true } : {} }).then(r => r.data);
 export const simulateFuture = (payload) => api.post("/future/simulate", payload).then(r => r.data);
