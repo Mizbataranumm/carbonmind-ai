@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { User, Settings, Bell, Shield, LogOut, Award, Flame, Leaf } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
