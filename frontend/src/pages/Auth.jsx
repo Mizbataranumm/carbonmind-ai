@@ -35,13 +35,17 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const authName = mode === "login" ? (email.split("@")[0] || "New User") : name;
-      const u = await demoLogin(authName);
+      let u;
+      if (mode === "register") {
+        u = await registerUser(name, email, password);
+      } else {
+        u = await loginUser(email, password);
+      }
       setUser(u);
       toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
       navigate("/dashboard");
     } catch (e) {
-      toast.error("Could not start session");
+      toast.error(e.response?.data?.detail || "Invalid credentials");
     } finally {
       setLoading(false);
     }
