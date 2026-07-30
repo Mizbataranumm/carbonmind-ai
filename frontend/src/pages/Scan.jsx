@@ -103,24 +103,33 @@ const Scan = () => {
         <div className="glass p-6 glass-hover">
           <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Capture</div>
           <div className="relative mt-3 aspect-video w-full rounded-xl overflow-hidden bg-[#0a161c] border border-white/[0.08] flex items-center justify-center">
-            {previewImg ? (
-              <img src={previewImg} alt="Scanned meal" className="w-full h-full object-cover" data-testid="scan-preview" />
-            ) : cameraOn ? (
-              <>
-                <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
-                {/* Scan overlay */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute inset-6 border-2 border-[#00FFB2]/50 rounded-2xl" />
-                  <motion.div
-                    className="absolute left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-[#00FFB2] to-transparent"
-                    animate={{ top: ["10%", "88%", "10%"] }}
-                    transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
-                    style={{ boxShadow: "0 0 12px #00FFB2" }}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="text-center p-8">
+            {/* Always render video so ref exists when attaching stream */}
+            <video 
+              ref={videoRef} 
+              className={`w-full h-full object-cover ${(!cameraOn || previewImg) ? "hidden" : ""}`} 
+              playsInline 
+              autoPlay 
+              muted 
+            />
+            
+            {previewImg && (
+              <img src={previewImg} alt="Scanned meal" className="absolute inset-0 w-full h-full object-cover z-10" data-testid="scan-preview" />
+            )}
+            
+            {cameraOn && !previewImg && (
+              <div className="absolute inset-0 pointer-events-none z-10">
+                <div className="absolute inset-6 border-2 border-[#00FFB2]/50 rounded-2xl" />
+                <motion.div
+                  className="absolute left-6 right-6 h-[2px] bg-gradient-to-r from-transparent via-[#00FFB2] to-transparent"
+                  animate={{ top: ["10%", "88%", "10%"] }}
+                  transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+                  style={{ boxShadow: "0 0 12px #00FFB2" }}
+                />
+              </div>
+            )}
+            
+            {!cameraOn && !previewImg && (
+              <div className="text-center p-8 z-10 absolute inset-0 flex flex-col items-center justify-center">
                 <ScanLine className="h-12 w-12 text-[#00FFB2] mx-auto opacity-40" />
                 <div className="font-mono-data text-xs text-[#9EABBC] mt-3 uppercase tracking-widest">Camera inactive</div>
                 <div className="text-sm text-[#5C6B7A] mt-1">Start camera or upload a photo</div>
