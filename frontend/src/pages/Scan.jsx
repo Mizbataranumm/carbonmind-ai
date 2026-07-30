@@ -102,7 +102,7 @@ const Scan = () => {
         {/* Camera / preview panel */}
         <div className="glass p-6 glass-hover">
           <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Capture</div>
-          <div className="relative mt-3 aspect-video w-full rounded-xl overflow-hidden bg-[#0a161c] border border-white/[0.08] flex items-center justify-center">
+          <div className="relative mt-3 aspect-video w-full rounded-xl overflow-hidden bg-widget border border-glass-border flex items-center justify-center">
             {/* Always render video so ref exists when attaching stream */}
             <video 
               ref={videoRef} 

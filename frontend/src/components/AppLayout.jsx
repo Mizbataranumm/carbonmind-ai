@@ -150,8 +150,7 @@ const AppLayout = () => {
               className="h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
               aria-label="Toggle theme"
             >
-              <span className="font-mono-data font-bold text-[10px] text-secondary mr-0.5">T</span>
-              {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-secondary" /> : <Moon className="h-3.5 w-3.5 text-secondary" />}
+              {theme === "dark" ? <Sun className="h-4 w-4 text-secondary" /> : <Moon className="h-4 w-4 text-secondary" />}
             </button>
             <button
               onClick={() => setNotifOpen(v => !v)}

@@ -229,8 +229,8 @@ html, body {
   border-radius: 999px;
   animation: orb-rotate 40s linear infinite;
 }
-.earth-rings.r2 { inset: -20%; border-color: rgba(0,217,255,0.2); animation-duration: 60s; animation-direction: reverse; }
-.earth-rings.r3 { inset: -34%; border-color: rgba(255,255,255,0.06); animation-duration: 90s; }
+.earth-rings.r2 { inset: -20%; border-color: var(--neon-cyan); opacity: 0.2; animation-duration: 60s; animation-direction: reverse; }
+.earth-rings.r3 { inset: -34%; border-color: var(--glass-border); animation-duration: 90s; }
 
 /* Voice wave */
 @keyframes wave {

@@ -33,7 +33,18 @@ const Auth = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await handleDemo();
+    setLoading(true);
+    try {
+      const authName = mode === "login" ? (email.split("@")[0] || "New User") : name;
+      const u = await demoLogin(authName);
+      setUser(u);
+      toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
+      navigate("/dashboard");
+    } catch (e) {
+      toast.error("Could not start session");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

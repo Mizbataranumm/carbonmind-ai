@@ -8,6 +8,16 @@ const Profile = () => {
 
   if (!user) return null;
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setUser({ ...user, avatar: ev.target.result });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-20">
       <div className="glass p-8 rounded-3xl relative overflow-hidden">
@@ -71,7 +81,17 @@ const Profile = () => {
           <div className="glass rounded-2xl overflow-hidden">
             <SettingRow icon={Bell} title="Push Notifications" desc="Alerts for streaks and limits" active />
             <SettingRow icon={Shield} title="Private Profile" desc="Hide stats from community leaderboard" />
-            <SettingRow icon={User} title="Edit Avatar" desc="Change your profile picture" action="Edit" />
+            <SettingRow 
+              icon={User} 
+              title="Edit Avatar" 
+              desc="Change your profile picture" 
+              action={
+                <label className="text-xs font-mono-data text-green px-3 py-1.5 rounded-lg bg-green/10 hover:bg-green/20 transition cursor-pointer">
+                  Upload
+                  <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                </label>
+              } 
+            />
           </div>
         </div>
 
@@ -107,9 +127,11 @@ const SettingRow = ({ icon: Icon, title, desc, active, action }) => (
       </div>
     </div>
     {action ? (
-      <button className="text-xs font-mono-data text-green px-3 py-1.5 rounded-lg bg-green/10 hover:bg-green/20 transition">
-        {action}
-      </button>
+      typeof action === 'string' ? (
+        <button className="text-xs font-mono-data text-green px-3 py-1.5 rounded-lg bg-green/10 hover:bg-green/20 transition">
+          {action}
+        </button>
+      ) : action
     ) : (
       <div className={`h-6 w-11 rounded-full p-1 transition-colors cursor-pointer ${active ? 'bg-green' : 'bg-widget border border-glass-border'}`}>
         <div className={`h-4 w-4 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : 'translate-x-0 bg-secondary'}`} />
