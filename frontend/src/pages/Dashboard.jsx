@@ -11,13 +11,14 @@ const iconMap = { flame: Flame, bike: Bike, leaf: Leaf, sun: Sun };
 
 const Dashboard = () => {
   const { user } = useUser();
+  const isNew = user?.xp === 0;
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [callOpen, setCallOpen] = useState(false);
 
   useEffect(() => {
-    getCarbonStats().then((d) => { setStats(d); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+    getCarbonStats(isNew).then((d) => { setStats(d); setLoading(false); }).catch(() => setLoading(false));
+  }, [isNew]);
 
   if (loading || !stats) {
     return <div className="font-mono-data text-[#9EABBC]">Loading carbon telemetry...</div>;

@@ -140,22 +140,68 @@ async def root():
 
 @api_router.post("/auth/demo-login", response_model=UserProfile)
 async def demo_login(req: DemoLoginRequest):
+    is_demo = not req.name or req.name.lower() in ["eco explorer", "demo"]
     user = {
-        "id": str(uuid.uuid4()),
+        "id": "demo-123" if is_demo else str(uuid.uuid4()),
         "name": req.name or "Eco Explorer",
-        "email": "demo@carbonmind.ai",
+        "email": "demo@carbonmind.ai" if is_demo else f"{req.name.lower().replace(' ', '')}@earth.io",
         "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=" + (req.name or "demo"),
-        "carbon_aura": "#00FFB2",
-        "streak": 14,
-        "xp": 2480,
-        "grade": "A-",
+        "carbon_aura": "#00FFB2" if is_demo else "#9EABBC",
+        "streak": 14 if is_demo else 0,
+        "xp": 2480 if is_demo else 0,
+        "grade": "A-" if is_demo else "Newbie",
     }
     return user
 
 
 @api_router.get("/carbon/stats")
-async def carbon_stats():
+async def carbon_stats(is_new: bool = False):
     """Mock dashboard stats. Demo data."""
+    if is_new:
+        return {
+            "today_kg": 0.0,
+            "week_kg": 0.0,
+            "month_kg": 0.0,
+            "year_kg": 0.0,
+            "grade": "Newbie",
+            "trend_pct": 0.0,
+            "score": 0,
+            "weekly_trend": [
+                {"day": "Mon", "kg": 0.0, "target": 6.5},
+                {"day": "Tue", "kg": 0.0, "target": 6.5},
+                {"day": "Wed", "kg": 0.0, "target": 6.5},
+                {"day": "Thu", "kg": 0.0, "target": 6.5},
+                {"day": "Fri", "kg": 0.0, "target": 6.5},
+                {"day": "Sat", "kg": 0.0, "target": 6.5},
+                {"day": "Sun", "kg": 0.0, "target": 6.5},
+            ],
+            "breakdown": [
+                {"name": "Transport", "value": 0, "color": "#00FFB2"},
+                {"name": "Electricity", "value": 0, "color": "#00D9FF"},
+                {"name": "Food", "value": 0, "color": "#FFD166"},
+                {"name": "Devices", "value": 0, "color": "#FF66E1"},
+                {"name": "Other", "value": 100, "color": "#9EABBC"},
+            ],
+            "prediction": [
+                {"month": "Jan", "actual": 0, "predicted": 0},
+                {"month": "Feb", "actual": 0, "predicted": 0},
+                {"month": "Mar", "actual": 0, "predicted": 0},
+                {"month": "Apr", "actual": 0, "predicted": 0},
+                {"month": "May", "actual": None, "predicted": 0},
+                {"month": "Jun", "actual": None, "predicted": 0},
+                {"month": "Jul", "actual": None, "predicted": 0},
+                {"month": "Aug", "actual": None, "predicted": 0},
+            ],
+            "achievements": [
+                {"id": 1, "title": "First Step", "desc": "Log your first activity", "icon": "leaf", "earned": False},
+                {"id": 2, "title": "Green Streak", "desc": "14 days under target", "icon": "flame", "earned": False},
+            ],
+            "recommendations": [
+                {"id": 1, "title": "Log your daily commute", "impact": "Start tracking", "category": "transport"},
+                {"id": 2, "title": "Scan a meal", "impact": "Learn footprints", "category": "food"},
+            ],
+        }
+
     return {
         "today_kg": 6.4,
         "week_kg": 41.8,
@@ -206,7 +252,18 @@ async def carbon_stats():
 
 
 @api_router.get("/tracker/live")
-async def tracker_live():
+async def tracker_live(is_new: bool = False):
+    if is_new:
+        return {
+            "activities": [],
+            "categories": [
+                {"name": "Transport", "kg": 0.0, "budget": 4.0, "trend": 0.0, "color": "#00FFB2"},
+                {"name": "Electricity", "kg": 0.0, "budget": 2.5, "trend": 0.0, "color": "#00D9FF"},
+                {"name": "Food", "kg": 0.0, "budget": 1.2, "trend": 0.0, "color": "#FFD166"},
+                {"name": "Devices", "kg": 0.0, "budget": 0.8, "trend": 0.0, "color": "#FF66E1"},
+            ],
+            "realtime": [{"t": f"{i:02d}", "kg": 0.0} for i in range(0, 24, 3)],
+        }
     return {
         "activities": [
             {"id": 1, "type": "transport", "label": "Morning commute", "kg": 2.1, "time": "08:14", "icon": "car"},

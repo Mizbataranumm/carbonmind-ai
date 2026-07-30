@@ -3,15 +3,18 @@ import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
 import { Car, Zap, Utensils, Monitor, Bike, TrendingDown, TrendingUp, Activity } from "lucide-react";
 import { getTrackerLive } from "@/lib/api";
+import { useUser } from "@/lib/UserContext";
 
 const iconMap = { car: Car, zap: Zap, utensils: Utensils, monitor: Monitor, bike: Bike };
 
 const Tracker = () => {
+  const { user } = useUser();
+  const isNew = user?.xp === 0;
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getTrackerLive().then(setData);
-  }, []);
+    getTrackerLive(isNew).then(setData);
+  }, [isNew]);
 
   if (!data) return <div className="font-mono-data text-[#9EABBC]">Connecting to sensors...</div>;
 
