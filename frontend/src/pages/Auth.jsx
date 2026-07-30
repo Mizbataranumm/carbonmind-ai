@@ -39,15 +39,15 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex relative overflow-hidden">
       {/* LEFT visual panel */}
-      <div className="hidden lg:flex flex-1 relative items-center justify-center border-r border-white/[0.06]">
+      <div className="hidden lg:flex flex-1 relative items-center justify-center border-r border-glass-border">
         <div className="grid-bg absolute inset-0 opacity-30" />
         <ParticleField count={26} color="mixed" />
         <div className="relative z-10 flex flex-col items-center px-10">
           <AnimatedEarth size={420} />
           <div className="mt-10 max-w-md text-center">
-            <div className="font-mono-data text-[11px] uppercase tracking-widest text-[#00FFB2] mb-3">// CarbonMind AI</div>
+            <div className="font-mono-data text-[11px] uppercase tracking-widest text-green mb-3">// CarbonMind AI</div>
             <h2 className="font-display text-3xl leading-tight">The future is built one habit at a time.</h2>
-            <p className="text-[#9EABBC] mt-4 text-sm leading-relaxed">
+            <p className="text-secondary mt-4 text-sm leading-relaxed">
               Sign in to unlock your Carbon DNA, sustainability streak, and personal AI coach.
             </p>
           </div>
@@ -59,7 +59,7 @@ const Auth = () => {
         <button
           data-testid="back-home-btn"
           onClick={() => navigate("/")}
-          className="absolute top-6 left-6 text-xs font-mono-data text-[#9EABBC] hover:text-white"
+          className="absolute top-6 left-6 text-xs font-mono-data text-secondary hover:text-main"
         >← Back home</button>
 
         <motion.div
@@ -69,21 +69,21 @@ const Auth = () => {
           className="w-full max-w-md"
         >
           <div className="flex items-center gap-2.5 mb-8 justify-center lg:justify-start">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
               <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
             </div>
             <div className="font-display font-bold text-lg">CarbonMind</div>
           </div>
 
           <h1 className="font-display text-3xl">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
-          <p className="text-sm text-[#9EABBC] mt-2">
+          <p className="text-sm text-secondary mt-2">
             {mode === "login" ? "Step into your sustainability OS." : "Begin your carbon journey."}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-3">
             {mode === "register" && (
               <div>
-                <label className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Display name</label>
+                <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Display name</label>
                 <input
                   data-testid="auth-name-input"
                   value={name}
@@ -94,7 +94,7 @@ const Auth = () => {
               </div>
             )}
             <div>
-              <label className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Email</label>
+              <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Email</label>
               <div className="relative mt-1">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5C6B7A]" />
                 <input
@@ -108,7 +108,7 @@ const Auth = () => {
               </div>
             </div>
             <div>
-              <label className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Password</label>
+              <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Password</label>
               <div className="relative mt-1">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#5C6B7A]" />
                 <input
@@ -134,7 +134,7 @@ const Auth = () => {
 
           <div className="relative my-6">
             <div className="divider" />
-            <span className="absolute left-1/2 -translate-x-1/2 -top-2 bg-[#071014] px-3 font-mono-data text-[10px] uppercase tracking-widest text-[#5C6B7A]">or</span>
+            <span className="absolute left-1/2 -translate-x-1/2 -top-2 bg-app px-3 font-mono-data text-[10px] uppercase tracking-widest text-[#5C6B7A]">or</span>
           </div>
 
           <button
@@ -143,14 +143,14 @@ const Auth = () => {
             disabled={loading}
             className="btn-ghost w-full inline-flex items-center justify-center gap-2"
           >
-            <Sparkles className="h-4 w-4 text-[#00FFB2]" /> Continue as demo eco-explorer
+            <Sparkles className="h-4 w-4 text-green" /> Continue as demo eco-explorer
           </button>
 
           <p className="text-center text-xs text-[#5C6B7A] mt-7">
             {mode === "login" ? "New here?" : "Already onboard?"}{" "}
             <button
               onClick={() => setMode(mode === "login" ? "register" : "login")}
-              className="text-[#00FFB2] hover:underline"
+              className="text-green hover:underline"
               data-testid="toggle-auth-mode"
             >
               {mode === "login" ? "Create an account" : "Sign in"}

@@ -37,8 +37,8 @@ const AnimatedEarth = ({ size = 360, health = 100 }) => {
               top: "0%",
               left: "50%",
               transform: `translate(-50%, -50%)`,
-              background: deg === 120 ? "#00D9FF" : "#00FFB2",
-              boxShadow: `0 0 16px ${deg === 120 ? "#00D9FF" : "#00FFB2"}`,
+              background: deg === 120 ? "var(--neon-cyan)" : "var(--neon-green)",
+              boxShadow: `0 0 16px ${deg === 120 ? "var(--neon-cyan)" : "var(--neon-green)"}`,
             }}
           />
         </motion.div>

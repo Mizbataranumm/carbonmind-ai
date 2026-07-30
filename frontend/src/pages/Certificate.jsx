@@ -29,7 +29,7 @@ const Certificate = () => {
       const dataUrl = await toPng(certRef.current, {
         cacheBust: true,
         pixelRatio: 2,
-        backgroundColor: "#071014",
+        backgroundColor: "var(--app-bg)",
         skipFonts: true,
       });
       const link = document.createElement("a");
@@ -56,7 +56,7 @@ const Certificate = () => {
   };
 
   if (!cert) return (
-    <div className="font-mono-data text-[#9EABBC]">Generating certificate...</div>
+    <div className="font-mono-data text-secondary">Generating certificate...</div>
   );
 
   return (
@@ -64,9 +64,9 @@ const Certificate = () => {
       <div className="glass p-7 glass-hover">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Novel Feature 04</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Novel Feature 04</div>
             <h2 className="font-display text-3xl mt-1">Verified Carbon Certificate</h2>
-            <p className="text-sm text-[#9EABBC] mt-2 max-w-2xl">
+            <p className="text-sm text-secondary mt-2 max-w-2xl">
               Monthly, verifiable carbon reduction certificate — shareable on LinkedIn or Instagram.
               Real-world social incentive that outlasts short-term gamification.
             </p>
@@ -82,7 +82,7 @@ const Certificate = () => {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-4">
-          <label className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">CO₂ saved this month</label>
+          <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">CO₂ saved this month</label>
           <input
             type="number" step="0.1" value={saved}
             onChange={(e) => setSaved(parseFloat(e.target.value) || 0)}
@@ -122,24 +122,24 @@ const Certificate = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg,#00FFB2,#00D9FF)" }}>
-                <Leaf className="h-4 w-4" style={{ color: "#071014" }} strokeWidth={2.5} />
+                <Leaf className="h-4 w-4" style={{ color: "var(--app-bg)" }} strokeWidth={2.5} />
               </div>
               <div>
                 <div style={{ fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: 18, color: "#fff" }}>CarbonMind</div>
-                <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "#00FFB2", letterSpacing: "0.15em" }}>AI · CERTIFIED</div>
+                <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--neon-green)", letterSpacing: "0.15em" }}>AI · CERTIFIED</div>
               </div>
             </div>
-            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#9EABBC" }}>
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--text-muted)" }}>
               {cert.cert_id}
             </div>
           </div>
 
           {/* Body */}
           <div className="text-center mt-10">
-            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#00FFB2", letterSpacing: "0.25em", textTransform: "uppercase" }}>
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--neon-green)", letterSpacing: "0.25em", textTransform: "uppercase" }}>
               Certificate of Carbon Reduction
             </div>
-            <div className="mt-2" style={{ fontFamily: "Manrope, sans-serif", fontSize: 13, color: "#9EABBC" }}>
+            <div className="mt-2" style={{ fontFamily: "Manrope, sans-serif", fontSize: 13, color: "var(--text-muted)" }}>
               This is to certify that
             </div>
             <h1 style={{
@@ -158,7 +158,7 @@ const Certificate = () => {
             </h1>
             <div className="mt-4 max-w-xl mx-auto" style={{ fontFamily: "Manrope, sans-serif", fontSize: 15, color: "#cfd8e0", lineHeight: 1.6 }}>
               has demonstrated measurable and verifiable sustainable action for{" "}
-              <span style={{ color: "#00FFB2", fontWeight: 600 }}>{cert.month}</span>,
+              <span style={{ color: "var(--neon-green)", fontWeight: 600 }}>{cert.month}</span>,
               reducing personal carbon emissions and contributing to a lighter planet.
             </div>
           </div>
@@ -175,19 +175,19 @@ const Certificate = () => {
               textAlign: "center",
             }}
           >
-            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "#9EABBC", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Total CO₂ Reduced
             </div>
             <div style={{
               fontFamily: "JetBrains Mono, monospace",
               fontSize: 64,
               fontWeight: 700,
-              color: "#00FFB2",
+              color: "var(--neon-green)",
               lineHeight: 1,
               marginTop: 6,
               textShadow: "0 0 30px rgba(0,255,178,0.4)",
             }}>
-              {cert.co2_saved_kg}<span style={{ fontSize: 20, color: "#9EABBC", marginLeft: 4 }}>kg</span>
+              {cert.co2_saved_kg}<span style={{ fontSize: 20, color: "var(--text-muted)", marginLeft: 4 }}>kg</span>
             </div>
 
             {/* Equivalents */}
@@ -210,9 +210,9 @@ const Certificate = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} style={{ color: "#00FFB2" }} />
+              <CheckCircle2 size={16} style={{ color: "var(--neon-green)" }} />
               <div>
-                <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "#00FFB2", letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--neon-green)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
                   Blockchain Verified
                 </div>
                 <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, color: "#5C6B7A", marginTop: 2, maxWidth: 250, wordBreak: "break-all" }}>
@@ -235,9 +235,9 @@ const EquivBox = ({ icon, value, label }) => (
     borderRadius: 12,
     textAlign: "center",
   }}>
-    <div style={{ color: "#00FFB2", display: "flex", justifyContent: "center" }}>{icon}</div>
+    <div style={{ color: "var(--neon-green)", display: "flex", justifyContent: "center" }}>{icon}</div>
     <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 16, color: "#fff", marginTop: 4, fontWeight: 700 }}>{value}</div>
-    <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, color: "#9EABBC", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+    <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
   </div>
 );
 

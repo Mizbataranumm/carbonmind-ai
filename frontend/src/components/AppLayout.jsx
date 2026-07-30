@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle, Menu } from "lucide-react";
+import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle, Menu, Sun, Moon } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 
 const navItems = [
@@ -14,7 +14,7 @@ const navItems = [
   { to: "/community", label: "Community", icon: Users, testid: "nav-community" },
 ];
 
-const notifications = [
+const demoNotifications = [
   { id: 1, title: "Weekly briefing ready", body: "Your AI coach is waiting on the dashboard.", tag: "AI", time: "just now", unread: true },
   { id: 2, title: "New challenge: No-AC Week", body: "421 eco-citizens have joined — 3 days left.", tag: "Community", time: "1h", unread: true },
   { id: 3, title: "Streak milestone!", body: "14 days below your daily target. Legendary.", tag: "Reward", time: "5h", unread: false },
@@ -27,33 +27,47 @@ const AppLayout = () => {
   const location = useLocation();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notifs, setNotifs] = useState(notifications);
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+  
+  const isNew = user?.xp === 0;
+  
+  const [notifs, setNotifs] = useState(() => {
+    if (isNew) {
+      return [
+        { id: 1, title: "Welcome to CarbonMind!", body: "We're thrilled to have you here. Start tracking your footprint.", tag: "System", time: "just now", unread: true },
+        { id: 2, title: "Action Required", body: "Scan your first meal to initialize your Carbon DNA.", tag: "Onboarding", time: "1m", unread: true }
+      ];
+    }
+    return demoNotifications;
+  });
+  
   const unreadCount = notifs.filter(n => n.unread).length;
 
   useEffect(() => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
   if (!user) return null;
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate("/");
-  };
-
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
   const markAllRead = () => setNotifs(notifs.map(n => ({ ...n, unread: false })));
 
   return (
-    <div className="min-h-screen flex bg-[#071014] text-white">
+    <div className="min-h-screen flex bg-app text-main">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 bottom-0 w-[260px] hidden lg:flex flex-col p-6 border-r border-white/[0.06] bg-[#071014]/70 backdrop-blur-xl z-30" data-testid="sidebar">
+      <aside className="fixed left-0 top-0 bottom-0 w-[260px] hidden lg:flex flex-col p-6 border-r border-glass-border bg-app/70 backdrop-blur-xl z-30" data-testid="sidebar">
         <div className="flex items-center gap-2.5 mb-10">
-          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
-            <Leaf className="h-4.5 w-4.5 text-[#071014]" strokeWidth={2.5} />
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+            <Leaf className="h-4.5 w-4.5 text-app" strokeWidth={2.5} />
           </div>
           <div>
             <div className="font-display font-bold text-lg leading-none">CarbonMind</div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2] mt-0.5">AI · v1.0</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mt-0.5">AI · v1.0</div>
           </div>
         </div>
 
@@ -66,8 +80,8 @@ const AppLayout = () => {
               className={({ isActive }) =>
                 `group relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
                   isActive
-                    ? "bg-white/[0.04] text-white border border-[#00FFB2]/20"
-                    : "text-[#9EABBC] hover:text-white hover:bg-white/[0.03] border border-transparent"
+                    ? "bg-widget text-main border border-green/20"
+                    : "text-secondary hover:text-main hover:bg-widget border border-transparent"
                 }`
               }
             >
@@ -78,8 +92,8 @@ const AppLayout = () => {
                   {isActive && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute right-3 h-1.5 w-1.5 rounded-full bg-[#00FFB2]"
-                      style={{ boxShadow: "0 0 12px #00FFB2" }}
+                      className="absolute right-3 h-1.5 w-1.5 rounded-full bg-green"
+                      style={{ boxShadow: "0 0 12px var(--neon-green)" }}
                     />
                   )}
                 </>
@@ -89,68 +103,72 @@ const AppLayout = () => {
         </nav>
 
         <div className="mt-auto">
-          <div className="glass p-4 rounded-2xl">
+          <button
+            onClick={() => navigate("/profile")}
+            className="w-full text-left glass p-4 rounded-2xl glass-hover hover:border-green/40 transition-all cursor-pointer group"
+          >
             <div className="flex items-center gap-3">
               <div className="relative">
-                <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full bg-[#0d1f27] border border-white/10" />
+                <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full bg-panel border border-glass-border" />
                 <span
-                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#071014]"
+                  className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-app"
                   style={{ background: user.carbon_aura, boxShadow: `0 0 10px ${user.carbon_aura}` }}
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">{user.name}</div>
-                <div className="font-mono-data text-[10px] text-[#9EABBC]">Grade {user.grade} · {user.xp} XP</div>
+                <div className="font-medium text-sm truncate group-hover:text-green transition-colors">{user.name}</div>
+                <div className="font-mono-data text-[10px] text-secondary">Grade {user.grade} · {user.xp} XP</div>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              data-testid="logout-button"
-              className="mt-3 w-full text-xs flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-[#9EABBC] hover:text-white transition-all border border-white/5"
-            >
-              <LogOut className="h-3 w-3" /> Sign out
-            </button>
-          </div>
+          </button>
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex-1 lg:ml-[260px] min-h-screen">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 px-6 lg:px-10 py-4 flex items-center justify-between bg-[#071014]/70 backdrop-blur-xl border-b border-white/[0.06]">
+        <header className="sticky top-0 z-20 px-6 lg:px-10 py-4 flex items-center justify-between bg-app/70 backdrop-blur-xl border-b border-glass-border">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden h-9 w-9 rounded-lg border border-white/10 flex items-center justify-center hover:bg-white/[0.04]"
+              className="lg:hidden h-9 w-9 rounded-lg border border-glass-border flex items-center justify-center hover:bg-widget"
               aria-label="Open menu"
             >
-              <Menu className="h-5 w-5 text-white" />
+              <Menu className="h-5 w-5 text-main" />
             </button>
-            <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] items-center justify-center">
-              <Leaf className="h-4 w-4 text-[#071014]" />
+            <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-green to-cyan items-center justify-center">
+              <Leaf className="h-4 w-4 text-app" />
             </div>
             <div>
-              <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">Live Dashboard</div>
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
               <div className="font-display text-lg sm:text-xl">{getTitle(location.pathname)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={toggleTheme}
+              className="h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
+              aria-label="Toggle theme"
+            >
+              <span className="font-mono-data font-bold text-[10px] text-secondary mr-0.5">T</span>
+              {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-secondary" /> : <Moon className="h-3.5 w-3.5 text-secondary" />}
+            </button>
+            <button
               onClick={() => setNotifOpen(v => !v)}
-              className="relative h-9 w-9 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center hover:bg-white/[0.08] transition"
+              className="relative h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
               data-testid="notifications-btn"
             >
-              <Bell className="h-4 w-4 text-[#9EABBC]" />
+              <Bell className="h-4 w-4 text-secondary" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-[#00FFB2] text-[#071014] text-[9px] font-mono-data font-bold flex items-center justify-center" style={{ boxShadow: "0 0 8px #00FFB2" }}>
+                <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-green text-app text-[9px] font-mono-data font-bold flex items-center justify-center" style={{ boxShadow: "0 0 8px var(--neon-green)" }}>
                   {unreadCount}
                 </span>
               )}
             </button>
-            <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-white/10">
+            <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-glass-border">
               <div className="text-right">
-                <div className="font-mono-data text-[10px] text-[#9EABBC]">Streak</div>
-                <div className="font-mono-data text-sm text-[#00FFB2]">{user.streak} days</div>
+                <div className="font-mono-data text-[10px] text-secondary">Streak</div>
+                <div className="font-mono-data text-sm text-green">{user.streak} days</div>
               </div>
             </div>
           </div>
@@ -162,26 +180,26 @@ const AppLayout = () => {
             <>
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-40 bg-[#071014]/80 backdrop-blur-sm lg:hidden"
+                className="fixed inset-0 z-40 bg-app/80 backdrop-blur-sm lg:hidden"
                 onClick={() => setMobileMenuOpen(false)}
               />
               <motion.div
                 initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
                 transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed left-0 top-0 bottom-0 z-50 w-[260px] flex flex-col p-6 bg-[#0a161c] border-r border-white/[0.06] lg:hidden"
+                className="fixed left-0 top-0 bottom-0 z-50 w-[260px] flex flex-col p-6 bg-panel border-r border-glass-border lg:hidden"
               >
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
-                      <Leaf className="h-4.5 w-4.5 text-[#071014]" strokeWidth={2.5} />
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+                      <Leaf className="h-4.5 w-4.5 text-app" strokeWidth={2.5} />
                     </div>
                     <div>
                       <div className="font-display font-bold text-lg leading-none">CarbonMind</div>
-                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2] mt-0.5">AI · v1.0</div>
+                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mt-0.5">AI · v1.0</div>
                     </div>
                   </div>
-                  <button onClick={() => setMobileMenuOpen(false)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-white/5">
-                    <X className="h-5 w-5 text-[#9EABBC]" />
+                  <button onClick={() => setMobileMenuOpen(false)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-widget">
+                    <X className="h-5 w-5 text-secondary" />
                   </button>
                 </div>
                 
@@ -194,8 +212,8 @@ const AppLayout = () => {
                       className={({ isActive }) =>
                         `group relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
                           isActive
-                            ? "bg-white/[0.04] text-white border border-[#00FFB2]/20"
-                            : "text-[#9EABBC] hover:text-white hover:bg-white/[0.03] border border-transparent"
+                            ? "bg-widget text-main border border-green/20"
+                            : "text-secondary hover:text-main hover:bg-widget border border-transparent"
                         }`
                       }
                     >
@@ -206,24 +224,29 @@ const AppLayout = () => {
                           {isActive && (
                             <motion.span
                               layoutId="nav-pill-mobile"
-                              className="absolute right-3 h-1.5 w-1.5 rounded-full bg-[#00FFB2]"
-                              style={{ boxShadow: "0 0 12px #00FFB2" }}
+                              className="absolute right-3 h-1.5 w-1.5 rounded-full bg-green"
+                              style={{ boxShadow: "0 0 12px var(--neon-green)" }}
                             />
                           )}
                         </>
                       )}
                     </NavLink>
                   ))}
-                </nav>
-
-                <div className="mt-auto pt-6 border-t border-white/[0.06]">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-sm flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] text-[#9EABBC] hover:text-white transition-all border border-white/5"
+                  <NavLink
+                    to="/profile"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `group relative flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all mt-4 ${
+                        isActive
+                          ? "bg-widget text-main border border-green/20"
+                          : "text-secondary hover:text-main hover:bg-widget border border-transparent"
+                      }`
+                    }
                   >
-                    <LogOut className="h-4 w-4" /> Sign out
-                  </button>
-                </div>
+                    <Users className="h-4 w-4" />
+                    <span className="font-medium">My Profile</span>
+                  </NavLink>
+                </nav>
               </motion.div>
             </>
           )}
@@ -235,7 +258,7 @@ const AppLayout = () => {
             <>
               <motion.div
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="fixed inset-0 z-30 bg-[#071014]/40"
+                className="fixed inset-0 z-30 bg-app/40"
                 onClick={() => setNotifOpen(false)}
               />
               <motion.div
@@ -247,30 +270,30 @@ const AppLayout = () => {
               >
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Alerts</div>
+                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Alerts</div>
                     <div className="font-display text-base">Notifications</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button onClick={markAllRead} className="font-mono-data text-[10px] text-[#00FFB2] hover:underline" data-testid="mark-read-btn">Mark all read</button>
-                    <button onClick={() => setNotifOpen(false)} className="h-6 w-6 rounded-md bg-white/[0.04] hover:bg-white/[0.08] flex items-center justify-center">
-                      <X className="h-3 w-3 text-[#9EABBC]" />
+                    <button onClick={markAllRead} className="font-mono-data text-[10px] text-green hover:underline" data-testid="mark-read-btn">Mark all read</button>
+                    <button onClick={() => setNotifOpen(false)} className="h-6 w-6 rounded-md bg-widget hover:bg-widget-hover flex items-center justify-center">
+                      <X className="h-3 w-3 text-secondary" />
                     </button>
                   </div>
                 </div>
                 <div className="space-y-2">
                   {notifs.map(n => (
-                    <div key={n.id} className={`p-3 rounded-xl border ${n.unread ? "bg-[#00FFB2]/5 border-[#00FFB2]/20" : "bg-white/[0.02] border-white/[0.05]"}`} data-testid={`notif-${n.id}`}>
+                    <div key={n.id} className={`p-3 rounded-xl border ${n.unread ? "bg-green/5 border-green/20" : "bg-widget border-glass-border"}`} data-testid={`notif-${n.id}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            {n.unread && <Circle className="h-2 w-2 fill-[#00FFB2] text-[#00FFB2] flex-shrink-0" />}
+                            {n.unread && <Circle className="h-2 w-2 fill-green text-green flex-shrink-0" />}
                             <div className="font-medium text-sm truncate">{n.title}</div>
                           </div>
-                          <div className="text-xs text-[#9EABBC] mt-1 leading-relaxed">{n.body}</div>
+                          <div className="text-xs text-secondary mt-1 leading-relaxed">{n.body}</div>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <span className="font-mono-data text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.06] text-[#9EABBC]">{n.tag}</span>
-                          <div className="font-mono-data text-[10px] text-[#5C6B7A] mt-1">{n.time}</div>
+                          <span className="font-mono-data text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded bg-widget border border-glass-border text-secondary">{n.tag}</span>
+                          <div className="font-mono-data text-[10px] text-muted mt-1">{n.time}</div>
                         </div>
                       </div>
                     </div>
@@ -308,6 +331,7 @@ const getTitle = (path) => {
     "/scan": "Food Carbon Scanner",
     "/certificate": "Verified Certificate",
     "/community": "Eco Community",
+    "/profile": "My Profile",
   };
   return map[path] || "CarbonMind";
 };

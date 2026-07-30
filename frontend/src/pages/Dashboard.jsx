@@ -21,7 +21,7 @@ const Dashboard = () => {
   }, [isNew]);
 
   if (loading || !stats) {
-    return <div className="font-mono-data text-[#9EABBC]">Loading carbon telemetry...</div>;
+    return <div className="font-mono-data text-secondary">Loading carbon telemetry...</div>;
   }
 
   return (
@@ -34,12 +34,12 @@ const Dashboard = () => {
         data-testid="ai-call-banner"
       >
         <div className="flex items-center gap-4">
-          <div className="relative h-11 w-11 rounded-xl bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center">
-            <PhoneCall className="h-5 w-5 text-[#071014]" />
-            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#FF4D4D] border-2 border-[#071014] animate-pulse" />
+          <div className="relative h-11 w-11 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+            <PhoneCall className="h-5 w-5 text-app" />
+            <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-[#FF4D4D] border-2 border-app animate-pulse" />
           </div>
           <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Voice Briefing available</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// AI Voice Briefing available</div>
             <div className="font-display text-lg">CarbonMind wants to call you about this week.</div>
           </div>
         </div>
@@ -91,10 +91,10 @@ const CarbonScoreCard = ({ stats, user }) => {
     <div className="glass p-7 glass-hover relative overflow-hidden glow-ring" data-testid="carbon-score-card">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Carbon Score</div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Carbon Score</div>
           <div className="font-display text-xl mt-1">Today</div>
         </div>
-        <span className="font-mono-data text-xs px-2 py-1 rounded-full bg-[#00FFB2]/10 text-[#00FFB2] border border-[#00FFB2]/20">
+        <span className="font-mono-data text-xs px-2 py-1 rounded-full bg-green/10 text-green border border-green/20">
           Grade {stats.grade}
         </span>
       </div>
@@ -115,14 +115,14 @@ const CarbonScoreCard = ({ stats, user }) => {
             />
             <defs>
               <linearGradient id="scoreGradient" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#00FFB2" />
-                <stop offset="100%" stopColor="#00D9FF" />
+                <stop offset="0%" stopColor="var(--neon-green)" />
+                <stop offset="100%" stopColor="var(--neon-cyan)" />
               </linearGradient>
             </defs>
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="font-mono-data text-4xl font-bold neon-text-green">{score}</div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">/ 100</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">/ 100</div>
           </div>
         </div>
         <div className="flex-1 space-y-3">
@@ -138,10 +138,10 @@ const CarbonScoreCard = ({ stats, user }) => {
 const Metric = ({ label, value, delta }) => (
   <div className="flex items-center justify-between">
     <div>
-      <div className="text-xs text-[#9EABBC]">{label}</div>
+      <div className="text-xs text-secondary">{label}</div>
       <div className="font-mono-data text-base">{value}</div>
     </div>
-    <div className={`flex items-center gap-1 text-xs font-mono-data ${delta < 0 ? "text-[#00FFB2]" : "text-[#FFD166]"}`}>
+    <div className={`flex items-center gap-1 text-xs font-mono-data ${delta < 0 ? "text-green" : "text-[#FFD166]"}`}>
       {delta < 0 ? <TrendingDown className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
       {delta}%
     </div>
@@ -152,26 +152,26 @@ const WeeklyTrendCard = ({ data }) => (
   <div className="glass p-6 glass-hover" data-testid="weekly-trend-card">
     <div className="flex items-center justify-between mb-2">
       <div>
-        <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Weekly Trend</div>
+        <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Weekly Trend</div>
         <div className="font-display text-xl mt-1">Emissions per day</div>
       </div>
-      <Sparkles className="h-4 w-4 text-[#00D9FF]" />
+      <Sparkles className="h-4 w-4 text-cyan" />
     </div>
     <div className="h-[200px] mt-2">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="areaGreen" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#00FFB2" stopOpacity={0.4} />
-              <stop offset="100%" stopColor="#00FFB2" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--neon-green)" stopOpacity={0.4} />
+              <stop offset="100%" stopColor="var(--neon-green)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
           <XAxis dataKey="day" stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
           <YAxis stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.2)", borderRadius: 12, color: "#fff" }} />
-          <Area type="monotone" dataKey="kg" stroke="#00FFB2" strokeWidth={2} fill="url(#areaGreen)" />
-          <Line type="monotone" dataKey="target" stroke="#00D9FF" strokeDasharray="3 3" strokeWidth={1.5} dot={false} />
+          <Area type="monotone" dataKey="kg" stroke="var(--neon-green)" strokeWidth={2} fill="url(#areaGreen)" />
+          <Line type="monotone" dataKey="target" stroke="var(--neon-cyan)" strokeDasharray="3 3" strokeWidth={1.5} dot={false} />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -180,7 +180,7 @@ const WeeklyTrendCard = ({ data }) => (
 
 const BreakdownCard = ({ data }) => (
   <div className="glass p-6 glass-hover" data-testid="breakdown-card">
-    <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Sources</div>
+    <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Sources</div>
     <div className="font-display text-xl mt-1">Emission breakdown</div>
     <div className="grid grid-cols-2 gap-3 mt-3 items-center">
       <div className="h-[170px] relative">
@@ -197,8 +197,8 @@ const BreakdownCard = ({ data }) => (
         {data.map((d) => (
           <div key={d.name} className="flex items-center gap-2 text-xs">
             <span className="h-2 w-2 rounded-full" style={{ background: d.color }} />
-            <span className="flex-1 text-[#9EABBC]">{d.name}</span>
-            <span className="font-mono-data text-white">{d.value}%</span>
+            <span className="flex-1 text-secondary">{d.name}</span>
+            <span className="font-mono-data text-main">{d.value}%</span>
           </div>
         ))}
       </div>
@@ -210,12 +210,12 @@ const PredictionCard = ({ data }) => (
   <div className="glass p-6 glass-hover lg:col-span-2" data-testid="prediction-card">
     <div className="flex items-center justify-between mb-4">
       <div>
-        <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Prediction Panel</div>
+        <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// AI Prediction Panel</div>
         <div className="font-display text-xl mt-1">Future Carbon Risk</div>
       </div>
       <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-[#00FFB2]" style={{ boxShadow: "0 0 10px #00FFB2" }} />
-        <span className="font-mono-data text-xs text-[#9EABBC]">Live model</span>
+        <span className="h-2 w-2 rounded-full bg-green" style={{ boxShadow: "0 0 10px #00FFB2" }} />
+        <span className="font-mono-data text-xs text-secondary">Live model</span>
       </div>
     </div>
     <div className="h-[230px]">
@@ -225,26 +225,26 @@ const PredictionCard = ({ data }) => (
           <XAxis dataKey="month" stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
           <YAxis stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
           <Tooltip contentStyle={{ background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.2)", borderRadius: 12, color: "#fff" }} />
-          <Legend wrapperStyle={{ fontSize: 11, color: "#9EABBC" }} />
-          <Line type="monotone" dataKey="actual" stroke="#00FFB2" strokeWidth={2.5} dot={{ r: 3, fill: "#00FFB2" }} name="Actual" />
-          <Line type="monotone" dataKey="predicted" stroke="#00D9FF" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3, fill: "#00D9FF" }} name="Predicted" />
+          <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
+          <Line type="monotone" dataKey="actual" stroke="var(--neon-green)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--neon-green)" }} name="Actual" />
+          <Line type="monotone" dataKey="predicted" stroke="var(--neon-cyan)" strokeWidth={2.5} strokeDasharray="4 4" dot={{ r: 3, fill: "var(--neon-cyan)" }} name="Predicted" />
         </LineChart>
       </ResponsiveContainer>
     </div>
     <div className="grid grid-cols-3 gap-3 mt-4">
-      <RiskMeter label="6-month risk" value={28} color="#00FFB2" />
+      <RiskMeter label="6-month risk" value={28} color="var(--neon-green)" />
       <RiskMeter label="12-month risk" value={42} color="#FFD166" />
-      <RiskMeter label="Trajectory" value="↓ Improving" color="#00D9FF" isText />
+      <RiskMeter label="Trajectory" value="↓ Improving" color="var(--neon-cyan)" isText />
     </div>
   </div>
 );
 
 const RiskMeter = ({ label, value, color, isText }) => (
-  <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3">
-    <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">{label}</div>
+  <div className="bg-widget border border-glass-border rounded-xl p-3">
+    <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">{label}</div>
     <div className="font-mono-data text-lg mt-1" style={{ color }}>{isText ? value : `${value}%`}</div>
     {!isText && (
-      <div className="h-1 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
+      <div className="h-1 w-full bg-widget rounded-full mt-2 overflow-hidden">
         <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} transition={{ duration: 1.2 }} className="h-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
       </div>
     )}
@@ -282,24 +282,24 @@ const ChatCard = () => {
     <div className="glass p-6 glass-hover flex flex-col" data-testid="chat-card" style={{ minHeight: 380 }}>
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Coach</div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// AI Coach</div>
           <div className="font-display text-xl mt-1">Sustainability Chat</div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-[#00FFB2]" style={{ boxShadow: "0 0 10px #00FFB2" }} />
-          <span className="font-mono-data text-xs text-[#9EABBC]">Gemini</span>
+          <span className="h-2 w-2 rounded-full bg-green" style={{ boxShadow: "0 0 10px #00FFB2" }} />
+          <span className="font-mono-data text-xs text-secondary">Gemini</span>
         </div>
       </div>
       <div ref={listRef} className="flex-1 mt-3 space-y-2 overflow-y-auto pr-1 max-h-[280px]">
         {messages.map((m, i) => (
           <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`px-3.5 py-2 rounded-2xl max-w-[85%] text-sm leading-relaxed ${m.role === "user" ? "bg-[#00FFB2]/15 border border-[#00FFB2]/25 text-white" : "bg-white/[0.04] border border-white/[0.06] text-[#cfd8e0]"}`}>
+            <div className={`px-3.5 py-2 rounded-2xl max-w-[85%] text-sm leading-relaxed ${m.role === "user" ? "bg-green/15 border border-green/25 text-main" : "bg-widget border border-glass-border text-main"}`}>
               {m.text}
             </div>
           </div>
         ))}
         {sending && (
-          <div className="text-xs font-mono-data text-[#9EABBC] flex items-center gap-2 px-2"><span className="h-1.5 w-1.5 rounded-full bg-[#00FFB2] animate-pulse" /> Thinking...</div>
+          <div className="text-xs font-mono-data text-secondary flex items-center gap-2 px-2"><span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" /> Thinking...</div>
         )}
       </div>
       <div className="flex gap-2 mt-3">
@@ -340,20 +340,20 @@ const VoiceCard = ({ stats }) => {
 
   return (
     <div className="glass p-6 glass-hover relative overflow-hidden" data-testid="voice-card">
-      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// AI Voice Assistant</div>
+      <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// AI Voice Assistant</div>
       <div className="font-display text-xl mt-1">Listen to your week</div>
 
       <div className="relative mt-5 flex items-center justify-center h-[120px]">
         <motion.div
           animate={speaking ? { scale: [1, 1.15, 1] } : { scale: 1 }}
           transition={{ repeat: Infinity, duration: 1.5 }}
-          className="absolute h-24 w-24 rounded-full bg-[#00FFB2]/10 border border-[#00FFB2]/30"
+          className="absolute h-24 w-24 rounded-full bg-green/10 border border-green/30"
           style={{ boxShadow: "0 0 40px rgba(0,255,178,0.25)" }}
         />
         <button
           data-testid="voice-analyze-btn"
           onClick={speaking ? stop : analyze}
-          className="relative h-16 w-16 rounded-full bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center text-[#071014] font-bold transition hover:scale-105"
+          className="relative h-16 w-16 rounded-full bg-gradient-to-br from-green to-cyan flex items-center justify-center text-[#071014] font-bold transition hover:scale-105"
           style={{ boxShadow: "0 0 30px rgba(0,255,178,0.55)" }}
         >
           {speaking ? <Volume2 className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
@@ -362,7 +362,7 @@ const VoiceCard = ({ stats }) => {
       {speaking && (
         <div className="flex items-end justify-center gap-1 h-6 mt-1">
           {Array.from({ length: 14 }).map((_, i) => (
-            <span key={i} className="wave-bar w-[3px] bg-[#00FFB2]" style={{ height: `${10 + (i % 3) * 6}px`, animationDelay: `${i * 0.05}s` }} />
+            <span key={i} className="wave-bar w-[3px] bg-green" style={{ height: `${10 + (i % 3) * 6}px`, animationDelay: `${i * 0.05}s` }} />
           ))}
         </div>
       )}
@@ -389,10 +389,10 @@ const AchievementsCard = ({ items }) => {
     <div className="glass p-6 glass-hover" data-testid="achievements-card">
       <div className="flex items-center justify-between">
         <div>
-          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Eco XP</div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Eco XP</div>
           <div className="font-display text-xl mt-1">Achievements</div>
         </div>
-        <ArrowUpRight className="h-4 w-4 text-[#9EABBC]" />
+        <ArrowUpRight className="h-4 w-4 text-secondary" />
       </div>
       <div className="grid grid-cols-2 gap-3 mt-4">
         {items.map((a) => {
@@ -401,14 +401,14 @@ const AchievementsCard = ({ items }) => {
             <button
               key={a.id}
               onClick={() => show(a)}
-              className={`text-left p-3 rounded-xl border transition hover:scale-[1.02] ${a.earned ? "bg-[#00FFB2]/[0.04] border-[#00FFB2]/20 hover:border-[#00FFB2]/40" : "bg-white/[0.02] border-white/[0.05] opacity-60 hover:opacity-80"}`}
+              className={`text-left p-3 rounded-xl border transition hover:scale-[1.02] ${a.earned ? "bg-green/[0.04] border-green/20 hover:border-green/40" : "bg-widget border-glass-border opacity-60 hover:opacity-80"}`}
               data-testid={`achievement-${a.id}`}
             >
-              <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${a.earned ? "bg-[#00FFB2]/15 text-[#00FFB2]" : "bg-white/5 text-[#9EABBC]"}`}>
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center mb-2 ${a.earned ? "bg-green/15 text-green" : "bg-widget text-secondary"}`}>
                 <Icon className="h-4 w-4" />
               </div>
               <div className="font-medium text-sm">{a.title}</div>
-              <div className="text-[11px] text-[#9EABBC] mt-0.5">{a.desc}</div>
+              <div className="text-[11px] text-secondary mt-0.5">{a.desc}</div>
             </button>
           );
         })}
@@ -425,7 +425,7 @@ const RecommendationsCard = ({ items: initial }) => {
   };
   return (
     <div className="glass p-6 glass-hover" data-testid="recommendations-card">
-      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Smart tips</div>
+      <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Smart tips</div>
       <div className="font-display text-xl mt-1">Recommendations</div>
       <div className="mt-3 space-y-2">
         {items.map((r) => (
@@ -433,18 +433,18 @@ const RecommendationsCard = ({ items: initial }) => {
             key={r.id}
             onClick={() => !r.applied && apply(r)}
             disabled={r.applied}
-            className={`w-full text-left p-3 rounded-xl border transition group ${r.applied ? "bg-[#00FFB2]/[0.06] border-[#00FFB2]/30" : "bg-white/[0.02] border-white/[0.05] hover:border-[#00FFB2]/20 hover:bg-white/[0.04]"}`}
+            className={`w-full text-left p-3 rounded-xl border transition group ${r.applied ? "bg-green/[0.06] border-green/30" : "bg-widget border-glass-border hover:border-green/20 hover:bg-widget"}`}
             data-testid={`rec-${r.id}`}
           >
             <div className="flex items-center justify-between">
               <div className="text-sm">{r.title}</div>
               {r.applied ? (
-                <span className="font-mono-data text-[10px] text-[#00FFB2] flex items-center gap-1">✓ Applied</span>
+                <span className="font-mono-data text-[10px] text-green flex items-center gap-1">✓ Applied</span>
               ) : (
-                <ArrowUpRight className="h-4 w-4 text-[#5C6B7A] group-hover:text-[#00FFB2] transition" />
+                <ArrowUpRight className="h-4 w-4 text-[#5C6B7A] group-hover:text-green transition" />
               )}
             </div>
-            <div className="font-mono-data text-[11px] mt-1 text-[#00FFB2]">{r.impact}</div>
+            <div className="font-mono-data text-[11px] mt-1 text-green">{r.impact}</div>
           </button>
         ))}
       </div>

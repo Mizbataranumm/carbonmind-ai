@@ -21,7 +21,7 @@ const Community = () => {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
 
-  if (!feed) return <div className="font-mono-data text-[#9EABBC]">Loading community...</div>;
+  if (!feed) return <div className="font-mono-data text-secondary">Loading community...</div>;
 
   const toggleLike = async (postId) => {
     // Optimistic update
@@ -92,17 +92,17 @@ const Community = () => {
       <div className="lg:col-span-2 space-y-4">
         <div className="glass p-6 glass-hover flex items-center justify-between">
           <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Eco social</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Eco social</div>
             <div className="font-display text-2xl mt-1">Sustainability feed</div>
-            <p className="text-sm text-[#9EABBC] mt-1">Real wins from your eco-collective.</p>
+            <p className="text-sm text-secondary mt-1">Real wins from your eco-collective.</p>
           </div>
-          <UsersIcon className="h-5 w-5 text-[#00D9FF]" />
+          <UsersIcon className="h-5 w-5 text-cyan" />
         </div>
 
         {/* Post composer */}
         <div className="glass p-5 glass-hover" data-testid="post-composer">
           <div className="flex items-start gap-3">
-            <img src={user?.avatar} alt={user?.name} className="h-10 w-10 rounded-full bg-[#0d1f27] border border-white/10" />
+            <img src={user?.avatar} alt={user?.name} className="h-10 w-10 rounded-full bg-[#0d1f27] border border-glass-border" />
             <div className="flex-1">
               <textarea
                 value={newPostText}
@@ -117,7 +117,7 @@ const Community = () => {
                     <button
                       key={t}
                       onClick={() => setNewPostTag(t)}
-                      className={`text-[11px] px-2 py-1 rounded-full border transition ${newPostTag === t ? "bg-[#00FFB2]/10 border-[#00FFB2]/40 text-[#00FFB2]" : "bg-white/[0.02] border-white/[0.06] text-[#9EABBC] hover:text-white"}`}
+                      className={`text-[11px] px-2 py-1 rounded-full border transition ${newPostTag === t ? "bg-green/10 border-green/40 text-green" : "bg-widget border-glass-border text-secondary hover:text-main"}`}
                       data-testid={`post-tag-${t}`}
                     >#{t}</button>
                   ))}
@@ -145,27 +145,27 @@ const Community = () => {
             data-testid={`post-${p.id}`}
           >
             <div className="flex items-start gap-4">
-              <img src={p.avatar} alt={p.user} className="h-11 w-11 rounded-full bg-[#0d1f27] border border-white/10" />
+              <img src={p.avatar} alt={p.user} className="h-11 w-11 rounded-full bg-[#0d1f27] border border-glass-border" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <div className="font-medium">{p.user}</div>
-                    <div className="font-mono-data text-[10px] text-[#9EABBC] mt-0.5">{p.time} ago · #{p.tag}</div>
+                    <div className="font-mono-data text-[10px] text-secondary mt-0.5">{p.time} ago · #{p.tag}</div>
                   </div>
-                  <span className="font-mono-data text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-[#00FFB2]/10 text-[#00FFB2] border border-[#00FFB2]/20">{p.tag}</span>
+                  <span className="font-mono-data text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-green/10 text-green border border-green/20">{p.tag}</span>
                 </div>
-                <p className="mt-3 text-sm text-[#cfd8e0] leading-relaxed">{p.text}</p>
+                <p className="mt-3 text-sm text-main leading-relaxed">{p.text}</p>
                 <div className="flex items-center gap-5 mt-4 text-xs">
                   <button
                     onClick={() => toggleLike(p.id)}
-                    className={`flex items-center gap-1.5 transition ${p.liked_by_me ? "text-[#00FFB2]" : "text-[#9EABBC] hover:text-[#00FFB2]"}`}
+                    className={`flex items-center gap-1.5 transition ${p.liked_by_me ? "text-green" : "text-secondary hover:text-green"}`}
                     data-testid={`like-${p.id}`}
                   >
-                    <Heart className={`h-3.5 w-3.5 transition ${p.liked_by_me ? "fill-[#00FFB2]" : ""}`} /> {p.likes}
+                    <Heart className={`h-3.5 w-3.5 transition ${p.liked_by_me ? "fill-green" : ""}`} /> {p.likes}
                   </button>
                   <button
                     onClick={() => toggleComments(p.id)}
-                    className="flex items-center gap-1.5 text-[#9EABBC] hover:text-white transition"
+                    className="flex items-center gap-1.5 text-secondary hover:text-main transition"
                     data-testid={`comment-${p.id}`}
                   >
                     <MessageCircle className="h-3.5 w-3.5" /> {(p.comments || []).length > 0 ? `${p.comments.length} ${p.comments.length === 1 ? "reply" : "replies"}` : "Reply"}
@@ -180,11 +180,11 @@ const Community = () => {
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="mt-4 space-y-2 border-l border-white/[0.06] pl-3">
+                      <div className="mt-4 space-y-2 border-l border-glass-border pl-3">
                         {(p.comments || []).map((c) => (
-                          <div key={c.id} className="text-xs bg-white/[0.02] border border-white/[0.05] rounded-lg px-3 py-2">
-                            <span className="font-medium text-[#cfd8e0]">{c.user}</span>
-                            <span className="text-[#9EABBC] ml-2">{c.text}</span>
+                          <div key={c.id} className="text-xs bg-widget border border-glass-border rounded-lg px-3 py-2">
+                            <span className="font-medium text-main">{c.user}</span>
+                            <span className="text-secondary ml-2">{c.text}</span>
                           </div>
                         ))}
                         <div className="flex gap-2 pt-1">
@@ -219,29 +219,29 @@ const Community = () => {
         <div className="glass p-6 glass-hover" data-testid="challenges-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Active</div>
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Active</div>
               <div className="font-display text-xl mt-1">Eco challenges</div>
             </div>
             <Flame className="h-4 w-4 text-[#FFD166]" />
           </div>
           <div className="space-y-3">
             {visibleChallenges.map((c) => (
-              <div key={c.id} className={`p-3.5 rounded-xl border transition ${c.joined_by_me ? "bg-[#00FFB2]/8 border-[#00FFB2]/30" : "bg-white/[0.02] border-white/[0.05]"}`} data-testid={`challenge-${c.id}`}>
+              <div key={c.id} className={`p-3.5 rounded-xl border transition ${c.joined_by_me ? "bg-green/8 border-green/30" : "bg-widget border-glass-border"}`} data-testid={`challenge-${c.id}`}>
                 <div className="flex items-center justify-between">
                   <div className="font-medium text-sm">{c.title}</div>
-                  <span className="font-mono-data text-[10px] text-[#00FFB2]">{c.reward}</span>
+                  <span className="font-mono-data text-[10px] text-green">{c.reward}</span>
                 </div>
-                {c.description && <div className="text-[11px] text-[#9EABBC] mt-1">{c.description}</div>}
-                <div className="flex items-center justify-between mt-2 text-[11px] text-[#9EABBC] font-mono-data">
+                {c.description && <div className="text-[11px] text-secondary mt-1">{c.description}</div>}
+                <div className="flex items-center justify-between mt-2 text-[11px] text-secondary font-mono-data">
                   <span>{c.members.toLocaleString()} joined</span>
                   <span>{c.days_left}d left</span>
                 </div>
-                <div className="h-1 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(20, 100 - c.days_left * 6)}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-[#00FFB2] to-[#00D9FF]" />
+                <div className="h-1 w-full bg-widget rounded-full mt-2 overflow-hidden">
+                  <motion.div initial={{ width: 0 }} animate={{ width: `${Math.max(20, 100 - c.days_left * 6)}%` }} transition={{ duration: 1 }} className="h-full bg-gradient-to-r from-green to-cyan" />
                 </div>
                 <button
                   onClick={() => toggleJoin(c.id)}
-                  className={`mt-3 w-full text-xs py-2 rounded-lg transition inline-flex items-center justify-center gap-1.5 ${c.joined_by_me ? "bg-[#00FFB2]/15 text-[#00FFB2] border border-[#00FFB2]/30" : "bg-white/[0.03] text-white border border-white/[0.08] hover:border-[#00FFB2]/30"}`}
+                  className={`mt-3 w-full text-xs py-2 rounded-lg transition inline-flex items-center justify-center gap-1.5 ${c.joined_by_me ? "bg-green/15 text-green border border-green/30" : "bg-widget text-main border border-white/[0.08] hover:border-green/30"}`}
                   data-testid={`join-${c.id}`}
                 >
                   {c.joined_by_me ? (<><Check className="h-3 w-3" /> Joined</>) : (<><Plus className="h-3 w-3" /> Join challenge</>)}
@@ -255,7 +255,7 @@ const Community = () => {
               className="btn-ghost w-full mt-4 text-sm"
               data-testid="browse-challenges-btn"
             >
-              <Sparkles className="h-4 w-4 inline-block mr-2 text-[#00FFB2]" />
+              <Sparkles className="h-4 w-4 inline-block mr-2 text-green" />
               {showAllChallenges ? "Show fewer" : `Browse all ${feed.challenges.length} challenges`}
             </button>
           )}
@@ -264,21 +264,21 @@ const Community = () => {
         <div className="glass p-6 glass-hover" data-testid="leaderboard-card">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Top eco-citizens</div>
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Top eco-citizens</div>
               <div className="font-display text-xl mt-1">Leaderboard</div>
             </div>
             <Trophy className="h-4 w-4 text-[#FFD166]" />
           </div>
           <div className="space-y-2">
             {feed.leaderboard.map((l) => (
-              <div key={l.rank} className={`flex items-center justify-between p-3 rounded-xl border ${l.user === "You" ? "bg-[#00FFB2]/8 border-[#00FFB2]/30" : "bg-white/[0.02] border-white/[0.05]"}`}>
+              <div key={l.rank} className={`flex items-center justify-between p-3 rounded-xl border ${l.user === "You" ? "bg-green/8 border-green/30" : "bg-widget border-glass-border"}`}>
                 <div className="flex items-center gap-3">
-                  <div className="font-mono-data text-sm text-[#9EABBC] w-5">#{l.rank}</div>
+                  <div className="font-mono-data text-sm text-secondary w-5">#{l.rank}</div>
                   <div className="font-medium text-sm">{l.user}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono-data text-xs text-[#00FFB2]">{l.xp.toLocaleString()} XP</span>
-                  <span className="font-mono-data text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/[0.08]">{l.grade}</span>
+                  <span className="font-mono-data text-xs text-green">{l.xp.toLocaleString()} XP</span>
+                  <span className="font-mono-data text-[10px] px-1.5 py-0.5 rounded bg-widget border border-white/[0.08]">{l.grade}</span>
                 </div>
               </div>
             ))}

@@ -85,14 +85,14 @@ const Scan = () => {
       <div className="glass p-7 glass-hover">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Novel Feature 03</div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Novel Feature 03</div>
             <h2 className="font-display text-3xl mt-1">Food Carbon Scanner</h2>
-            <p className="text-sm text-[#9EABBC] mt-2 max-w-2xl">
+            <p className="text-sm text-secondary mt-2 max-w-2xl">
               Point your camera at a meal or a menu. AI identifies items in seconds and shows
               the CO₂ footprint of your plate — zero manual entry.
             </p>
           </div>
-          <span className="font-mono-data text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-[#00FFB2]/10 text-[#00FFB2] border border-[#00FFB2]/25">
+          <span className="font-mono-data text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-green/10 text-green border border-green/25">
             IPCC food factors
           </span>
         </div>
@@ -101,7 +101,7 @@ const Scan = () => {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Camera / preview panel */}
         <div className="glass p-6 glass-hover">
-          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Capture</div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Capture</div>
           <div className="relative mt-3 aspect-video w-full rounded-xl overflow-hidden bg-[#0a161c] border border-white/[0.08] flex items-center justify-center">
             {/* Always render video so ref exists when attaching stream */}
             <video 
@@ -130,19 +130,19 @@ const Scan = () => {
             
             {!cameraOn && !previewImg && (
               <div className="text-center p-8 z-10 absolute inset-0 flex flex-col items-center justify-center">
-                <ScanLine className="h-12 w-12 text-[#00FFB2] mx-auto opacity-40" />
-                <div className="font-mono-data text-xs text-[#9EABBC] mt-3 uppercase tracking-widest">Camera inactive</div>
+                <ScanLine className="h-12 w-12 text-green mx-auto opacity-40" />
+                <div className="font-mono-data text-xs text-secondary mt-3 uppercase tracking-widest">Camera inactive</div>
                 <div className="text-sm text-[#5C6B7A] mt-1">Start camera or upload a photo</div>
               </div>
             )}
             {scanning && (
-              <div className="absolute inset-0 bg-[#071014]/70 backdrop-blur-sm flex flex-col items-center justify-center">
+              <div className="absolute inset-0 bg-app/70 backdrop-blur-sm flex flex-col items-center justify-center">
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
                   className="h-10 w-10 rounded-full border-2 border-[#00FFB2] border-t-transparent"
                 />
-                <div className="font-mono-data text-xs text-[#00FFB2] mt-3 uppercase tracking-widest">AI analyzing food...</div>
+                <div className="font-mono-data text-xs text-green mt-3 uppercase tracking-widest">AI analyzing food...</div>
               </div>
             )}
           </div>
@@ -176,7 +176,7 @@ const Scan = () => {
           </div>
 
           <div className="mt-4">
-            <label className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC]">Hint (optional)</label>
+            <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Hint (optional)</label>
             <input
               value={hint}
               onChange={(e) => setHint(e.target.value)}
@@ -191,11 +191,11 @@ const Scan = () => {
 
         {/* Results */}
         <div className="glass p-6 glass-hover" data-testid="scan-results">
-          <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2]">// Detected items</div>
+          <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Detected items</div>
           <div className="font-display text-xl mt-1">Meal breakdown</div>
 
           {!result && !scanning && (
-            <div className="text-sm text-[#9EABBC] mt-6 text-center py-12">
+            <div className="text-sm text-secondary mt-6 text-center py-12">
               Scan a meal to see instant CO₂ analysis
             </div>
           )}
@@ -203,7 +203,7 @@ const Scan = () => {
           {scanning && (
             <div className="mt-6 space-y-2">
               {[0, 1, 2].map(i => (
-                <div key={i} className="h-14 rounded-xl bg-white/[0.03] animate-pulse" />
+                <div key={i} className="h-14 rounded-xl bg-widget animate-pulse" />
               ))}
             </div>
           )}
@@ -211,10 +211,10 @@ const Scan = () => {
           <AnimatePresence>
             {result && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
-                <div className="p-4 rounded-xl bg-[#00FFB2]/5 border border-[#00FFB2]/20">
-                  <div className="font-mono-data text-[11px] text-[#9EABBC]">Total meal impact</div>
-                  <div className="font-mono-data text-4xl neon-text-green mt-1">{result.total_co2_kg} <span className="text-lg text-[#9EABBC]">kg CO₂</span></div>
-                  <div className="text-sm text-[#cfd8e0] mt-2">{result.ai_note}</div>
+                <div className="p-4 rounded-xl bg-green/5 border border-green/20">
+                  <div className="font-mono-data text-[11px] text-secondary">Total meal impact</div>
+                  <div className="font-mono-data text-4xl neon-text-green mt-1">{result.total_co2_kg} <span className="text-lg text-secondary">kg CO₂</span></div>
+                  <div className="text-sm text-main mt-2">{result.ai_note}</div>
                 </div>
 
                 <div className="mt-4 space-y-2">
@@ -224,17 +224,17 @@ const Scan = () => {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.08 }}
-                      className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                      className="p-3 rounded-xl bg-widget border border-glass-border"
                       data-testid={`food-item-${i}`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm">{item.name}</div>
-                          <div className="font-mono-data text-[11px] text-[#9EABBC]">{item.portion} · {item.category}</div>
+                          <div className="font-mono-data text-[11px] text-secondary">{item.portion} · {item.category}</div>
                         </div>
-                        <div className="font-mono-data text-lg text-[#00FFB2]">{item.co2_kg} kg</div>
+                        <div className="font-mono-data text-lg text-green">{item.co2_kg} kg</div>
                       </div>
-                      <div className="text-[11px] text-[#9EABBC] mt-1.5 italic">💡 {item.tip}</div>
+                      <div className="text-[11px] text-secondary mt-1.5 italic">💡 {item.tip}</div>
                     </motion.div>
                   ))}
                 </div>

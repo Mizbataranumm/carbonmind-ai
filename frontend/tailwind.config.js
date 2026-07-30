@@ -15,6 +15,18 @@ module.exports = {
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
+  			app: 'var(--app-bg)',
+  			base: 'var(--bg-primary)',
+  			panel: 'var(--bg-secondary)',
+  			main: 'var(--text-primary)',
+  			muted: 'var(--text-muted)',
+  			secondary: 'var(--text-secondary)',
+  			'glass': 'var(--glass-bg)',
+  			'glass-border': 'var(--glass-border)',
+  			'widget': 'var(--widget-bg)',
+  			'widget-hover': 'var(--widget-hover-bg)',
+  			green: 'var(--neon-green)',
+  			cyan: 'var(--neon-cyan)',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
@@ -26,18 +38,6 @@ module.exports = {
   			primary: {
   				DEFAULT: 'hsl(var(--primary))',
   				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
-  			},
-  			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
-  			},
-  			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
   			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',

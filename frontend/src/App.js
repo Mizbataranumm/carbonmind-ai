@@ -14,6 +14,7 @@ import Community from "@/pages/Community";
 import Predict from "@/pages/Predict";
 import Scan from "@/pages/Scan";
 import Certificate from "@/pages/Certificate";
+import Profile from "@/pages/Profile";
 import AppLayout from "@/components/AppLayout";
 import { UserProvider } from "@/lib/UserContext";
 
@@ -41,6 +42,7 @@ function App() {
               <Route path="/scan" element={<Scan />} />
               <Route path="/certificate" element={<Certificate />} />
               <Route path="/community" element={<Community />} />
+              <Route path="/profile" element={<Profile />} />
             </Route>
           </Routes>
         </AnimatePresence>

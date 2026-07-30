@@ -99,7 +99,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
           data-testid="voice-call-modal"
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-[#071014]/90 backdrop-blur-2xl" onClick={phase === "ended" ? onClose : undefined} />
+          <div className="absolute inset-0 bg-app/90 backdrop-blur-2xl" onClick={phase === "ended" ? onClose : undefined} />
 
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -114,7 +114,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                   {[0, 1, 2].map(i => (
                     <motion.div
                       key={i}
-                      className="absolute left-1/2 top-[130px] -translate-x-1/2 rounded-full border border-[#00FFB2]/30 pointer-events-none"
+                      className="absolute left-1/2 top-[130px] -translate-x-1/2 rounded-full border border-green/30 pointer-events-none"
                       initial={{ width: 100, height: 100, opacity: 0.6 }}
                       animate={{ width: 340, height: 340, opacity: 0 }}
                       transition={{ duration: 2.4, repeat: Infinity, delay: i * 0.8, ease: "easeOut" }}
@@ -124,7 +124,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
               )}
 
               <div className="relative">
-                <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#00FFB2] mb-2">
+                <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mb-2">
                   {phase === "ringing" && "// Incoming AI Call · Weekly Briefing"}
                   {phase === "connected" && "// Call connected · CarbonMind AI"}
                   {phase === "ended" && "// Call ended"}
@@ -134,7 +134,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                   <motion.div
                     animate={phase === "connected" ? { scale: [1, 1.1, 1] } : phase === "ringing" ? { rotate: [-8, 8, -8] } : { scale: 1 }}
                     transition={phase === "connected" ? { repeat: Infinity, duration: 1.4 } : { repeat: Infinity, duration: 0.6 }}
-                    className="h-32 w-32 rounded-full bg-gradient-to-br from-[#00FFB2] to-[#00D9FF] flex items-center justify-center"
+                    className="h-32 w-32 rounded-full bg-gradient-to-br from-green to-cyan flex items-center justify-center"
                     style={{ boxShadow: "0 0 60px rgba(0,255,178,0.4)" }}
                   >
                     {phase === "connected" ? (
@@ -146,11 +146,11 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                 </div>
 
                 <div className="font-display text-2xl mt-4">CarbonMind AI</div>
-                <div className="font-mono-data text-xs text-[#9EABBC] mt-1">
+                <div className="font-mono-data text-xs text-secondary mt-1">
                   {phase === "ringing" && "Weekly sustainability check-in"}
                   {phase === "connected" && (
                     <span className="flex items-center justify-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#00FFB2] animate-pulse" style={{ boxShadow: "0 0 8px #00FFB2" }} />
+                      <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" style={{ boxShadow: "0 0 8px #00FFB2" }} />
                       {fmtTime(timer)}
                     </span>
                   )}
@@ -163,7 +163,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                     key={caption}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-5 p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-[#cfd8e0] leading-relaxed min-h-[60px] flex items-center justify-center"
+                    className="mt-5 p-4 rounded-xl bg-widget border border-white/[0.08] text-sm text-main leading-relaxed min-h-[60px] flex items-center justify-center"
                     data-testid="call-caption"
                   >
                     {caption}
@@ -171,7 +171,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                 )}
 
                 {phase === "ended" && (
-                  <div className="mt-5 text-sm text-[#9EABBC]">Tap outside or close to dismiss.</div>
+                  <div className="mt-5 text-sm text-secondary">Tap outside or close to dismiss.</div>
                 )}
 
                 {/* Buttons */}
@@ -184,12 +184,12 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                         style={{ boxShadow: "0 0 20px rgba(255,77,77,0.4)" }}
                         data-testid="call-decline-btn"
                       >
-                        <PhoneOff className="h-6 w-6 text-white" />
+                        <PhoneOff className="h-6 w-6 text-main" />
                       </button>
                       <button
                         onClick={accept}
                         disabled={!tips}
-                        className="h-14 w-14 rounded-full bg-[#00FFB2] flex items-center justify-center hover:scale-105 transition disabled:opacity-50"
+                        className="h-14 w-14 rounded-full bg-green flex items-center justify-center hover:scale-105 transition disabled:opacity-50"
                         style={{ boxShadow: "0 0 20px rgba(0,255,178,0.55)" }}
                         data-testid="call-accept-btn"
                       >
@@ -197,8 +197,8 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                       </button>
                     </div>
                     {!tips && (
-                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-[#9EABBC] flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#00FFB2] animate-pulse" />
+                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary flex items-center gap-1.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
                         Preparing personalized briefing...
                       </div>
                     )}
@@ -213,7 +213,7 @@ const VoiceCallModal = ({ open, onClose, userName = "there", weeklyKg = 41.8, to
                       style={{ boxShadow: "0 0 20px rgba(255,77,77,0.4)" }}
                       data-testid="call-end-btn"
                     >
-                      <PhoneOff className="h-5 w-5 text-white" />
+                      <PhoneOff className="h-5 w-5 text-main" />
                     </button>
                   </div>
                 )}
