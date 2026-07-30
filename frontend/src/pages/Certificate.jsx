@@ -10,7 +10,7 @@ const Certificate = () => {
   const { user } = useUser();
   const [cert, setCert] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(24.8);
+  const [saved, setSaved] = useState(user?.xp === 0 ? 0 : 24.8);
   const certRef = useRef(null);
 
   const issue = async () => {
@@ -96,6 +96,16 @@ const Certificate = () => {
       </div>
 
       {/* THE CERTIFICATE — captured to PNG */}
+      {user?.xp === 0 && saved === 0 ? (
+        <div className="text-center py-20 glass rounded-3xl border border-dashed border-glass-border flex flex-col items-center">
+          <Award className="h-12 w-12 text-secondary mb-4 opacity-50" />
+          <h3 className="font-display text-2xl">No emissions tracked yet</h3>
+          <p className="text-secondary mt-2 max-w-md">
+            Start logging your daily transport, meals, and energy usage. 
+            Once you generate carbon savings, you can issue your first verified certificate!
+          </p>
+        </div>
+      ) : (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -223,6 +233,7 @@ const Certificate = () => {
           </div>
         </div>
       </motion.div>
+      )}
     </div>
   );
 };
