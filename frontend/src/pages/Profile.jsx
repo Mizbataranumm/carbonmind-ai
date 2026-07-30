@@ -5,6 +5,8 @@ import { useUser } from "@/lib/UserContext";
 
 const Profile = () => {
   const { user, setUser } = useUser();
+  const [pushNotifs, setPushNotifs] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   if (!user) return null;
 
@@ -16,6 +18,11 @@ const Profile = () => {
       setUser({ ...user, avatar: ev.target.result });
     };
     reader.readAsDataURL(file);
+  };
+
+  const randomizeAvatar = () => {
+    const seed = Math.random().toString(36).substring(7);
+    setUser({ ...user, avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}` });
   };
 
   return (
@@ -79,17 +86,22 @@ const Profile = () => {
         <div className="space-y-4">
           <h2 className="font-display text-xl ml-2">Preferences</h2>
           <div className="glass rounded-2xl overflow-hidden">
-            <SettingRow icon={Bell} title="Push Notifications" desc="Alerts for streaks and limits" active />
-            <SettingRow icon={Shield} title="Private Profile" desc="Hide stats from community leaderboard" />
+            <SettingRow icon={Bell} title="Push Notifications" desc="Alerts for streaks and limits" active={pushNotifs} onClick={() => setPushNotifs(!pushNotifs)} />
+            <SettingRow icon={Shield} title="Private Profile" desc="Hide stats from community leaderboard" active={isPrivate} onClick={() => setIsPrivate(!isPrivate)} />
             <SettingRow 
               icon={User} 
               title="Edit Avatar" 
               desc="Change your profile picture" 
               action={
-                <label className="text-xs font-mono-data text-green px-3 py-1.5 rounded-lg bg-green/10 hover:bg-green/20 transition cursor-pointer">
-                  Upload
-                  <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
-                </label>
+                <div className="flex gap-2">
+                  <button onClick={randomizeAvatar} className="text-xs font-mono-data text-cyan px-3 py-1.5 rounded-lg bg-cyan/10 hover:bg-cyan/20 transition">
+                    Random
+                  </button>
+                  <label className="text-xs font-mono-data text-green px-3 py-1.5 rounded-lg bg-green/10 hover:bg-green/20 transition cursor-pointer">
+                    Upload
+                    <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                  </label>
+                </div>
               } 
             />
           </div>
@@ -115,7 +127,7 @@ const Profile = () => {
   );
 };
 
-const SettingRow = ({ icon: Icon, title, desc, active, action }) => (
+const SettingRow = ({ icon: Icon, title, desc, active, action, onClick }) => (
   <div className="flex items-center justify-between p-4 border-b border-glass-border last:border-0 hover:bg-widget transition">
     <div className="flex items-center gap-4">
       <div className="h-10 w-10 rounded-xl bg-widget flex items-center justify-center border border-glass-border">
@@ -133,7 +145,7 @@ const SettingRow = ({ icon: Icon, title, desc, active, action }) => (
         </button>
       ) : action
     ) : (
-      <div className={`h-6 w-11 rounded-full p-1 transition-colors cursor-pointer ${active ? 'bg-green' : 'bg-widget border border-glass-border'}`}>
+      <div onClick={onClick} className={`h-6 w-11 rounded-full p-1 transition-colors cursor-pointer ${active ? 'bg-green' : 'bg-widget border border-glass-border'}`}>
         <div className={`h-4 w-4 rounded-full bg-white transition-transform ${active ? 'translate-x-5' : 'translate-x-0 bg-secondary'}`} />
       </div>
     )}
