@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import "@/App.css";
 import "@/index.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -18,6 +18,12 @@ import AppLayout from "@/components/AppLayout";
 import { UserProvider } from "@/lib/UserContext";
 
 function App() {
+  useEffect(() => {
+    // Eagerly wake up the backend (Render free tier sleeps after 15 mins)
+    const url = process.env.REACT_APP_BACKEND_URL;
+    if (url) fetch(url).catch(() => {});
+  }, []);
+
   return (
     <UserProvider>
       <BrowserRouter>
