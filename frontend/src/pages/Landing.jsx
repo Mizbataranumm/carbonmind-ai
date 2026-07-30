@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Sparkles, BarChart3, Mic, Globe2, Brain, Leaf, ShieldCheck, Activity } from "lucide-react";
+import { ArrowRight, Sparkles, BarChart3, Mic, Globe2, Brain, Leaf, ShieldCheck, Activity, Sun, Moon } from "lucide-react";
 import ParticleField from "@/components/ParticleField";
 import AnimatedEarth from "@/components/AnimatedEarth";
 
@@ -22,6 +22,15 @@ const features = [
 
 const Landing = () => {
   const navigate = useNavigate();
+  const [theme, setTheme] = useState(localStorage.getItem("theme") || "dark");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <div className="grid-bg absolute inset-0 opacity-30 pointer-events-none" />
@@ -30,7 +39,7 @@ const Landing = () => {
       <nav className="relative z-20 px-6 lg:px-12 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
-            <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
+            <Leaf className="h-4 w-4 text-app" strokeWidth={2.5} />
           </div>
           <div className="font-display font-bold text-lg">CarbonMind</div>
           <span className="font-mono-data text-[10px] uppercase tracking-widest text-green border border-green/30 px-1.5 py-0.5 rounded">AI</span>
@@ -40,7 +49,16 @@ const Landing = () => {
           <a className="hover:text-main transition" href="#research">Research</a>
           <a className="hover:text-main transition" href="#future">Future</a>
         </div>
-        <button data-testid="landing-cta-top" onClick={() => navigate("/auth")} className="btn-ghost text-sm">Launch app</button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={toggleTheme}
+            className="h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
+            aria-label="Toggle theme"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4 text-secondary" /> : <Moon className="h-4 w-4 text-secondary" />}
+          </button>
+          <button data-testid="landing-cta-top" onClick={() => navigate("/auth")} className="btn-ghost text-sm">Launch app</button>
+        </div>
       </nav>
 
       {/* HERO */}
