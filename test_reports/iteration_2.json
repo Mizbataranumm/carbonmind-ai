@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 2: Validated 4 NEW novel features on CarbonMind AI. Backend 7/7 pytest passed (predict/day exceeds+under-budget, voice/call-tips, food/scan with+without hint, certificate/generate with+defaults). Frontend flows all confirmed via Playwright on preview URL: (1) /predict — predict-btn triggers /api/predict/day, predict-result renders with AI headline, 4 equivalents cards, and 24-hour Recharts area chart with budget ReferenceLine; (2) Dashboard ai-call-banner + answer-call-btn opens VoiceCallModal in ringing state, tips load from /api/voice/call-tips (~34s Gemini latency), call-accept-btn transitions to connected phase, call-caption appears with real tip text ('Your total emissions this week were 41.8 kg of CO2, primarily coming from your transport...'), call-end-btn ends; (3) /scan — start-camera-btn / upload-btn / scan-hint all present, uploading a photo hits /api/food/scan and renders food-item-0 (Beef Burger 3.1 kg + tip) plus total_co2 + ai_note; (4) /certificate — certificate-visual renders beautifully with user name (Eco Explorer), month (July 2026), 24.8 kg CO₂, equivalents (22 trees, 133.9 km, A- grade), CM-cert_id, blockchain signature; cert-download-btn triggers html-to-image PNG download and 'Certificate downloaded' toast appears. Sidebar nav-predict/nav-scan/nav-certificate all wired correctly.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Predict / Dashboard charts", "issues": ["Recharts still emits 'The width(-1) and height(-1) of chart should be greater than 0' console warnings on initial mount (carry-over from iteration 1). Cosmetic — chart renders after layout."]},
+      {"screen": "Certificate download", "issues": ["html-to-image throws SecurityError trying to read CSSRules from fonts.googleapis.com stylesheet (CORS). Download still succeeds (toast confirms + link.click fires) but web fonts may not be embedded in final PNG. To fully embed fonts consider disabling embedWebFonts (skipFonts: true option) OR preloading font CSS locally."]},
+      {"screen": "Voice call modal", "issues": ["Accept button remains disabled until Gemini /api/voice/call-tips response returns (~30-50s in preview). Consider (a) showing a subtle 'Preparing briefing…' hint under the accept button while tips are loading, or (b) letting user accept immediately and start with the fallback greeting while real tips stream in."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_novel_features.py",
+    "/app/backend/tests/test_carbonmind_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: add skipFonts:true or filter option to toPng() call in Certificate.jsx download() to silence the CSSRules SecurityError console error (cosmetic — download still works).",
+    "Optional UX polish: show 'Preparing briefing…' text under call-accept-btn while tips are loading so the ~30-50s wait feels intentional.",
+    "Optional: for cert-saved-input, using page.fill on a type=number input can be finicky with Playwright — recommend keeping onChange handler as-is (works via keyboard.type in real usage) — no code change needed."
+  ],
+  "critical_code_review_comments": [
+    "server.py grown to 514 lines with 4 new endpoints — still acceptable, but consider splitting into routers (auth/carbon/tracker/future/community/novel_predict/novel_voice/novel_food/novel_cert) if adding more.",
+    "predict/day extrapolation constant (0.18 = morning 2hrs ≈ 18% of day) is hardcoded — fine for demo, but should be documented or made configurable in prod.",
+    "food/scan doesn't actually process image_base64 (mocked with random.sample from FOOD_DB) — this is explicitly acknowledged in review request as a mocked API. When real vision integration lands, keep the hint-biasing fallback.",
+    "generate_certificate uses SHA256(name+month) for cert_id — deterministic per user/month, but co2_saved changes won't change cert_id. If saved value is user-editable, either (a) include it in cert_id hash, or (b) accept that same-month re-issue overwrites the same ID (current behavior — reasonable).",
+    "VoiceCallModal accept button correctly gates on tips loaded — good defensive pattern. Consider fallback tips being applied immediately (setTips with fallback synchronously) so user can accept instantly, then merge real Gemini response when it arrives.",
+    "No hardcoded URLs — API base uses process.env.REACT_APP_BACKEND_URL consistently.",
+    "All new endpoints properly Pydantic-validated with response_model — good."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_novel_features.py"
+  ],
+  "success_rate": {"backend": "100% (7/7 novel + 7/7 legacy)", "frontend": "100% (all 4 novel features functionally working on preview URL)"},
+  "test_credentials": "Demo login via /api/auth/demo-login — no creds required. Frontend testid: demo-login-btn.",
+  "seed_data_creation": "None — all endpoints return computed or curated data. FOOD_DB is in-code IPCC-based.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: /app/backend/tests/test_novel_features.py (7 tests: predict_day_exceeds, predict_day_under_budget, voice_call_tips [takes ~40s for Gemini], food_scan_with_hint, food_scan_no_hint, certificate_generate, certificate_defaults). Legacy tests still green in /app/backend/tests/test_carbonmind_api.py. Frontend testids to use: nav-predict/nav-scan/nav-certificate, predict-root, predict-btn, predict-result, activity-type-0, activity-kg-0, budget-slider; voice-call-modal, call-accept-btn (WAIT UP TO 60s for enable due to Gemini), call-decline-btn, call-caption, call-end-btn, call-close-btn; scan-root, start-camera-btn, upload-btn (label wrapping hidden input[type=file]), scan-hint, scan-preview, scan-results, food-item-{i}; certificate-root, certificate-visual, cert-download-btn, cert-share-btn, cert-reissue-btn, cert-saved-input; dashboard: ai-call-banner, answer-call-btn. Tip: use keyboard.type over fill for controlled inputs on Scan/Certificate.",
+  "rca_of_issues": "No functional bugs. Voice-tips ~34s Gemini latency observed — accept button correctly disabled during load. Certificate download shows a CORS console warning from html-to-image trying to inline Google Fonts stylesheet — download still succeeds. Both are cosmetic."
+}
