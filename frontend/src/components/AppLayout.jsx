@@ -58,7 +58,7 @@ const AppLayout = () => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
-  const logoSrc = theme === "dark" ? "/logo-horiz-dark.png" : "/logo-horiz-light.png";
+  const logoSrc = theme === "dark" ? "/clean-logo-dark.png" : "/clean-logo-light.png";
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -80,9 +80,9 @@ const AppLayout = () => {
               <img
                 src={logoSrc}
                 alt="CarbonMind AI"
-                className="h-12 w-auto object-contain transition-all drop-shadow-sm hover:scale-[1.02]"
+                className="h-14 md:h-16 w-auto object-contain transition-all"
               />
-              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
+              <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
                     style={{ boxShadow: '0 0 8px #00FFB2' }} />
             </div>
           </div>
@@ -156,7 +156,7 @@ const AppLayout = () => {
               <Menu className="h-5 w-5 text-main" />
             </button>
             <div className="hidden lg:flex h-9 w-9 rounded-lg items-center justify-center overflow-visible">
-              <img src="/emblem-trans.png" alt="CarbonMind Emblem" className="h-9 w-9 object-contain drop-shadow-[0_0_10px_rgba(0,255,178,0.35)]" />
+              <img src="/clean-emblem.png" alt="CarbonMind Emblem" className="h-8 w-auto object-contain" />
             </div>
             <div>
               <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
@@ -210,7 +210,7 @@ const AppLayout = () => {
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex flex-col items-start gap-0.5">
                     <div className="relative inline-flex w-[140px]">
-                      <img src={logoSrc} alt="CarbonMind AI" className="h-10 w-auto object-contain" />
+                      <img src={logoSrc} alt="CarbonMind AI" className="h-12 w-auto object-contain" />
                     </div>
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>

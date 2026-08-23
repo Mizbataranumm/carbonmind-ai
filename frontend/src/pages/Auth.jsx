@@ -11,7 +11,7 @@ import ParticleField from "@/components/ParticleField";
 const Auth = () => {
   const navigate = useNavigate();
   const { setUser, theme } = useUser();
-  const logoSrc = theme === "dark" ? "/logo-horiz-dark.png" : "/logo-horiz-light.png";
+  const logoSrc = theme === "dark" ? "/clean-logo-dark.png" : "/clean-logo-light.png";
   const [mode, setMode] = useState("register"); // login | register
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -88,7 +88,7 @@ const Auth = () => {
             <img
               src={logoSrc}
               alt="CarbonMind AI"
-              className="h-20 md:h-22 w-auto object-contain transition-all drop-shadow-md"
+              className="h-20 md:h-24 w-auto object-contain transition-all"
             />
           </div>
 

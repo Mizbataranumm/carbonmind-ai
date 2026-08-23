@@ -29,7 +29,7 @@ const Landing = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const logoSrc = theme === "dark" ? "/logo-horiz-dark.png" : "/logo-horiz-light.png";
+  const logoSrc = theme === "dark" ? "/clean-logo-dark.png" : "/clean-logo-light.png";
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   return (
@@ -42,7 +42,7 @@ const Landing = () => {
           <img
             src={logoSrc}
             alt="CarbonMind AI"
-            className="h-11 md:h-12 w-auto object-contain transition-all hover:scale-[1.02]"
+            className="h-12 md:h-14 w-auto object-contain transition-all"
           />
         </div>
         <div className="hidden md:flex items-center gap-7 text-sm text-secondary">
