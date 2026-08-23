@@ -12,8 +12,13 @@ from PIL import Image
 class CarbonLSTM(nn.Module):
     def __init__(self):
         super().__init__()
-        self.lstm = nn.LSTM(1, 32, batch_first=True)
-        self.fc = nn.Linear(32, 7)
+        self.lstm = nn.LSTM(input_size=1, hidden_size=64, num_layers=2,
+                             batch_first=True, dropout=0.2)
+        self.fc = nn.Sequential(
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32, 7)
+        )
     def forward(self, x):
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :])
@@ -28,25 +33,40 @@ cnn_model = None
 cnn_meta = None
 gbdt_data = None
 lstm_model = None
+lstm_val_min = 0.0
+lstm_val_max = 20.0
 
 def load_models(models_dir="ml/models"):
-    global cnn_model, cnn_meta, gbdt_data, lstm_model
+    global cnn_model, cnn_meta, gbdt_data, lstm_model, lstm_val_min, lstm_val_max
     try:
         with open(f"{models_dir}/cnn_food_metadata.json", 'r') as f:
             cnn_meta = json.load(f)
         cnn_model = get_resnet_model(cnn_meta['num_classes'])
         cnn_model.load_state_dict(torch.load(f"{models_dir}/cnn_food_model.pt", map_location='cpu'))
         cnn_model.eval()
+        print("✅ CNN model loaded!")
+    except Exception as e:
+        print(f"⚠️ CNN load failed: {e}")
 
+    try:
         with open(f"{models_dir}/gbdt_carbon_model.pkl", 'rb') as f:
             gbdt_data = pickle.load(f)
-
-        lstm_model = CarbonLSTM()
-        lstm_model.load_state_dict(torch.load(f"{models_dir}/lstm_carbon_model.pt", map_location='cpu'))
-        lstm_model.eval()
-        print("✅ ML Models loaded successfully!")
+        print("✅ GBDT model loaded!")
     except Exception as e:
-        print(f"⚠️ Warning: Could not load ML models: {e}")
+        print(f"⚠️ GBDT load failed: {e}")
+
+    try:
+        lstm_path = f"{models_dir}/lstm_carbon_model.pt"
+        checkpoint = torch.load(lstm_path, map_location='cpu')
+        lstm_model = CarbonLSTM()
+        lstm_model.load_state_dict(checkpoint['model_state_dict'])
+        lstm_model.eval()
+        lstm_val_min = checkpoint.get('val_min', 0.0)
+        lstm_val_max = checkpoint.get('val_max', 20.0)
+        print(f"✅ LSTM model loaded! (norm range: {lstm_val_min:.2f}–{lstm_val_max:.2f} kg/day)")
+    except Exception as e:
+        print(f"⚠️ LSTM load failed: {e}")
+
 
 def predict_food(base64_image_str):
     if not cnn_model or not base64_image_str:
@@ -68,7 +88,7 @@ def predict_food(base64_image_str):
             confidence = probabilities.max().item() * 100
             top_idx = probabilities.argmax().item()
             
-        if confidence < 65:
+        if confidence < 70:  # Industry standard threshold
             return {
                 'status': 'rejected',
                 'message': f'❌ Not clearly a food image. Confidence: {confidence:.1f}%',
@@ -113,13 +133,27 @@ def predict_gbdt(user_data_dict):
     return float(pred)
 
 def predict_lstm(historical_30_days):
-    if not lstm_model or len(historical_30_days) != 30:
+    """Takes 30 days of kg/day values, returns predicted next 7 days in kg/day."""
+    if not lstm_model:
+        return None  # graceful fallback
+    if not isinstance(historical_30_days, list) or len(historical_30_days) != 30:
+        # Log but don't crash — server will use fallback
+        print(f"LSTM validation: expected 30 days, got {len(historical_30_days) if isinstance(historical_30_days, list) else type(historical_30_days)}")
         return None
     try:
-        tensor_in = torch.tensor(historical_30_days, dtype=torch.float32).view(1, 30, 1)
+        # Normalize input using training range
+        arr = np.array(historical_30_days, dtype=np.float32)
+        arr_norm = (arr - lstm_val_min) / (lstm_val_max - lstm_val_min)
+        arr_norm = np.clip(arr_norm, 0.0, 1.5)
+        tensor_in = torch.tensor(arr_norm, dtype=torch.float32).view(1, 30, 1)
         with torch.no_grad():
-            preds = lstm_model(tensor_in)
-        return preds.squeeze().tolist()
+            preds_norm = lstm_model(tensor_in).squeeze().tolist()
+        # Denormalize back to kg/day
+        if isinstance(preds_norm, float):
+            preds_norm = [preds_norm]
+        preds_kg = [max(0.0, p * (lstm_val_max - lstm_val_min) + lstm_val_min) for p in preds_norm]
+        return preds_kg
     except Exception as e:
         print(f"LSTM Error: {e}")
         return None
+

@@ -659,39 +659,71 @@ async def chat_sustainability(req: ChatRequest):
 async def predict_day(req: dict):
     activities = req.get("morning_activities", [])
     budget = req.get("daily_budget_kg", 6.5)
-    
-    # ML Inference via GBDT
+
+    # ✅ FIXED: Use actual user preferences from request (no more hardcoding)
+    user_transport = req.get("user_transport", "public")
+    user_diet = req.get("user_diet", "mixed")
+    user_tv_hours = float(req.get("user_tv_hours", 2.0))
+    user_vehicle_km = float(req.get("user_vehicle_km", 50.0))
+
+    # Validate inputs
+    valid_transports = ["public", "private", "hybrid", "cycling", "walking", "car", "bike"]
+    valid_diets = ["vegetarian", "vegan", "mixed", "meat-heavy", "omnivore", "meat", "pescatarian"]
+    if user_transport not in valid_transports:
+        user_transport = "public"
+    if user_diet not in valid_diets:
+        user_diet = "mixed"
+    user_tv_hours = max(0.0, min(16.0, user_tv_hours))
+    user_vehicle_km = max(0.0, min(1000.0, user_vehicle_km))
+
+    # ML Inference via GBDT with real user data
     user_data = {
-        'Transport': 'public' if any(a.get('type')=='transport' for a in activities) else 'private',
-        'Diet': 'mixed',
-        'How Long TV PC Daily Hour': 4,
-        'Vehicle Monthly Distance Km': 100
+        'Transport': user_transport,
+        'Diet': user_diet,
+        'How Long TV PC Daily Hour': user_tv_hours,
+        'Vehicle Monthly Distance Km': user_vehicle_km
     }
     pred_val = predict_gbdt(user_data)
-    
+
     if pred_val is not None:
-        predicted = round(pred_val / 365, 2) # Assume the model predicts annual/total, adjust if needed
+        # GBDT predicts annual CO2 (kg/year) → convert to daily
+        predicted = round(pred_val / 365, 2)
     else:
+        # Fallback: extrapolate from morning activities
         morning_total = sum(float(a.get("kg", 0)) for a in activities)
-        predicted = round(morning_total / 0.18, 2)
+        predicted = round(max(morning_total / 0.3, 1.5), 2)
+
+    # Clamp to realistic daily range
+    predicted = max(0.5, min(50.0, predicted))
     exceeds = predicted > budget
     over_pct = round((predicted - budget) / budget * 100, 1)
-    # Build 24-hour hourly curve
+
+    # Build 24-hour S-curve accumulation
+    import math
     hourly_curve = []
     for h in range(25):
         frac = h / 24
-        # Simple S-curve accumulation
-        kg = round(predicted * (frac ** 0.85), 2)
+        # Logistic curve — slow start, peak midday, gradual end
+        s = 1 / (1 + math.exp(-10 * (frac - 0.5)))
+        kg = round(predicted * s, 2)
         hourly_curve.append({"hour": f"{h:02d}:00", "kg": kg})
+
     return {
         "predicted_full_day_kg": predicted,
         "budget_kg": budget,
         "exceeds": exceeds,
         "over_pct": over_pct,
+        "model_used": "GBDT" if pred_val is not None else "fallback",
+        "user_inputs": {
+            "transport": user_transport,
+            "diet": user_diet,
+            "tv_hours": user_tv_hours,
+            "vehicle_km": user_vehicle_km,
+        },
         "ai_headline": (
-            f"You're on track to emit {predicted} kg today — {abs(over_pct)}% {'above' if exceeds else 'below'} your {budget} kg budget."
+            f"⚠️ Alert! Projected {predicted} kg today — {abs(over_pct)}% above your {budget} kg budget. Cut back on {user_transport} trips."
             if exceeds else
-            f"Great pacing! Projected {predicted} kg — {abs(over_pct)}% under your {budget} kg target."
+            f"✅ Great pacing! Projected {predicted} kg — {abs(over_pct)}% under your {budget} kg target. Keep it up!"
         ),
         "hourly_curve": hourly_curve,
         "equivalents": {
