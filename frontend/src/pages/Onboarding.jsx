@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 export default function Onboarding() {
   const { user, setUser, theme } = useUser();
-  const logoSrc = theme === "dark" ? "/main-logo-dark.png" : "/main-logo-trans.png";
+  const logoSrc = theme === "dark" ? "/logo-horiz-dark.png" : "/logo-horiz-light.png";
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [preferences, setPreferences] = useState({
@@ -55,7 +55,7 @@ export default function Onboarding() {
           <img
             src={logoSrc}
             alt="CarbonMind AI"
-            className="h-20 w-auto object-contain transition-all"
+            className="h-14 w-auto object-contain transition-all"
           />
         </div>
 
