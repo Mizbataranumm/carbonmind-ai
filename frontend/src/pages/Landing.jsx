@@ -29,6 +29,7 @@ const Landing = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
+  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   return (
@@ -39,9 +40,9 @@ const Landing = () => {
       <nav className="relative z-20 px-6 lg:px-12 py-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img
-            src="/carbonmind-logo2-transparent.png"
-            alt="CarbonMind"
-            className="h-12 w-auto object-contain drop-shadow-[0_0_12px_rgba(255,255,255,0.3)]"
+            src={logoSrc}
+            alt="CarbonMind AI"
+            className="h-14 w-auto object-contain transition-all"
           />
           <span className="font-mono-data text-[10px] uppercase tracking-widest text-green border border-green/30 px-1.5 py-0.5 rounded ml-1">AI</span>
         </div>

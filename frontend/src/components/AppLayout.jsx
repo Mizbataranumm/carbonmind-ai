@@ -58,6 +58,8 @@ const AppLayout = () => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
+  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -75,7 +77,7 @@ const AppLayout = () => {
         <div className="mb-8">
           <div className="flex flex-col items-start gap-0.5">
             <div className="relative inline-flex w-[160px]">
-              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-full h-auto object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)] transition-all" />
+              <img src={logoSrc} alt="CarbonMind AI" className="w-full h-auto object-contain transition-all" />
               <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
                     style={{ boxShadow: '0 0 8px #00FFB2' }} />
             </div>
@@ -205,7 +207,7 @@ const AppLayout = () => {
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex flex-col items-start gap-0.5">
                     <div className="relative inline-flex w-[140px]">
-                      <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-full h-auto object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
+                      <img src={logoSrc} alt="CarbonMind AI" className="w-full h-auto object-contain" />
                     </div>
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>

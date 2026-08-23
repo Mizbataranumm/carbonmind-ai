@@ -6,7 +6,8 @@ import { ScanLine, Activity, Sparkles, Users, Award, Mic, TrendingUp, CheckCircl
 import { toast } from 'sonner';
 
 export default function Onboarding() {
-  const { user, setUser } = useUser();
+  const { user, setUser, theme } = useUser();
+  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [preferences, setPreferences] = useState({
@@ -52,9 +53,9 @@ export default function Onboarding() {
       <div className="w-full max-w-2xl z-10 relative">
         <div className="mb-8 flex justify-center">
           <img
-            src="/carbonmind-logo2-transparent.png"
-            alt="CarbonMind"
-            className="h-24 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,178,0.4)]"
+            src={logoSrc}
+            alt="CarbonMind AI"
+            className="h-20 w-auto object-contain transition-all"
           />
         </div>
 
