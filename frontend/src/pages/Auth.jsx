@@ -11,7 +11,7 @@ import ParticleField from "@/components/ParticleField";
 const Auth = () => {
   const navigate = useNavigate();
   const { setUser, theme } = useUser();
-  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
+  const logoSrc = theme === "dark" ? "/main-logo-dark.png" : "/main-logo-trans.png";
   const [mode, setMode] = useState("register"); // login | register
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");

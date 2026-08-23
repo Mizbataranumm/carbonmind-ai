@@ -29,7 +29,7 @@ const Landing = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
+  const logoSrc = theme === "dark" ? "/main-logo-dark.png" : "/main-logo-trans.png";
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   return (

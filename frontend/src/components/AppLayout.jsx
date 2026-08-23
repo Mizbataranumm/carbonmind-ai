@@ -58,7 +58,7 @@ const AppLayout = () => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
-  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
+  const logoSrc = theme === "dark" ? "/main-logo-dark.png" : "/main-logo-trans.png";
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -153,7 +153,7 @@ const AppLayout = () => {
               <Menu className="h-5 w-5 text-main" />
             </button>
             <div className="hidden lg:flex h-9 w-9 rounded-lg items-center justify-center overflow-visible">
-              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind Logo" className="w-full h-full object-contain scale-[1.4] drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
+              <img src="/emblem-trans.png" alt="CarbonMind Emblem" className="w-full h-full object-contain scale-[1.3] drop-shadow-[0_0_8px_rgba(0,255,178,0.3)]" />
             </div>
             <div>
               <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>

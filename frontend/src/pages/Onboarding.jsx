@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 export default function Onboarding() {
   const { user, setUser, theme } = useUser();
-  const logoSrc = theme === "dark" ? "/logo-dark-trans.png" : "/logo-light-trans.png";
+  const logoSrc = theme === "dark" ? "/main-logo-dark.png" : "/main-logo-trans.png";
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [preferences, setPreferences] = useState({
