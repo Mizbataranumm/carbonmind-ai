@@ -55,7 +55,7 @@ export default function Onboarding() {
           <img
             src={logoSrc}
             alt="CarbonMind AI"
-            className="h-14 w-auto object-contain transition-all"
+            className="h-16 md:h-18 w-auto object-contain transition-all drop-shadow-md"
           />
         </div>
 

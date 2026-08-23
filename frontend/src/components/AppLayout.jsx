@@ -76,8 +76,12 @@ const AppLayout = () => {
       <aside className="fixed left-0 top-0 bottom-0 w-[260px] hidden lg:flex flex-col p-6 border-r border-glass-border bg-app/70 backdrop-blur-xl z-30 overflow-y-auto" data-testid="sidebar">
         <div className="mb-8">
           <div className="flex items-center gap-3">
-            <div className="relative inline-flex">
-              <img src={logoSrc} alt="CarbonMind AI" className="h-10 w-auto object-contain transition-all" />
+            <div className="relative inline-flex items-center">
+              <img
+                src={logoSrc}
+                alt="CarbonMind AI"
+                className="h-12 w-auto object-contain transition-all drop-shadow-sm hover:scale-[1.02]"
+              />
               <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
                     style={{ boxShadow: '0 0 8px #00FFB2' }} />
             </div>
@@ -152,7 +156,7 @@ const AppLayout = () => {
               <Menu className="h-5 w-5 text-main" />
             </button>
             <div className="hidden lg:flex h-9 w-9 rounded-lg items-center justify-center overflow-visible">
-              <img src="/emblem-trans.png" alt="CarbonMind Emblem" className="h-8 w-8 object-contain drop-shadow-[0_0_8px_rgba(0,255,178,0.3)]" />
+              <img src="/emblem-trans.png" alt="CarbonMind Emblem" className="h-9 w-9 object-contain drop-shadow-[0_0_10px_rgba(0,255,178,0.35)]" />
             </div>
             <div>
               <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
@@ -206,7 +210,7 @@ const AppLayout = () => {
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex flex-col items-start gap-0.5">
                     <div className="relative inline-flex w-[140px]">
-                      <img src={logoSrc} alt="CarbonMind AI" className="h-9 w-auto object-contain" />
+                      <img src={logoSrc} alt="CarbonMind AI" className="h-10 w-auto object-contain" />
                     </div>
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>

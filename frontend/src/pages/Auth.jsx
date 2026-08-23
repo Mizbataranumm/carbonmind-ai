@@ -88,7 +88,7 @@ const Auth = () => {
             <img
               src={logoSrc}
               alt="CarbonMind AI"
-              className="h-12 w-auto object-contain transition-all"
+              className="h-20 md:h-22 w-auto object-contain transition-all drop-shadow-md"
             />
           </div>
 

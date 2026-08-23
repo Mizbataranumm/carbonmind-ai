@@ -42,7 +42,7 @@ const Landing = () => {
           <img
             src={logoSrc}
             alt="CarbonMind AI"
-            className="h-11 w-auto object-contain transition-all"
+            className="h-11 md:h-12 w-auto object-contain transition-all hover:scale-[1.02]"
           />
         </div>
         <div className="hidden md:flex items-center gap-7 text-sm text-secondary">
