@@ -58,8 +58,7 @@ const AppLayout = () => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
-  const logoSrc = theme === "dark" ? "/clean-logo-dark.png" : "/clean-logo-light.png";
-
+  
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -75,16 +74,13 @@ const AppLayout = () => {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-[260px] hidden lg:flex flex-col p-6 border-r border-glass-border bg-app/70 backdrop-blur-xl z-30 overflow-y-auto" data-testid="sidebar">
         <div className="mb-8">
-          <div className="flex items-center gap-3">
-            <div className="relative inline-flex items-center">
-              <img
-                src={logoSrc}
-                alt="CarbonMind AI"
-                className="h-14 md:h-16 w-auto object-contain transition-all"
-              />
-              <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
+          <div className="flex flex-col items-start gap-1">
+            <div className="relative inline-flex w-[150px]">
+              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-full h-auto object-contain drop-shadow-[0_0_12px_rgba(0,255,178,0.3)]" />
+              <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
                     style={{ boxShadow: '0 0 8px #00FFB2' }} />
             </div>
+            <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] ml-1 font-bold" style={{ color: 'var(--neon-green)' }}>AI · v1.0 · Live</div>
           </div>
           <div className="mt-3 h-px" style={{ background: 'linear-gradient(90deg,rgba(0,255,178,0.3),transparent)' }} />
         </div>
@@ -156,7 +152,7 @@ const AppLayout = () => {
               <Menu className="h-5 w-5 text-main" />
             </button>
             <div className="hidden lg:flex h-9 w-9 rounded-lg items-center justify-center overflow-visible">
-              <img src="/clean-emblem.png" alt="CarbonMind Emblem" className="h-8 w-auto object-contain" />
+              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(0,255,178,0.3)]" />
             </div>
             <div>
               <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
@@ -210,7 +206,7 @@ const AppLayout = () => {
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex flex-col items-start gap-0.5">
                     <div className="relative inline-flex w-[140px]">
-                      <img src={logoSrc} alt="CarbonMind AI" className="h-12 w-auto object-contain" />
+                      <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-[130px] h-auto object-contain" />
                     </div>
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>

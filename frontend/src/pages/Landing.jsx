@@ -29,8 +29,7 @@ const Landing = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const logoSrc = theme === "dark" ? "/clean-logo-dark.png" : "/clean-logo-light.png";
-  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
+    const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -38,12 +37,13 @@ const Landing = () => {
 
       {/* Top nav */}
       <nav className="relative z-20 px-6 lg:px-12 py-5 flex items-center justify-between">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           <img
-            src={logoSrc}
-            alt="CarbonMind AI"
-            className="h-12 md:h-14 w-auto object-contain transition-all"
+            src="/carbonmind-logo2-transparent.png"
+            alt="CarbonMind"
+            className="h-12 w-auto object-contain drop-shadow-[0_0_12px_rgba(0,255,178,0.3)]"
           />
+          <span className="font-mono-data text-[10px] uppercase tracking-widest text-green border border-green/30 px-1.5 py-0.5 rounded">AI</span>
         </div>
         <div className="hidden md:flex items-center gap-7 text-sm text-secondary">
           <a className="hover:text-main transition" href="#features">Features</a>
