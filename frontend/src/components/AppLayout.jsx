@@ -74,13 +74,17 @@ const AppLayout = () => {
       {/* Sidebar */}
       <aside className="fixed left-0 top-0 bottom-0 w-[260px] hidden lg:flex flex-col p-6 border-r border-glass-border bg-app/70 backdrop-blur-xl z-30 overflow-y-auto" data-testid="sidebar">
         <div className="mb-8">
-          <div className="flex flex-col items-start gap-1">
-            <div className="relative inline-flex w-[150px]">
-              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-full h-auto object-contain drop-shadow-[0_0_12px_rgba(0,255,178,0.3)]" />
-              <span className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-green border-2 border-app"
-                    style={{ boxShadow: '0 0 8px #00FFB2' }} />
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                 style={{ background: 'linear-gradient(135deg,#00FFB2,#00D9FF)', boxShadow: '0 0 20px rgba(0,255,178,0.35)' }}>
+              <Leaf className="h-5 w-5" style={{ color: '#071014' }} strokeWidth={2.5} />
+              <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green border-2"
+                    style={{ borderColor: 'var(--app-bg)', boxShadow: '0 0 8px #00FFB2' }} />
             </div>
-            <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] ml-1 font-bold" style={{ color: 'var(--neon-green)' }}>AI · v1.0 · Live</div>
+            <div>
+              <div className="font-display font-bold text-xl leading-none" style={{ color: 'var(--text-primary)' }}>CarbonMind</div>
+              <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] mt-1" style={{ color: 'var(--neon-green)' }}>AI · v1.0 · Live</div>
+            </div>
           </div>
           <div className="mt-3 h-px" style={{ background: 'linear-gradient(90deg,rgba(0,255,178,0.3),transparent)' }} />
         </div>
@@ -152,7 +156,9 @@ const AppLayout = () => {
               <Menu className="h-5 w-5 text-main" />
             </button>
             <div className="hidden lg:flex h-9 w-9 rounded-lg items-center justify-center overflow-visible">
-              <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind Logo" className="h-8 w-auto object-contain drop-shadow-[0_0_8px_rgba(0,255,178,0.3)]" />
+              <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-green to-cyan items-center justify-center">
+              <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
+            </div>
             </div>
             <div>
               <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
@@ -206,7 +212,15 @@ const AppLayout = () => {
                 <div className="flex items-center justify-between mb-10">
                   <div className="flex flex-col items-start gap-0.5">
                     <div className="relative inline-flex w-[140px]">
-                      <img src="/carbonmind-logo2-transparent.png" alt="CarbonMind" className="w-[130px] h-auto object-contain" />
+                      <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+                      <Leaf className="h-4.5 w-4.5 text-[#071014]" strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div className="font-display font-bold text-lg leading-none">CarbonMind</div>
+                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mt-0.5">AI · v1.0</div>
+                    </div>
+                  </div>
                     </div>
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>

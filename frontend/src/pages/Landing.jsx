@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Sparkles, BarChart3, Mic, Globe2, Brain, ShieldCheck, Activity, Sun, Moon } from "lucide-react";
+import { Leaf, ArrowRight, Sparkles, BarChart3, Mic, Globe2, Brain, ShieldCheck, Activity, Sun, Moon } from "lucide-react";
 import ParticleField from "@/components/ParticleField";
 import AnimatedEarth from "@/components/AnimatedEarth";
 
@@ -37,12 +37,11 @@ const Landing = () => {
 
       {/* Top nav */}
       <nav className="relative z-20 px-6 lg:px-12 py-5 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img
-            src="/carbonmind-logo2-transparent.png"
-            alt="CarbonMind"
-            className="h-12 w-auto object-contain drop-shadow-[0_0_12px_rgba(0,255,178,0.3)]"
-          />
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+            <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
+          </div>
+          <div className="font-display font-bold text-lg">CarbonMind</div>
           <span className="font-mono-data text-[10px] uppercase tracking-widest text-green border border-green/30 px-1.5 py-0.5 rounded">AI</span>
         </div>
         <div className="hidden md:flex items-center gap-7 text-sm text-secondary">

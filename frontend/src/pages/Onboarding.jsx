@@ -1,8 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@/lib/UserContext';
-import { ScanLine, Activity, Sparkles, Users, Award, Mic, TrendingUp, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Leaf, ScanLine, Activity, Sparkles, Users, Award, Mic, TrendingUp, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Onboarding() {
@@ -51,11 +51,11 @@ export default function Onboarding() {
       
       <div className="w-full max-w-2xl z-10 relative">
         <div className="mb-8 flex justify-center">
-          <img
-            src="/carbonmind-logo2-transparent.png"
-            alt="CarbonMind"
-            className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,178,0.3)]"
-          />
+                  <div className="mb-8 flex justify-center">
+          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green to-cyan flex items-center justify-center shadow-[0_0_40px_rgba(0,255,178,0.3)]">
+            <Leaf className="h-8 w-8 text-[#071014]" strokeWidth={2.5} />
+          </div>
+        </div>
         </div>
 
         <div className="glass p-8 md:p-12 rounded-3xl border border-glass-border shadow-2xl relative overflow-hidden min-h-[450px] flex flex-col">

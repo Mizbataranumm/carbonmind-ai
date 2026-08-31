@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
+import { Leaf, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/lib/UserContext";
 import { demoLogin, registerUser, loginUser } from "@/lib/api";
@@ -84,11 +84,12 @@ const Auth = () => {
           className="w-full max-w-md"
         >
           <div className="flex items-center mb-8 justify-center lg:justify-start">
-            <img
-              src="/carbonmind-logo2-transparent.png"
-              alt="CarbonMind"
-              className="h-14 w-auto object-contain drop-shadow-[0_0_12px_rgba(0,255,178,0.25)]"
-            />
+                      <div className="flex items-center gap-2.5 mb-8 justify-center lg:justify-start">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
+              <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
+            </div>
+            <div className="font-display font-bold text-lg">CarbonMind</div>
+          </div>
           </div>
 
           <h1 className="font-display text-3xl">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
