@@ -3,24 +3,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Bell, Shield, LogOut, Award, Flame, Leaf, Camera, X, Check, Phone, HelpCircle } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
 
-// ── 16 preset avatars cropped from the official avatar sheet ─────────────
+// ── 10 preset avatars from user profile photos ─────────────
 const PRESET_AVATARS = [
-  { id: "sofia",     src: "/avatars/avatar_sofia.png",     label: "Sofia" },
-  { id: "ben",       src: "/avatars/avatar_ben.png",       label: "Ben" },
-  { id: "chloe",     src: "/avatars/avatar_chloe.png",     label: "Chloe" },
-  { id: "david",     src: "/avatars/avatar_david.png",     label: "David" },
-  { id: "noah",      src: "/avatars/avatar_noah.png",      label: "Noah" },
-  { id: "emily",     src: "/avatars/avatar_emily.png",     label: "Emily" },
-  { id: "james",     src: "/avatars/avatar_james.png",     label: "James" },
-  { id: "female",    src: "/avatars/avatar_female.png",    label: "Alex" },
-  { id: "sarah",     src: "/avatars/avatar_sarah.png",     label: "Sarah" },
-  { id: "lucas",     src: "/avatars/avatar_lucas.png",     label: "Lucas" },
-  { id: "olivia",    src: "/avatars/avatar_olivia.png",    label: "Olivia" },
-  { id: "ethan",     src: "/avatars/avatar_ethan.png",     label: "Ethan" },
-  { id: "ava",       src: "/avatars/avatar_ava.png",       label: "Ava" },
-  { id: "liam",      src: "/avatars/avatar_liam.png",      label: "Liam" },
-  { id: "charlotte", src: "/avatars/avatar_charlotte.png", label: "Charlotte" },
-  { id: "leo",       src: "/avatars/avatar_leo.png",       label: "Leo" },
+  { id: "avatar_1",  src: "/avatars/profile_avatar_1.png",  label: "Avatar 1" },
+  { id: "avatar_2",  src: "/avatars/profile_avatar_2.png",  label: "Avatar 2" },
+  { id: "avatar_3",  src: "/avatars/profile_avatar_3.png",  label: "Avatar 3" },
+  { id: "avatar_4",  src: "/avatars/profile_avatar_4.png",  label: "Avatar 4" },
+  { id: "avatar_5",  src: "/avatars/profile_avatar_5.png",  label: "Avatar 5" },
+  { id: "avatar_6",  src: "/avatars/profile_avatar_6.png",  label: "Avatar 6" },
+  { id: "avatar_7",  src: "/avatars/profile_avatar_7.png",  label: "Avatar 7" },
+  { id: "avatar_8",  src: "/avatars/profile_avatar_8.png",  label: "Avatar 8" },
+  { id: "avatar_9",  src: "/avatars/profile_avatar_9.png",  label: "Avatar 9" },
+  { id: "avatar_10", src: "/avatars/profile_avatar_10.png", label: "Avatar 10" },
 ];
 
 // ── Avatar Picker modal ───────────────────────────────────────────────────
