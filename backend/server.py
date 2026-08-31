@@ -595,50 +595,77 @@ async def create_post(req: CreatePostRequest):
 import random
 
 COACH_RESPONSES = {
+    "greetings": [
+        "Hello! 👋 I'm your CarbonMind AI Coach. How can I help you today? You can ask me how to reduce emissions, what a carbon footprint is, tips for green travel or plant-based food, or how to use this app!",
+        "Hey there! 🌱 Great to see you. What sustainability questions can I help you with today?",
+        "Hi! Welcome back to CarbonMind. Feel free to ask me anything about your carbon habits, food scanning, or daily eco tips!",
+    ],
+    "what_is_carbon": [
+        "A **carbon footprint** is the total amount of greenhouse gases (like carbon dioxide and methane) emitted directly or indirectly by our daily activities—such as driving, electricity use, food consumption, and waste. It is measured in kilograms (kg) or tonnes of CO₂ equivalent (CO₂e).",
+    ],
+    "where_more_co2": [
+        "Typically, personal carbon emissions come from 4 major categories:\n1. 🚗 **Transport (~40-45%)**: Driving petrol/diesel cars and flying produce the highest emissions.\n2. ⚡ **Electricity & Heating (~25-30%)**: Grid power, air conditioning, and appliances.\n3. 🍽 **Diet (~18-20%)**: Meat (especially red meat and dairy) has high emissions.\n4. 📱 **Devices & Consumer Goods (~10-15%)**.\nYou can check your live breakdown directly on the Dashboard!",
+    ],
+    "how_to_use": [
+        "Here is how you can use CarbonMind AI:\n• 📷 **Food Scanner**: Take a photo of your meal to calculate its CO₂ impact.\n• 📊 **Daily Forecaster**: Log morning habits to predict today's total footprint using GBDT.\n• 📡 **Live Tracker**: Log your transport, electricity, and food in real time.\n• 🔮 **10-Year Simulator**: Test different lifestyle changes and see your future trajectory.\n• 📞 **Call Me / Voice Brief**: Get an automated voice briefing or talk to our AI voice coach!",
+    ],
     "food": [
-        "Great question! Food accounts for about 26% of global CO2 emissions. Try swapping one meat meal per day for a plant-based option — this alone can save up to 2.5 kg CO2 daily. Legumes like lentils are a great protein-rich alternative!",
-        "Your food choices really matter. Beef produces 27x more CO2 than chicken per gram of protein. Even going vegetarian just 3 days a week reduces your annual food carbon footprint by about 500 kg CO2.",
-        "A great tip: buy local and seasonal produce. Food transported by air can have 50x the carbon footprint of locally grown food. Farmers markets are a fantastic way to reduce food miles!",
+        "Great question! Food accounts for about 26% of global emissions. Try swapping one meat meal per day for a plant-based option — this alone can save up to 2.5 kg CO₂ daily. Legumes like lentils and chickpeas are excellent protein-rich alternatives!",
+        "Your food choices make a huge difference. Beef produces up to 27x more CO₂ than chicken or legumes per gram of protein. Going vegetarian even 3 days a week cuts your food footprint by ~500 kg CO₂ per year!",
+        "Tip: Buy seasonal and local produce where possible. Air-freighted food can have up to 50x the carbon intensity of local seasonal crops!",
     ],
     "transport": [
-        "Transport is usually the biggest source of personal carbon emissions. Swapping 2 car trips per week with cycling or walking saves approximately 1.2 kg CO2 each trip. Over a year, that adds up to over 120 kg saved!",
-        "If you must drive, try carpooling! Sharing a ride with just one other person halves your per-person transport emissions instantly. Apps like BlaBlaCar make this easy.",
-        "For city commutes, public transit beats private cars by 4-5x in CO2 efficiency. An electric train emits just 41g CO2 per km per passenger vs 192g for a petrol car.",
+        "Transport is usually the single largest source of personal emissions. Replacing just 2 short car trips a week with cycling or walking saves ~1.2 kg CO₂ each time — over 120 kg per year!",
+        "Carpooling or taking an electric train emits up to 4-5x less CO₂ per passenger-km than driving solo in a petrol car.",
+        "For city travel, electric buses and metro systems are the cleanest everyday option.",
     ],
     "electricity": [
-        "Did you know standby power (devices on idle) accounts for 5-10% of home electricity use? Unplugging chargers, TVs and computers when not in use can save 100+ kg CO2 per year!",
-        "Switching to LED bulbs saves 75% of lighting energy. But the biggest win is your thermostat — every degree you lower heating saves about 8% on your heating bill and CO2.",
-        "Consider shifting heavy appliance use (washing machine, dishwasher) to off-peak hours (10pm–7am). This uses greener grid electricity in many regions and saves money too.",
+        "Did you know idle standby devices account for 5-10% of household electricity? Turning off power strips when not in use can save 100+ kg CO₂ every year!",
+        "Switching to LED bulbs cuts lighting electricity by 75%, and setting your AC to 24°C–25°C instead of 18°C saves significant power.",
+        "Running heavy appliances (like washing machines) during off-peak hours uses cleaner grid energy in many regions.",
     ],
     "tips": [
-        "Here are 3 quick wins for today: (1) Use a reusable water bottle — saves 120g CO2 per plastic bottle avoided. (2) Take the stairs instead of elevator. (3) Eat one vegetarian meal. Small habits stack up to big impact!",
-        "The most impactful changes you can make: reduce flying, go car-free or electric, eat plant-heavy, and switch to renewable energy. These top 4 choices can cut your footprint by 3-4 tonnes CO2 per year.",
-        "Track your streaks! Research shows people who track habits are 3x more likely to stick to them. Your CarbonMind streak is your best motivator.",
+        "Here are 3 high-impact eco tips for today:\n1. 🚶 Walk or cycle for trips under 2 km.\n2. 🥗 Enjoy a plant-powered lunch.\n3. 🔌 Unplug unused chargers and electronics.",
+        "The biggest lifelong carbon reductions come from: cleaner transport, reducing food waste, eating plant-forward meals, and energy-efficient appliances.",
     ],
     "score": [
-        "Your carbon score is based on daily activities you log. A green A-grade means you're under your 6.5 kg daily budget — great work! The global average is 12 kg per person per day, so you're already ahead.",
-        "To improve your score: focus on your top emission category first. Small consistent wins every day are more effective than occasional big changes. Consistency is key!",
-        "Carbon scores update daily. The best strategy is to aim for steady improvement week-over-week, not perfection every day. Even a 10% reduction month-on-month is excellent progress.",
+        "Your carbon score reflects how close you stay to your 6.5 kg daily budget. Staying consistently under budget earns you a green 'A' grade and builds your daily streak!",
+        "To improve your score, check your highest emission category on the Dashboard and try one small daily swap.",
     ],
     "default": [
-        "Great question! As your AI sustainability coach, I recommend starting with your highest emission category — usually transport or food. Even one small daily swap can save 300-500 kg CO2 over a year. What area would you like to focus on?",
-        "I'm here to help you on your sustainability journey! The most impactful daily habits are: eating less meat, using public transport, and reducing home energy use. Which one do you want to tackle first?",
-        "Every action you take matters! I can help you with food choices, transport, energy, or general tips. Your streak and daily logs show you're already making a difference. Keep going!",
-        "Here's something motivating: if 1 million people made one small eco-swap daily, the collective impact equals planting 25 million trees. You are part of that change!",
+        "I'm here to help you live more sustainably! You can ask me about food emissions, transport tips, home energy savings, or what your carbon footprint means. What would you like to explore?",
+        "Every small habit counts! Ask me anything about reducing emissions, calculating food CO₂, or exploring greener travel options.",
     ]
 }
 
 def get_coach_reply(message: str) -> str:
-    msg = message.lower()
-    if any(w in msg for w in ["food", "eat", "meat", "vegan", "vegetarian", "meal", "diet"]):
+    msg = message.lower().strip()
+    # Greetings
+    if any(msg == w or msg.startswith(w + " ") or msg.endswith(" " + w) for w in ["hi", "hlo", "hello", "hey", "hola", "namaste", "good morning", "good evening"]):
+        return random.choice(COACH_RESPONSES["greetings"])
+    # Definitions
+    elif any(w in msg for w in ["what is carbon footprint", "what is carbon", "what is co2", "meaning of carbon footprint", "define carbon footprint"]):
+        return random.choice(COACH_RESPONSES["what_is_carbon"])
+    # Top emission breakdown
+    elif any(w in msg for w in ["where im i using more", "where am i using more", "where is my co2", "using more co2", "top emission", "biggest emission", "where does co2 come from"]):
+        return random.choice(COACH_RESPONSES["where_more_co2"])
+    # How to use app
+    elif any(w in msg for w in ["how to use", "how does this app work", "how do i use", "help with app", "app features"]):
+        return random.choice(COACH_RESPONSES["how_to_use"])
+    # Food / diet
+    elif any(w in msg for w in ["food", "eat", "meat", "vegan", "vegetarian", "meal", "diet", "dinner", "lunch", "breakfast"]):
         return random.choice(COACH_RESPONSES["food"])
-    elif any(w in msg for w in ["car", "transport", "drive", "cycle", "bus", "train", "commute", "travel"]):
+    # Transport / vehicle
+    elif any(w in msg for w in ["car", "transport", "drive", "cycle", "bus", "train", "commute", "travel", "flight", "bike"]):
         return random.choice(COACH_RESPONSES["transport"])
-    elif any(w in msg for w in ["electricity", "power", "energy", "bulb", "appliance", "light", "electric"]):
+    # Electricity / energy
+    elif any(w in msg for w in ["electricity", "power", "energy", "bulb", "appliance", "light", "electric", "ac", "heater"]):
         return random.choice(COACH_RESPONSES["electricity"])
-    elif any(w in msg for w in ["tip", "advice", "suggest", "help", "how", "what can", "reduce"]):
+    # Tips / advice
+    elif any(w in msg for w in ["tip", "advice", "suggest", "help", "reduce", "how can i save"]):
         return random.choice(COACH_RESPONSES["tips"])
-    elif any(w in msg for w in ["score", "grade", "budget", "kg", "emission", "carbon"]):
+    # Score / streak / budget
+    elif any(w in msg for w in ["score", "grade", "budget", "kg", "streak", "points", "xp"]):
         return random.choice(COACH_RESPONSES["score"])
     else:
         return random.choice(COACH_RESPONSES["default"])
@@ -650,7 +677,7 @@ async def chat_sustainability(req: ChatRequest):
         return ChatResponse(reply=reply, session_id=req.session_id)
     except Exception as e:
         logger.exception("Chat failed")
-        return ChatResponse(reply="Great effort on your sustainability journey! Try swapping one car trip with cycling today — it saves ~1.2 kg CO2.", session_id=req.session_id)
+        return ChatResponse(reply="Hello! 👋 I'm your AI Carbon Coach. Try asking about reducing your travel emissions, food footprint, or daily energy tips!", session_id=req.session_id)
 
 
 

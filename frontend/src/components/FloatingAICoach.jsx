@@ -19,6 +19,29 @@ export default function FloatingAICoach() {
     }
   }, [messages, loading, isOpen]);
 
+  const getSmartFallback = (msg) => {
+    const q = msg.toLowerCase().trim();
+    if (['hi', 'hlo', 'hello', 'hey', 'hola'].some(w => q === w || q.startsWith(w + ' '))) {
+      return "Hello! 👋 I'm your CarbonMind AI Coach. How can I help you today? Ask me about reducing emissions, what carbon footprint means, or green travel and food tips!";
+    }
+    if (q.includes('what is carbon') || q.includes('what is co2') || q.includes('carbon footprint')) {
+      return "A **carbon footprint** is the total greenhouse gas emissions (in kg or tonnes of CO₂e) caused directly and indirectly by our lifestyle habits — like driving, electricity, and the food we consume.";
+    }
+    if (q.includes('where') && (q.includes('co2') || q.includes('emission') || q.includes('using'))) {
+      return "Personal emissions usually come from 4 sources: 🚗 **Transport (~42%)**, ⚡ **Electricity & Heating (~27%)**, 🍽 **Food (~18%)**, and 📱 **Devices (~13%)**. You can check your live breakdown on the Dashboard!";
+    }
+    if (q.includes('how to use') || q.includes('app')) {
+      return "You can use CarbonMind to: 📷 **Scan Food** for meal CO₂, 📊 **Daily Forecaster** for predictions, 📡 **Live Tracker** for activities, and 📞 **Call Me** for audio briefings!";
+    }
+    if (q.includes('food') || q.includes('meat') || q.includes('diet') || q.includes('eat')) {
+      return "Plant-forward meals make a massive difference! Swapping just one beef meal for lentils or chickpeas saves up to 2.5 kg CO₂.";
+    }
+    if (q.includes('car') || q.includes('travel') || q.includes('drive') || q.includes('transport')) {
+      return "Shifting 2 weekly car trips to cycling or public transit saves ~1.2 kg CO₂ each time — that's over 120 kg CO₂ per year!";
+    }
+    return "I'm here to help you reduce your footprint! Try asking about food emissions, transport tips, home energy savings, or your carbon score.";
+  };
+
   const handleSend = async () => {
     if (!input.trim() || loading) return;
     const userMsg = input.trim();
@@ -30,9 +53,11 @@ export default function FloatingAICoach() {
       const reply = res?.reply || res?.message;
       if (reply) {
         setMessages(prev => [...prev, { role: 'ai', text: reply }]);
-      } else throw new Error('empty');
+      } else {
+        setMessages(prev => [...prev, { role: 'ai', text: getSmartFallback(userMsg) }]);
+      }
     } catch {
-      setMessages(prev => [...prev, { role: 'ai', text: "Try asking about food emissions, transport tips, energy savings, or your carbon score!" }]);
+      setMessages(prev => [...prev, { role: 'ai', text: getSmartFallback(userMsg) }]);
     }
     setLoading(false);
   };

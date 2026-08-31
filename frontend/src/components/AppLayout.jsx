@@ -188,7 +188,7 @@ const AppLayout = () => {
             <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-glass-border">
               <div className="text-right">
                 <div className="font-mono-data text-[10px] text-secondary">Streak</div>
-                <div className="font-mono-data text-sm text-green">{user.streak} days</div>
+                <div className="font-mono-data text-sm text-green">{user?.streak ?? 0} days</div>
               </div>
             </div>
           </div>

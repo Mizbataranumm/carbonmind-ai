@@ -60,15 +60,20 @@ export default function Dashboard() {
   const [logOpen, setLogOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
 
+  const isNew = !user || user.xp === 0;
+  const streak = user?.streak ?? (isNew ? 0 : 14);
   const budget = 6.5;
-  const todayKg = 7.8;
-  const pct = Math.round((todayKg / budget) * 100);
+  const todayKg = isNew ? 0.0 : 7.8;
+  const weeklyTotal = isNew ? "0.0" : "48.7";
+  const co2Saved = isNew ? "0.0" : "12.3";
+  const grade = isNew ? (user?.grade || "Newbie") : (user?.grade || "A-");
+  const pct = budget > 0 ? Math.round((todayKg / budget) * 100) : 0;
 
   return (
     <div className="w-full pb-8 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <VoiceCallModal open={voiceOpen} onClose={() => setVoiceOpen(false)} userName={user?.name || 'Explorer'} />
+      <VoiceCallModal open={voiceOpen} onClose={() => setVoiceOpen(false)} userName={user?.name || 'Explorer'} weeklyKg={isNew ? 0.0 : 41.8} />
       <LogActivityModal open={logOpen} onClose={() => setLogOpen(false)} />
-      <PhoneCallModal open={phoneOpen} onClose={() => setPhoneOpen(false)} userName={user?.name || 'Explorer'} />
+      <PhoneCallModal open={phoneOpen} onClose={() => setPhoneOpen(false)} userName={user?.name || 'Explorer'} weeklyKg={isNew ? 0.0 : 41.8} />
 
       {/* ── HERO HEADER ─────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
@@ -81,7 +86,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-glass-border bg-widget text-sm">
             <Flame className="h-5 w-5 text-[#FFD166]" />
-            <span className="font-bold font-mono-data">{user?.streak || 14} Day Streak</span>
+            <span className="font-bold font-mono-data">{streak} Day Streak</span>
           </div>
           <button onClick={() => setVoiceOpen(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan/30 bg-cyan/10 text-cyan font-bold text-sm hover:bg-cyan/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.1)]">
@@ -96,10 +101,10 @@ export default function Dashboard() {
 
       {/* ── STAT CARDS ROW ──────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub="8.2% vs yesterday" trend="down" />
-        <StatCard label="Weekly Total" value="48.7" unit="kg" icon={TrendingDown} color="#00D9FF" sub="3.4% vs last week" trend="down" />
-        <StatCard label="CO₂ Saved" value="12.3" unit="kg" icon={Leaf} color="#A78BFA" sub="This month" trend="down" />
-        <StatCard label="Carbon Grade" value="A-" unit="" icon={Award} color="#FFD166" sub="Top 15% globally" trend="down" />
+        <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub={isNew ? "Starting fresh today" : "8.2% vs yesterday"} trend="down" />
+        <StatCard label="Weekly Total" value={weeklyTotal} unit="kg" icon={TrendingDown} color="#00D9FF" sub={isNew ? "Cycle begins today" : "3.4% vs last week"} trend="down" />
+        <StatCard label="CO₂ Saved" value={co2Saved} unit="kg" icon={Leaf} color="#A78BFA" sub={isNew ? "Target: 5 kg this week" : "This month"} trend="down" />
+        <StatCard label="Carbon Grade" value={grade} unit="" icon={Award} color="#FFD166" sub={isNew ? "Log to unlock tier" : "Top 15% globally"} trend="down" />
       </div>
 
       {/* ── QUICK ACTIONS ROW (Full width below) ──────────────────────────────── */}
@@ -234,27 +239,38 @@ export default function Dashboard() {
               <span className="font-bold text-xl" style={{ color: 'var(--text-primary)' }}>Recent Activity</span>
             </div>
             <div className="space-y-3">
-              {[
-                { label: 'Morning Commute', time: '08:14 AM', type: 'Train', kg: 1.2, icon: Car, color: '#00FFB2' },
-                { label: 'Home Appliances', time: '12:30 PM', type: 'Grid', kg: 1.8, icon: Zap, color: '#00D9FF' },
-                { label: 'Lunch (Chicken)', time: '01:15 PM', type: 'Food', kg: 0.9, icon: Utensils, color: '#FFD166' },
-                { label: 'Evening Drive', time: '06:45 PM', type: 'Car', kg: 2.1, icon: Car, color: '#FF4D4D' },
-              ].map((a, i) => {
-                const Icon = a.icon;
-                return (
-                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl border border-glass-border hover:border-green/30 hover:bg-glass-hover-bg transition-all cursor-pointer">
-                    <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                         style={{ background: a.color + '15' }}>
-                      <Icon className="h-5 w-5" style={{ color: a.color }} />
+              {isNew ? (
+                <div className="p-4 rounded-2xl border border-dashed border-glass-border text-center py-6">
+                  <Leaf className="h-8 w-8 text-green mx-auto mb-2 opacity-80" />
+                  <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>No activities logged yet today</p>
+                  <p className="text-xs text-secondary mt-1 max-w-[220px] mx-auto">Tap 'Scan Food' or 'Log Activity' to start tracking your daily carbon footprint!</p>
+                  <button onClick={() => navigate('/scan')} className="mt-3 px-3 py-1.5 rounded-lg bg-green/10 border border-green/30 text-green text-xs font-bold hover:bg-green/20 transition-all">
+                    + Scan First Meal
+                  </button>
+                </div>
+              ) : (
+                [
+                  { label: 'Morning Commute', time: '08:14 AM', type: 'Train', kg: 1.2, icon: Car, color: '#00FFB2' },
+                  { label: 'Home Appliances', time: '12:30 PM', type: 'Grid', kg: 1.8, icon: Zap, color: '#00D9FF' },
+                  { label: 'Lunch (Chicken)', time: '01:15 PM', type: 'Food', kg: 0.9, icon: Utensils, color: '#FFD166' },
+                  { label: 'Evening Drive', time: '06:45 PM', type: 'Car', kg: 2.1, icon: Car, color: '#FF4D4D' },
+                ].map((a, i) => {
+                  const Icon = a.icon;
+                  return (
+                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl border border-glass-border hover:border-green/30 hover:bg-glass-hover-bg transition-all cursor-pointer">
+                      <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                           style={{ background: a.color + '15' }}>
+                        <Icon className="h-5 w-5" style={{ color: a.color }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{a.label}</p>
+                        <p className="text-[11px] font-medium text-secondary">{a.time} · {a.type}</p>
+                      </div>
+                      <span className="font-mono-data text-sm font-bold" style={{ color: a.color }}>+{a.kg} kg</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{a.label}</p>
-                      <p className="text-[11px] font-medium text-secondary">{a.time} · {a.type}</p>
-                    </div>
-                    <span className="font-mono-data text-sm font-bold" style={{ color: a.color }}>+{a.kg} kg</span>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
           
