@@ -1,7 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, CameraOff, Upload, Sparkles, ScanLine, RefreshCw, X } from "lucide-react";
+import { Camera, CameraOff, Upload, Sparkles, ScanLine, RefreshCw, X, CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { scanFood } from "@/lib/api";
+import { toast } from "sonner";
 
 const Scan = () => {
   const videoRef = useRef(null);
@@ -70,11 +72,33 @@ const Scan = () => {
         scanFood({ image_base64: dataUrl?.split(",")[1] || null, hint: hint || null }),
         new Promise(res => setTimeout(res, 1600)),
       ]);
-      if (r.status === "error") { setError(r.message + (r.suggestion ? " - " + r.suggestion : "")); setResult(null); } else { setResult(r.data); };
+      if (r.status === "error") {
+        setError(r.message + (r.suggestion ? " - " + r.suggestion : ""));
+        setResult(null);
+      } else {
+        setResult(r.data);
+        // Auto-log to Daily Forecaster (Predict page) via localStorage event
+        try {
+          const firstItem = r.data?.items?.[0];
+          const scanPayload = JSON.stringify({
+            label: firstItem?.name || r.data?.food_name || "Scanned food",
+            value: (firstItem?.name || "other").toLowerCase().replace(/\s+/g, "_"),
+            co2: r.data?.total_co2_kg ?? firstItem?.co2_kg ?? 0.5,
+            time: Date.now(),
+          });
+          localStorage.setItem("cm_scan_result", scanPayload);
+          // Dispatch storage event so same-tab listeners fire
+          window.dispatchEvent(new StorageEvent("storage", {
+            key: "cm_scan_result",
+            newValue: scanPayload,
+          }));
+        } catch {}
+      }
     } catch (e) {
       setError("Scan failed. Try again.");
     } finally { setScanning(false); }
   };
+
 
   const reset = () => {
     setResult(null); setPreviewImg(null); setError(""); setHint("");
@@ -213,8 +237,17 @@ const Scan = () => {
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4">
                 <div className="p-4 rounded-xl bg-green/5 border border-green/20">
                   <div className="font-mono-data text-[11px] text-secondary">Total meal impact</div>
-                  <div className="font-mono-data text-4xl neon-text-green mt-1">{result.total_co2_kg} <span className="text-lg text-secondary">kg COâ‚‚</span></div>
+                  <div className="font-mono-data text-4xl neon-text-green mt-1">{result.total_co2_kg} <span className="text-lg text-secondary">kg CO₂</span></div>
                   <div className="text-sm text-main mt-2">{result.ai_note}</div>
+
+                  <div className="mt-3 flex items-center justify-between p-2.5 rounded-lg bg-green/10 border border-green/30 text-xs">
+                    <span className="flex items-center gap-1.5 text-green font-medium">
+                      <CheckCircle2 className="h-4 w-4" /> Auto-logged to Daily Forecaster
+                    </span>
+                    <Link to="/predict" className="text-green underline hover:text-white transition">
+                      View Tracker →
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-2">
@@ -230,11 +263,11 @@ const Scan = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="font-medium text-sm">{item.name}</div>
-                          <div className="font-mono-data text-[11px] text-secondary">{item.portion} Â· {item.category}</div>
+                          <div className="font-mono-data text-[11px] text-secondary">{item.portion} · {item.category}</div>
                         </div>
                         <div className="font-mono-data text-lg text-green">{item.co2_kg} kg</div>
                       </div>
-                      <div className="text-[11px] text-secondary mt-1.5 italic">ðŸ’¡ {item.tip}</div>
+                      {item.tip && <div className="text-[11px] text-secondary mt-1.5 italic">💡 {item.tip}</div>}
                     </motion.div>
                   ))}
                 </div>
