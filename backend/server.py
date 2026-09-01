@@ -888,7 +888,8 @@ async def food_scan(req: dict):
         }
 
     # Run PyTorch CNN Inference
-    pred = predict_food(base64_img)
+    hint = req.get("hint")
+    pred = predict_food(base64_img, hint=hint)
     
     if pred["status"] == "error":
         return {
