@@ -1,0 +1,85 @@
+{
+  "registry_version": 1,
+  "last_reviewed": "2026-09-11",
+  "models": {
+    "food_scanner": {
+      "status": "not_product_validated",
+      "runtime_path": "backend/ml_service.py::predict_food",
+      "current_runtime": [
+        "Hugging Face Inference API: nateraw/food",
+        "Gemini Vision when GEMINI_API_KEY or EMERGENT_LLM_KEY is configured",
+        "hint-based IPCC lookup",
+        "pixel-based non-food heuristic"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/cnn_food_model.pt",
+        "backend/ml/models/cnn_food_metadata.json"
+      ],
+      "known_issues": [
+        "Checked-in CNN metadata reports best_accuracy = 4.0",
+        "Local CNN artifact is not loaded by the serving code",
+        "Hint lookup can return high confidence without image recognition",
+        "No committed real-world image validation report"
+      ],
+      "required_release_metrics": [
+        "top1_accuracy",
+        "top3_accuracy",
+        "macro_f1",
+        "non_food_false_accept_rate",
+        "food_false_reject_rate",
+        "expected_calibration_error",
+        "latency_p95_ms"
+      ]
+    },
+    "daily_carbon_predictor": {
+      "status": "needs_schema_and_metric_validation",
+      "runtime_path": "backend/ml_service.py::predict_gbdt",
+      "current_runtime": [
+        "XGBoost model artifact",
+        "LightGBM model artifact when available",
+        "default-filled 14-feature lifestyle schema"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/gbdt_carbon_model.pkl",
+        "backend/ml/models/lgbm_carbon_model.pkl"
+      ],
+      "known_issues": [
+        "API response currently labels R2 without reading from a committed metrics artifact",
+        "Frontend predictor sends morning activities but not the full 14-feature model schema",
+        "Categorical encoding and train/test split need reproducible validation"
+      ],
+      "required_release_metrics": [
+        "mae_kg_year",
+        "rmse_kg_year",
+        "r2_holdout",
+        "baseline_mae_kg_year",
+        "feature_coverage_rate",
+        "prediction_interval_coverage"
+      ]
+    },
+    "future_simulator": {
+      "status": "scenario_calculator_until_real_history_exists",
+      "runtime_path": "backend/server.py::simulate and backend/ml_service.py::predict_weekly_arima",
+      "current_runtime": [
+        "Holt-Winters weekly smoothing shim",
+        "pseudo-history generated inside /future/simulate"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/lstm_carbon_model.pt",
+        "backend/ml/models/lstm_carbon_model.h5"
+      ],
+      "known_issues": [
+        "LSTM artifact is not used by current weekly forecast path",
+        "Pseudo-history is generated randomly from user inputs",
+        "Seven-day output is extrapolated to annual and multi-year projections"
+      ],
+      "required_release_metrics": [
+        "mae_kg_day",
+        "mape",
+        "coverage_by_horizon",
+        "backtest_window_count",
+        "scenario_assumption_error_bounds"
+      ]
+    }
+  }
+}
