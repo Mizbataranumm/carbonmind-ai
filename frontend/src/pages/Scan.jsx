@@ -139,27 +139,27 @@ function analyzeImageVisuals(dataUrl) {
           }
 
           // 3. French fries: Bright golden-yellow (high R + G, low B, high lightness)
-          if (r > 180 && g > 140 && b < 110 && (r - b) > 70) {
+          if (r > 175 && g > 135 && b < 115 && (r - b) > 65) {
             yellowFriesPixels++;
           }
 
-          // 4. Biryani: Warm spiced basmati grain & roasted meat tones (warm saffron-orange/brown)
-          if (r > 140 && g > 75 && g < 160 && b < 80 && (r - g) > 30 && (r - b) > 60) {
+          // 4. Biryani: Saffron-spiced basmati rice & roasted meat / drumsticks
+          if (r > 115 && g > 60 && g < 175 && b < 95 && (r - b) > 35) {
             biryaniOrangePixels++;
           }
 
           // 5. Green Salad / Veg
-          if (g > r && g > b && g > 70) {
+          if (g > r && g > b && g > 65) {
             greenSaladPixels++;
           }
 
-          // 6. Dark dish / pan background (e.g. biryani bowl, cast iron pan)
-          if (r < 65 && g < 60 && b < 60) {
+          // 6. Dark dish / pan background (e.g. biryani bowl, dark earthenware plate)
+          if (r < 75 && g < 70 && b < 70) {
             darkBackgroundPixels++;
           }
 
-          // 7. White rice mound / dairy
-          if (r > 200 && g > 200 && b > 190) {
+          // 7. White rice mound / raita / dairy
+          if (r > 190 && g > 190 && b > 180) {
             whiteRicePixels++;
           }
         }
@@ -173,7 +173,7 @@ function analyzeImageVisuals(dataUrl) {
         const whiteRatio = whiteRicePixels / count;
 
         // ── A. Check if image is Non-Food (baby, person, portrait, party background)
-        if (skinRatio > 0.20 || pinkRatio > 0.16 || (skinRatio > 0.12 && pinkRatio > 0.08)) {
+        if (skinRatio > 0.18 || pinkRatio > 0.15 || (skinRatio > 0.10 && pinkRatio > 0.08)) {
           resolve({
             isFood: false,
             reason: "Portrait / person or non-food item detected. No food components were found."
@@ -181,38 +181,39 @@ function analyzeImageVisuals(dataUrl) {
           return;
         }
 
-        // ── B. Check Biryani / Spiced Rice (saffron rice + meat + dark dish background)
-        if (biryaniRatio > 0.14 && (darkRatio > 0.10 || whiteRatio > 0.05)) {
+        // ── B. Check Biryani / Spiced Rice (saffron rice + roasted chicken + dark serving plate)
+        if (biryaniRatio > 0.10 && (darkRatio > 0.06 || whiteRatio > 0.03)) {
           resolve({ isFood: true, key: "biryani" });
           return;
         }
 
         // ── C. Check French Fries (high bright golden yellow sticks)
-        if (friesRatio > 0.18) {
+        if (friesRatio > 0.16) {
           resolve({ isFood: true, key: "fries" });
           return;
         }
 
         // ── D. Check Salad (high green leafy concentration)
-        if (saladRatio > 0.18) {
+        if (saladRatio > 0.16) {
           resolve({ isFood: true, key: "salad" });
           return;
         }
 
         // ── E. Check Thali (multi-component white rice + bowls + curry colors)
-        if (whiteRatio > 0.10 && (friesRatio > 0.08 || biryaniRatio > 0.08 || saladRatio > 0.08)) {
+        if (whiteRatio > 0.08 && (friesRatio > 0.06 || biryaniRatio > 0.06 || saladRatio > 0.06)) {
           resolve({ isFood: true, key: "thali" });
           return;
         }
 
-        // ── F. Default standard meal plate
-        if (biryaniRatio > friesRatio) {
+        // ── F. Default based on highest characteristic
+        if (biryaniRatio > 0.08) {
           resolve({ isFood: true, key: "biryani" });
-        } else if (friesRatio > 0.10) {
+        } else if (friesRatio > 0.08) {
           resolve({ isFood: true, key: "fries" });
         } else {
           resolve({ isFood: true, key: "thali" });
         }
+
       };
       img.onerror = () => resolve({ isFood: true, key: "thali" });
       img.src = dataUrl;
