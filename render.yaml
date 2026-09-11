@@ -2,15 +2,13 @@ services:
   - type: web
     name: carbonmind-backend
     runtime: python
+    rootDir: backend
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn server:app --host 0.0.0.0 --port 
     envVars:
       - key: MONGO_URL
         sync: false
       - key: DB_NAME
         value: carbonmind
       - key: CORS_ORIGINS
-        value: "*"
-      - key: EMERGENT_LLM_KEY
-        sync: false
-
+        value: " *\n

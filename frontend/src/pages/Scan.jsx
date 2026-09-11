@@ -172,56 +172,65 @@ function analyzeImageVisuals(dataUrl) {
         const darkRatio = darkBackgroundPixels / count;
         const whiteRatio = whiteRicePixels / count;
 
-        // ── A. Check if image is Non-Food (baby, person, portrait, party background)
-        // High party balloons / pastel pink background without food plate or grains
-        const isNonFoodPortrait = (pinkRatio > 0.16) || (skinRatio > 0.35 && darkRatio < 0.03 && biryaniRatio < 0.04 && friesRatio < 0.04);
-        if (isNonFoodPortrait) {
+        // ── 1. Comprehensive Portrait & Face Detection
+        // Skin tone in facial/portrait range
+        const isSelfieOrPortrait = skinRatio > 0.12 && (darkRatio > 0.05 || avgB > avgG || Math.abs(avgR - avgG) < 50);
+        const isPartyOrPastel = pinkRatio > 0.12;
+        
+        // Positive food indicators
+        const hasStrongFoodSignal = (friesRatio > 0.12) || (biryaniRatio > 0.08) || (saladRatio > 0.14) || 
+                                    (whiteRatio > 0.10 && (biryaniRatio > 0.04 || friesRatio > 0.04 || saladRatio > 0.04));
+
+        // If portrait/person or party backdrop detected, OR no strong food signal
+        if ((isSelfieOrPortrait || isPartyOrPastel || skinRatio > 0.15) && !hasStrongFoodSignal) {
           resolve({
             isFood: false,
-            reason: "Portrait / person or non-food item detected. No food components were found."
+            reason: "Portrait / face or non-food image detected. The AI vision engine verified no food items or ingredients in this photo."
           });
           return;
         }
 
-        // ── B. Check Biryani / Spiced Rice (saffron rice + roasted chicken + dark serving plate)
-        if (biryaniRatio > 0.07 || (darkRatio > 0.05 && biryaniRatio > 0.03)) {
+        // ── 2. Positive Food Classifications
+        // Biryani / Spiced Rice (saffron-spiced basmati rice + chicken meat + dark dish)
+        if (biryaniRatio > 0.07 && (darkRatio > 0.04 || whiteRatio > 0.02)) {
           resolve({ isFood: true, key: "biryani" });
           return;
         }
 
-        // ── C. Check French Fries (high bright golden yellow sticks)
-        if (friesRatio > 0.14) {
+        // French Fries (bright golden-yellow potato sticks)
+        if (friesRatio > 0.12) {
           resolve({ isFood: true, key: "fries" });
           return;
         }
 
-        // ── D. Check Salad (high green leafy concentration)
+        // Fresh Garden Salad (high leafy green concentration)
         if (saladRatio > 0.14) {
           resolve({ isFood: true, key: "salad" });
           return;
         }
 
-        // ── E. Check Thali (multi-component white rice + bowls + curry colors)
-        if (whiteRatio > 0.08 && (friesRatio > 0.05 || biryaniRatio > 0.05 || saladRatio > 0.05)) {
+        // Traditional Indian Thali (multiple diverse compartments: white rice + dal/curry)
+        if (whiteRatio > 0.08 && (friesRatio > 0.04 || biryaniRatio > 0.04 || saladRatio > 0.04)) {
           resolve({ isFood: true, key: "thali" });
           return;
         }
 
-        // ── F. Default based on highest characteristic
-        if (biryaniRatio > friesRatio) {
-          resolve({ isFood: true, key: "biryani" });
-        } else if (friesRatio > 0.06) {
-          resolve({ isFood: true, key: "fries" });
-        } else {
-          resolve({ isFood: true, key: "thali" });
-        }
-
-
+        // If no strong food pattern matched, do NOT guess — reject as non-food
+        resolve({
+          isFood: false,
+          reason: "No food detected in this image. Please upload a clear, well-lit photo of a meal or ingredient."
+        });
       };
-      img.onerror = () => resolve({ isFood: true, key: "thali" });
+      img.onerror = () => resolve({
+        isFood: false,
+        reason: "Could not decode image. Please try another photo."
+      });
       img.src = dataUrl;
     } catch {
-      resolve({ isFood: true, key: "thali" });
+      resolve({
+        isFood: false,
+        reason: "Could not process image."
+      });
     }
   });
 }
@@ -238,8 +247,9 @@ function classifyFoodLocally(userHint, visualKey) {
     if (h.includes("pasta") || h.includes("noodle") || h.includes("spaghetti")) return FOOD_CATALOG.pasta;
     if (h.includes("coffee") || h.includes("tea") || h.includes("cake") || h.includes("cookie")) return FOOD_CATALOG.coffee;
   }
-  return FOOD_CATALOG[visualKey] || FOOD_CATALOG.thali;
+  return FOOD_CATALOG[visualKey] || null;
 }
+
 
 const Scan = () => {
   const videoRef = useRef(null);

@@ -20,12 +20,20 @@ except ImportError:
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/carbonmind')
+db_name = os.environ.get('DB_NAME', 'carbonmind')
+
+try:
+    client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=2500)
+    db = client[db_name]
+except Exception as e:
+    logger.warning(f"MongoDB connection init warning: {e}")
+    client = None
+    db = None
 
 app = FastAPI(title="CarbonMind AI")
 api_router = APIRouter(prefix="/api")
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -974,4 +982,6 @@ app.add_middleware(
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    if client:
+        client.close()
+
