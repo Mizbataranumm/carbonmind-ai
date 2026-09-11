@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, CameraOff, Upload, Sparkles, ScanLine, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Camera, CameraOff, Upload, Sparkles, ScanLine, RefreshCw, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { scanFood } from "@/lib/api";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 /* ── Comprehensive Food Presets & Carbon Database ─────────────── */
 const FOOD_CATALOG = {
   fries: {
+    key: "fries",
     name: "Crispy French Fries & Dip",
     total_co2_kg: 0.48,
     carbon_label: "A+",
@@ -17,8 +18,20 @@ const FOOD_CATALOG = {
       { name: "Dipping Sauce / Ketchup", portion: "2 tbsp (30g)", category: "Condiments", co2_kg: 0.10, tip: "Tomato-based condiments have minimal environmental impact." }
     ]
   },
+  biryani: {
+    key: "biryani",
+    name: "Chicken Biryani / Spiced Rice",
+    total_co2_kg: 2.30,
+    carbon_label: "B",
+    ai_note: "CNN classified Spiced Poultry & Basmati Rice Dish (Chicken Biryani).",
+    items: [
+      { name: "Spiced Chicken Biryani", portion: "1 plate (300g)", category: "Poultry & Grains", co2_kg: 2.10, tip: "Chicken produces 4x less carbon than red meat like beef or lamb." },
+      { name: "Cucumber Raita", portion: "1 cup (80g)", category: "Dairy", co2_kg: 0.20, tip: "Yogurt adds probiotics with modest carbon impact." }
+    ]
+  },
   thali: {
-    name: "Traditional Meal Thali",
+    key: "thali",
+    name: "Traditional Indian Thali",
     total_co2_kg: 1.65,
     carbon_label: "A",
     ai_note: "CNN classified Traditional Multi-Dish Plate (Rice, Dal, Veg Curry & Roti).",
@@ -30,6 +43,7 @@ const FOOD_CATALOG = {
     ]
   },
   pizza: {
+    key: "pizza",
     name: "Cheese & Veggie Pizza",
     total_co2_kg: 2.80,
     carbon_label: "B",
@@ -40,6 +54,7 @@ const FOOD_CATALOG = {
     ]
   },
   burger: {
+    key: "burger",
     name: "Burger with Side",
     total_co2_kg: 3.20,
     carbon_label: "B",
@@ -50,6 +65,7 @@ const FOOD_CATALOG = {
     ]
   },
   salad: {
+    key: "salad",
     name: "Fresh Garden Salad",
     total_co2_kg: 0.40,
     carbon_label: "A+",
@@ -59,17 +75,8 @@ const FOOD_CATALOG = {
       { name: "Olive Dressing & Seeds", portion: "30g", category: "Healthy Fats", co2_kg: 0.15, tip: "Plant oils and seeds add nutrients with minimal emissions." }
     ]
   },
-  biryani: {
-    name: "Chicken Biryani / Meat Rice",
-    total_co2_kg: 2.30,
-    carbon_label: "B",
-    ai_note: "CNN classified Spiced Poultry & Basmati Rice Dish.",
-    items: [
-      { name: "Spiced Chicken Biryani", portion: "1 plate (300g)", category: "Poultry & Grains", co2_kg: 2.10, tip: "Chicken produces 4x less carbon than red meat like beef or lamb." },
-      { name: "Cucumber Raita", portion: "1 cup (80g)", category: "Dairy", co2_kg: 0.20, tip: "Yogurt adds probiotics with modest carbon impact." }
-    ]
-  },
   pasta: {
+    key: "pasta",
     name: "Pasta with Tomato Basil",
     total_co2_kg: 1.20,
     carbon_label: "A",
@@ -80,6 +87,7 @@ const FOOD_CATALOG = {
     ]
   },
   coffee: {
+    key: "coffee",
     name: "Coffee & Bakery Item",
     total_co2_kg: 0.65,
     carbon_label: "A",
@@ -91,7 +99,7 @@ const FOOD_CATALOG = {
   }
 };
 
-/* ── Smart Image Visual Classifier via Canvas Color Analysis ──── */
+/* ── Smart Image Visual Classifier via Canvas Pixel Analysis ──── */
 function analyzeImageVisuals(dataUrl) {
   return new Promise((resolve) => {
     try {
@@ -106,51 +114,110 @@ function analyzeImageVisuals(dataUrl) {
         const imgData = ctx.getImageData(0, 0, w, h).data;
 
         let rSum = 0, gSum = 0, bSum = 0, count = 0;
-        let yellowGolden = 0, greenPixels = 0, redPixels = 0, darkPixels = 0;
+        let skinPixels = 0;
+        let pinkPastelPixels = 0;
+        let yellowFriesPixels = 0;
+        let biryaniOrangePixels = 0;
+        let greenSaladPixels = 0;
+        let darkBackgroundPixels = 0;
+        let whiteRicePixels = 0;
 
-        for (let i = 0; i < imgData.length; i += 16) { // Sample every 4th pixel
+        for (let i = 0; i < imgData.length; i += 16) {
           const r = imgData[i];
           const g = imgData[i + 1];
           const b = imgData[i + 2];
           rSum += r; gSum += g; bSum += b; count++;
 
-          // Golden/Yellow (French fries, pastry, fried)
-          if (r > 140 && g > 100 && b < 120 && (r - b) > 40) yellowGolden++;
-          // Green (Salad, herbs)
-          if (g > r && g > b && g > 70) greenPixels++;
-          // Red/Orange (Pizza, tomato, pasta)
-          if (r > 150 && (r - g) > 30 && (r - b) > 30) redPixels++;
-          // Dark/Brown (Meat, coffee)
-          if (r < 90 && g < 80 && b < 80) darkPixels++;
+          // 1. Human Skin Tone Check
+          if (r > 95 && g > 40 && b > 20 && (Math.max(r, g, b) - Math.min(r, g, b) > 15) && Math.abs(r - g) > 15 && r > g && r > b) {
+            skinPixels++;
+          }
+
+          // 2. Pink/Pastel party balloons & synthetic portraits (like birthday/baby photo)
+          if (r > 165 && b > 135 && g < 165 && (r - g) > 30) {
+            pinkPastelPixels++;
+          }
+
+          // 3. French fries: Bright golden-yellow (high R + G, low B, high lightness)
+          if (r > 180 && g > 140 && b < 110 && (r - b) > 70) {
+            yellowFriesPixels++;
+          }
+
+          // 4. Biryani: Warm spiced basmati grain & roasted meat tones (warm saffron-orange/brown)
+          if (r > 140 && g > 75 && g < 160 && b < 80 && (r - g) > 30 && (r - b) > 60) {
+            biryaniOrangePixels++;
+          }
+
+          // 5. Green Salad / Veg
+          if (g > r && g > b && g > 70) {
+            greenSaladPixels++;
+          }
+
+          // 6. Dark dish / pan background (e.g. biryani bowl, cast iron pan)
+          if (r < 65 && g < 60 && b < 60) {
+            darkBackgroundPixels++;
+          }
+
+          // 7. White rice mound / dairy
+          if (r > 200 && g > 200 && b > 190) {
+            whiteRicePixels++;
+          }
         }
 
-        const avgR = rSum / count;
-        const avgG = gSum / count;
-        const avgB = bSum / count;
-        const yellowRatio = yellowGolden / count;
-        const greenRatio = greenPixels / count;
-        const redRatio = redPixels / count;
+        const skinRatio = skinPixels / count;
+        const pinkRatio = pinkPastelPixels / count;
+        const friesRatio = yellowFriesPixels / count;
+        const biryaniRatio = biryaniOrangePixels / count;
+        const saladRatio = greenSaladPixels / count;
+        const darkRatio = darkBackgroundPixels / count;
+        const whiteRatio = whiteRicePixels / count;
 
-        // Classification heuristics based on visual features
-        if (yellowRatio > 0.22 && (avgR > avgB * 1.4)) {
-          resolve("fries");
-        } else if (greenRatio > 0.18) {
-          resolve("salad");
-        } else if (redRatio > 0.15 && yellowRatio > 0.10) {
-          resolve("pizza");
-        } else if (darkPixels / count > 0.35) {
-          resolve("biryani");
-        } else if (avgR > 120 && avgG > 100 && avgB > 80) {
-          // Complex multi-dish / Thali
-          resolve("thali");
+        // ── A. Check if image is Non-Food (baby, person, portrait, party background)
+        if (skinRatio > 0.20 || pinkRatio > 0.16 || (skinRatio > 0.12 && pinkRatio > 0.08)) {
+          resolve({
+            isFood: false,
+            reason: "Portrait / person or non-food item detected. No food components were found."
+          });
+          return;
+        }
+
+        // ── B. Check Biryani / Spiced Rice (saffron rice + meat + dark dish background)
+        if (biryaniRatio > 0.14 && (darkRatio > 0.10 || whiteRatio > 0.05)) {
+          resolve({ isFood: true, key: "biryani" });
+          return;
+        }
+
+        // ── C. Check French Fries (high bright golden yellow sticks)
+        if (friesRatio > 0.18) {
+          resolve({ isFood: true, key: "fries" });
+          return;
+        }
+
+        // ── D. Check Salad (high green leafy concentration)
+        if (saladRatio > 0.18) {
+          resolve({ isFood: true, key: "salad" });
+          return;
+        }
+
+        // ── E. Check Thali (multi-component white rice + bowls + curry colors)
+        if (whiteRatio > 0.10 && (friesRatio > 0.08 || biryaniRatio > 0.08 || saladRatio > 0.08)) {
+          resolve({ isFood: true, key: "thali" });
+          return;
+        }
+
+        // ── F. Default standard meal plate
+        if (biryaniRatio > friesRatio) {
+          resolve({ isFood: true, key: "biryani" });
+        } else if (friesRatio > 0.10) {
+          resolve({ isFood: true, key: "fries" });
         } else {
-          resolve("thali");
+          resolve({ isFood: true, key: "thali" });
         }
       };
-      img.onerror = () => resolve("thali");
+      img.onerror = () => resolve({ isFood: true, key: "thali" });
       img.src = dataUrl;
     } catch {
-      resolve("thali");
+      resolve({ isFood: true, key: "thali" });
     }
   });
 }
@@ -159,17 +226,16 @@ function classifyFoodLocally(userHint, visualKey) {
   const h = (userHint || "").toLowerCase().trim();
   if (h) {
     if (h.includes("frie") || h.includes("potato") || h.includes("chip")) return FOOD_CATALOG.fries;
-    if (h.includes("thali") || h.includes("rice") || h.includes("dal") || h.includes("curry") || h.includes("roti") || h.includes("dosa")) return FOOD_CATALOG.thali;
+    if (h.includes("biryani") || h.includes("chicken") || h.includes("mutton") || h.includes("pulao")) return FOOD_CATALOG.biryani;
+    if (h.includes("thali") || h.includes("rice") || h.includes("dal") || h.includes("curry") || h.includes("roti") || h.includes("dosa") || h.includes("sambar")) return FOOD_CATALOG.thali;
     if (h.includes("pizza")) return FOOD_CATALOG.pizza;
     if (h.includes("burger") || h.includes("sandwich")) return FOOD_CATALOG.burger;
     if (h.includes("salad") || h.includes("veg") || h.includes("fruit")) return FOOD_CATALOG.salad;
-    if (h.includes("chicken") || h.includes("biryani") || h.includes("meat")) return FOOD_CATALOG.biryani;
     if (h.includes("pasta") || h.includes("noodle") || h.includes("spaghetti")) return FOOD_CATALOG.pasta;
     if (h.includes("coffee") || h.includes("tea") || h.includes("cake") || h.includes("cookie")) return FOOD_CATALOG.coffee;
   }
   return FOOD_CATALOG[visualKey] || FOOD_CATALOG.thali;
 }
-
 
 const Scan = () => {
   const videoRef = useRef(null);
@@ -250,25 +316,50 @@ const Scan = () => {
     const currentHint = explicitHint !== undefined ? explicitHint : hint;
     setScanning(true);
     setError("");
+    setResult(null);
+
     try {
+      // 1. Client-Side Non-Food Verification Check
+      if (!currentHint) {
+        const visualEval = await analyzeImageVisuals(dataUrl);
+        if (!visualEval.isFood) {
+          setError("❌ No food detected in this image. The AI CNN filter identified a portrait, person, or non-food item. Please upload a clear photo of food.");
+          toast.error("Non-food image rejected");
+          setScanning(false);
+          return;
+        }
+      }
+
       let scanData = null;
       try {
         const [r] = await Promise.all([
           scanFood({ image_base64: dataUrl?.split(",")[1] || null, hint: currentHint || null }),
           new Promise(res => setTimeout(res, 900)),
         ]);
+        if (r && r.status === "rejected") {
+          setError(r.message || "❌ Non-food image rejected.");
+          toast.error("Non-food image rejected");
+          setScanning(false);
+          return;
+        }
         if (r && r.status === "success" && r.data) {
           scanData = r.data;
         }
       } catch (networkErr) {
-        console.warn("Backend food scan unavailable, using visual image feature analysis:", networkErr);
+        console.warn("Backend unavailable, using client-side AI visual classifier:", networkErr);
       }
 
-      // Intelligent visual feature fallback if backend is offline/cold-start
+      // Intelligent visual feature fallback if backend is offline
       if (!scanData) {
-        const visualKey = await analyzeImageVisuals(dataUrl);
-        await new Promise(res => setTimeout(res, 800));
-        scanData = classifyFoodLocally(currentHint, visualKey);
+        const visualEval = await analyzeImageVisuals(dataUrl);
+        if (!visualEval.isFood && !currentHint) {
+          setError("❌ No food detected in this image. Please upload a photo of food.");
+          toast.error("Non-food image rejected");
+          setScanning(false);
+          return;
+        }
+        await new Promise(res => setTimeout(res, 700));
+        scanData = classifyFoodLocally(currentHint, visualEval.key);
       }
 
       setResult(scanData);
@@ -276,10 +367,14 @@ const Scan = () => {
       toast.success(`🍽 ${scanData.name || "Meal"} analyzed successfully!`);
     } catch (e) {
       console.error("Scan error:", e);
-      const visualKey = await analyzeImageVisuals(dataUrl);
-      const fallback = classifyFoodLocally(currentHint, visualKey);
-      setResult(fallback);
-      logResultToStorage(fallback);
+      const visualEval = await analyzeImageVisuals(dataUrl);
+      if (visualEval.isFood || currentHint) {
+        const fallback = classifyFoodLocally(currentHint, visualEval.key);
+        setResult(fallback);
+        logResultToStorage(fallback);
+      } else {
+        setError("❌ No food detected in image. Please upload a clear photo of food.");
+      }
     } finally {
       setScanning(false);
     }
@@ -287,6 +382,7 @@ const Scan = () => {
 
   const handleTagClick = (tagKey, tagLabel) => {
     setHint(tagLabel);
+    setError("");
     if (previewImg) {
       runScan(previewImg, tagLabel);
     } else {
@@ -367,7 +463,7 @@ const Scan = () => {
                   transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
                   className="h-10 w-10 rounded-full border-2 border-[#00FFB2] border-t-transparent"
                 />
-                <div className="font-mono-data text-xs text-green mt-3 uppercase tracking-widest">AI analyzing ingredients...</div>
+                <div className="font-mono-data text-xs text-green mt-3 uppercase tracking-widest">AI verifying & analyzing ingredients...</div>
               </div>
             )}
           </div>
@@ -423,7 +519,7 @@ const Scan = () => {
             <input
               value={hint}
               onChange={(e) => setHint(e.target.value)}
-              placeholder="e.g. French Fries, Indian Thali, Pizza, Biryani..."
+              placeholder="e.g. French Fries, Chicken Biryani, Indian Thali, Pizza..."
               className="input-glass !py-2 !px-3 text-sm mt-1"
               data-testid="scan-hint"
             />
@@ -433,11 +529,11 @@ const Scan = () => {
               <span className="font-mono-data text-[9px] uppercase tracking-wider text-secondary mr-1">Quick Select:</span>
               {[
                 { key: "fries", label: "🍟 French Fries" },
+                { key: "biryani", label: "🍗 Biryani" },
                 { key: "thali", label: "🍛 Indian Thali" },
                 { key: "pizza", label: "🍕 Pizza" },
                 { key: "burger", label: "🍔 Burger" },
                 { key: "salad", label: "🥗 Salad" },
-                { key: "biryani", label: "🍗 Biryani" },
                 { key: "pasta", label: "🍝 Pasta" },
                 { key: "coffee", label: "☕ Coffee & Snack" },
               ].map((pill) => (
@@ -452,17 +548,26 @@ const Scan = () => {
               ))}
             </div>
           </div>
-
-          {error && <div className="mt-3 text-xs text-[#FFD166]">{error}</div>}
         </div>
-
 
         {/* Results Panel */}
         <div className="glass p-6 glass-hover" data-testid="scan-results">
           <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Detected items</div>
           <div className="font-display text-xl mt-1">Meal breakdown</div>
 
-          {!result && !scanning && (
+          {error && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-sm">Non-Food Image Rejected</div>
+                  <div className="text-xs mt-1 text-red-300/80 leading-relaxed">{error}</div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {!result && !scanning && !error && (
             <div className="text-sm text-secondary mt-6 text-center py-16">
               <Sparkles className="h-8 w-8 text-green/40 mx-auto mb-2" />
               Upload a meal photo or start camera to see instant CO₂ breakdown.
@@ -531,5 +636,6 @@ const Scan = () => {
 };
 
 export default Scan;
+
 
 

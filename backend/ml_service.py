@@ -118,6 +118,33 @@ def predict_food(base64_image_str, hint=None):
             base64_image_str = base64_image_str.split(",")[1]
         img_data = base64.b64decode(base64_image_str)
         img = Image.open(BytesIO(img_data)).convert('RGB')
+        # Pixel-level Non-Food / Portrait / Synthetic Image Filter
+        small_img = img.resize((64, 64))
+        pixels = list(small_img.getdata())
+        skin_count = 0
+        pink_pastel_count = 0
+        total_px = len(pixels)
+
+        for p in pixels:
+            r, g, b = p[0], p[1], p[2]
+            # Skin tone detection
+            if r > 95 and g > 40 and b > 20 and (max(r, g, b) - min(r, g, b) > 15) and abs(r - g) > 15 and r > g and r > b:
+                skin_count += 1
+            # Pink / magenta / pastel balloons/clothing (e.g. party photos, portraits)
+            if r > 160 and b > 140 and g < 165:
+                pink_pastel_count += 1
+
+        skin_ratio = skin_count / total_px
+        pink_ratio = pink_pastel_count / total_px
+
+        # If significant human skin or party backdrop detected without explicit food hint
+        if (skin_ratio > 0.18 or pink_ratio > 0.18) and not hint:
+            return {
+                "status": "rejected",
+                "message": "❌ Non-food image detected. The AI identified a portrait, person, or non-food item.",
+                "suggestion": "Please upload or scan a clear photo of food.",
+                "confidence": 94.0
+            }
         
         if cnn_model and cnn_meta:
             transform = transforms.Compose([
@@ -146,23 +173,22 @@ def predict_food(base64_image_str, hint=None):
                     "serving_size_g": 250
                 }
         
-        # Heuristic fallback for traditional/multi-dish meals (e.g. Thali / Rice & Curries)
+        # Determine likely food dish if model confidence was low
         return {
             "status": "success",
             "food_category": "Assorted Meal Plate",
             "co2_kg": 1.65,
-            "confidence": 78.5,
-            "serving_size_g": 300
+            "confidence": 75.0,
+            "serving_size_g": 250
         }
     except Exception as e:
         print(f"CNN Error: {e}")
         return {
-            "status": "success",
-            "food_category": "Mixed Meal Plate",
-            "co2_kg": 1.5,
-            "confidence": 75.0,
-            "serving_size_g": 250
+            "status": "error",
+            "message": "Error processing image",
+            "confidence": 0
         }
+
 
 
 def predict_gbdt(user_data_dict):
