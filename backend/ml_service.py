@@ -1,7 +1,3 @@
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
-import pandas as pd
 import numpy as np
 import pickle
 import json
@@ -9,25 +5,43 @@ import base64
 from io import BytesIO
 from PIL import Image
 
-class CarbonLSTM(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.lstm = nn.LSTM(input_size=1, hidden_size=64, num_layers=2,
-                             batch_first=True, dropout=0.2)
-        self.fc = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 7)
-        )
-    def forward(self, x):
-        out, _ = self.lstm(x)
-        return self.fc(out[:, -1, :])
+# PyTorch is optional — not available on Render free tier (512 MB RAM limit)
+# All ML model loading and inference gracefully falls back when torch is missing
+try:
+    import torch
+    import torch.nn as nn
+    import torchvision.transforms as transforms
+    import torchvision.models as models
+    HAS_TORCH = True
+except ImportError:
+    HAS_TORCH = False
 
-import torchvision.models as models
-def get_resnet_model(num_classes):
-    model = models.resnet18()
-    model.fc = nn.Linear(model.fc.in_features, num_classes)
-    return model
+# pandas is optional — only needed for GBDT predictions
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+
+if HAS_TORCH:
+    class CarbonLSTM(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.lstm = nn.LSTM(input_size=1, hidden_size=64, num_layers=2,
+                                 batch_first=True, dropout=0.2)
+            self.fc = nn.Sequential(
+                nn.Linear(64, 32),
+                nn.ReLU(),
+                nn.Linear(32, 7)
+            )
+        def forward(self, x):
+            out, _ = self.lstm(x)
+            return self.fc(out[:, -1, :])
+
+    def get_resnet_model(num_classes):
+        model = models.resnet18()
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
+        return model
 
 cnn_model = None
 cnn_meta = None
@@ -38,15 +52,30 @@ lstm_val_max = 20.0
 
 def load_models(models_dir="ml/models"):
     global cnn_model, cnn_meta, gbdt_data, lstm_model, lstm_val_min, lstm_val_max
-    try:
-        with open(f"{models_dir}/cnn_food_metadata.json", 'r') as f:
-            cnn_meta = json.load(f)
-        cnn_model = get_resnet_model(cnn_meta['num_classes'])
-        cnn_model.load_state_dict(torch.load(f"{models_dir}/cnn_food_model.pt", map_location='cpu'))
-        cnn_model.eval()
-        print("✅ CNN model loaded!")
-    except Exception as e:
-        print(f"⚠️ CNN load failed: {e}")
+    if HAS_TORCH:
+        try:
+            with open(f"{models_dir}/cnn_food_metadata.json", 'r') as f:
+                cnn_meta = json.load(f)
+            cnn_model = get_resnet_model(cnn_meta['num_classes'])
+            cnn_model.load_state_dict(torch.load(f"{models_dir}/cnn_food_model.pt", map_location='cpu'))
+            cnn_model.eval()
+            print("✅ CNN model loaded!")
+        except Exception as e:
+            print(f"⚠️ CNN load failed: {e}")
+
+        try:
+            lstm_path = f"{models_dir}/lstm_carbon_model.pt"
+            checkpoint = torch.load(lstm_path, map_location='cpu')
+            lstm_model = CarbonLSTM()
+            lstm_model.load_state_dict(checkpoint['model_state_dict'])
+            lstm_model.eval()
+            lstm_val_min = checkpoint.get('val_min', 0.0)
+            lstm_val_max = checkpoint.get('val_max', 20.0)
+            print(f"✅ LSTM model loaded! (norm range: {lstm_val_min:.2f}–{lstm_val_max:.2f} kg/day)")
+        except Exception as e:
+            print(f"⚠️ LSTM load failed: {e}")
+    else:
+        print("⚠️ PyTorch not available — CNN and LSTM models disabled. Using IPCC fallback tables.")
 
     try:
         with open(f"{models_dir}/gbdt_carbon_model.pkl", 'rb') as f:
@@ -54,18 +83,6 @@ def load_models(models_dir="ml/models"):
         print("✅ GBDT model loaded!")
     except Exception as e:
         print(f"⚠️ GBDT load failed: {e}")
-
-    try:
-        lstm_path = f"{models_dir}/lstm_carbon_model.pt"
-        checkpoint = torch.load(lstm_path, map_location='cpu')
-        lstm_model = CarbonLSTM()
-        lstm_model.load_state_dict(checkpoint['model_state_dict'])
-        lstm_model.eval()
-        lstm_val_min = checkpoint.get('val_min', 0.0)
-        lstm_val_max = checkpoint.get('val_max', 20.0)
-        print(f"✅ LSTM model loaded! (norm range: {lstm_val_min:.2f}–{lstm_val_max:.2f} kg/day)")
-    except Exception as e:
-        print(f"⚠️ LSTM load failed: {e}")
 
 
 # Comprehensive IPCC food carbon factors (kg CO2e per typical serving)
@@ -147,7 +164,7 @@ def predict_food(base64_image_str, hint=None):
             }
 
         
-        if cnn_model and cnn_meta:
+        if HAS_TORCH and cnn_model and cnn_meta:
             transform = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
@@ -193,7 +210,7 @@ def predict_food(base64_image_str, hint=None):
 
 
 def predict_gbdt(user_data_dict):
-    if not gbdt_data:
+    if not gbdt_data or not HAS_PANDAS:
         return None
     model = gbdt_data['model']
     encoders = gbdt_data['encoders']
@@ -211,27 +228,25 @@ def predict_gbdt(user_data_dict):
                 input_data[f] = float(val)
             except:
                 input_data[f] = 0.0
+    import pandas as pd
     df_in = pd.DataFrame([input_data])
     pred = model.predict(df_in)[0]
     return float(pred)
 
 def predict_lstm(historical_30_days):
     """Takes 30 days of kg/day values, returns predicted next 7 days in kg/day."""
-    if not lstm_model:
-        return None  # graceful fallback
+    if not HAS_TORCH or not lstm_model:
+        return None  # graceful fallback — server uses S-curve extrapolation instead
     if not isinstance(historical_30_days, list) or len(historical_30_days) != 30:
-        # Log but don't crash — server will use fallback
         print(f"LSTM validation: expected 30 days, got {len(historical_30_days) if isinstance(historical_30_days, list) else type(historical_30_days)}")
         return None
     try:
-        # Normalize input using training range
         arr = np.array(historical_30_days, dtype=np.float32)
         arr_norm = (arr - lstm_val_min) / (lstm_val_max - lstm_val_min)
         arr_norm = np.clip(arr_norm, 0.0, 1.5)
         tensor_in = torch.tensor(arr_norm, dtype=torch.float32).view(1, 30, 1)
         with torch.no_grad():
             preds_norm = lstm_model(tensor_in).squeeze().tolist()
-        # Denormalize back to kg/day
         if isinstance(preds_norm, float):
             preds_norm = [preds_norm]
         preds_kg = [max(0.0, p * (lstm_val_max - lstm_val_min) + lstm_val_min) for p in preds_norm]
