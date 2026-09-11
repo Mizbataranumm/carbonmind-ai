@@ -173,7 +173,9 @@ function analyzeImageVisuals(dataUrl) {
         const whiteRatio = whiteRicePixels / count;
 
         // ── A. Check if image is Non-Food (baby, person, portrait, party background)
-        if (skinRatio > 0.18 || pinkRatio > 0.15 || (skinRatio > 0.10 && pinkRatio > 0.08)) {
+        // High party balloons / pastel pink background without food plate or grains
+        const isNonFoodPortrait = (pinkRatio > 0.16) || (skinRatio > 0.35 && darkRatio < 0.03 && biryaniRatio < 0.04 && friesRatio < 0.04);
+        if (isNonFoodPortrait) {
           resolve({
             isFood: false,
             reason: "Portrait / person or non-food item detected. No food components were found."
@@ -182,37 +184,38 @@ function analyzeImageVisuals(dataUrl) {
         }
 
         // ── B. Check Biryani / Spiced Rice (saffron rice + roasted chicken + dark serving plate)
-        if (biryaniRatio > 0.10 && (darkRatio > 0.06 || whiteRatio > 0.03)) {
+        if (biryaniRatio > 0.07 || (darkRatio > 0.05 && biryaniRatio > 0.03)) {
           resolve({ isFood: true, key: "biryani" });
           return;
         }
 
         // ── C. Check French Fries (high bright golden yellow sticks)
-        if (friesRatio > 0.16) {
+        if (friesRatio > 0.14) {
           resolve({ isFood: true, key: "fries" });
           return;
         }
 
         // ── D. Check Salad (high green leafy concentration)
-        if (saladRatio > 0.16) {
+        if (saladRatio > 0.14) {
           resolve({ isFood: true, key: "salad" });
           return;
         }
 
         // ── E. Check Thali (multi-component white rice + bowls + curry colors)
-        if (whiteRatio > 0.08 && (friesRatio > 0.06 || biryaniRatio > 0.06 || saladRatio > 0.06)) {
+        if (whiteRatio > 0.08 && (friesRatio > 0.05 || biryaniRatio > 0.05 || saladRatio > 0.05)) {
           resolve({ isFood: true, key: "thali" });
           return;
         }
 
         // ── F. Default based on highest characteristic
-        if (biryaniRatio > 0.08) {
+        if (biryaniRatio > friesRatio) {
           resolve({ isFood: true, key: "biryani" });
-        } else if (friesRatio > 0.08) {
+        } else if (friesRatio > 0.06) {
           resolve({ isFood: true, key: "fries" });
         } else {
           resolve({ isFood: true, key: "thali" });
         }
+
 
       };
       img.onerror = () => resolve({ isFood: true, key: "thali" });

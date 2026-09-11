@@ -137,14 +137,15 @@ def predict_food(base64_image_str, hint=None):
         skin_ratio = skin_count / total_px
         pink_ratio = pink_pastel_count / total_px
 
-        # If significant human skin or party backdrop detected without explicit food hint
-        if (skin_ratio > 0.18 or pink_ratio > 0.18) and not hint:
+        # If synthetic party/portrait backdrop detected without explicit food hint
+        if pink_ratio > 0.18 and not hint:
             return {
                 "status": "rejected",
                 "message": "❌ Non-food image detected. The AI identified a portrait, person, or non-food item.",
                 "suggestion": "Please upload or scan a clear photo of food.",
                 "confidence": 94.0
             }
+
         
         if cnn_model and cnn_meta:
             transform = transforms.Compose([
