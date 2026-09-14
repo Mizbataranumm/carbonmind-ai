@@ -173,58 +173,6 @@ def get_model_status(models_dir: str = "ml/models") -> dict:
         },
     }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Legacy serving-factor catalog (not used by the serving path)
-# ─────────────────────────────────────────────────────────────────────────────
-# Kept temporarily to avoid breaking external imports while
-# Food_Product_Emissions.csv becomes the calculation source for predict_food().
-FOOD_CO2_FACTORS = {
-    # Indian / South Asian
-    "biryani": 2.2, "chicken_biryani": 2.8, "mutton_biryani": 4.1, "veg_biryani": 1.2,
-    "thali": 1.6, "veg_thali": 0.9, "chicken_thali": 2.4,
-    "dosa": 0.6, "masala_dosa": 0.7, "idli": 0.4, "sambar": 0.5,
-    "paneer": 1.8, "palak_paneer": 1.4, "butter_chicken": 3.1, "dal": 0.5,
-    "dal_makhani": 1.2, "roti": 0.3, "naan": 0.4, "chole_bhature": 1.3,
-    "pav_bhaji": 1.1, "samosa": 0.6, "rajma": 0.8, "chicken_curry": 1.9,
-    "fish_curry": 2.1, "prawn_curry": 2.5, "egg_curry": 1.2,
-    "upma": 0.5, "poha": 0.4, "aloo_paratha": 0.7, "khichdi": 0.6,
-    "tandoori_chicken": 2.4, "kadai_chicken": 2.6,
-    # Western
-    "pizza": 2.8, "hamburger": 4.8, "burger": 4.8, "french_fries": 0.4, "fries": 0.4,
-    "sandwich": 1.2, "salad": 0.4, "caesar_salad": 0.7, "greek_salad": 0.6,
-    "pasta": 1.3, "spaghetti_bolognese": 3.2, "lasagna": 2.6,
-    "steak": 8.9, "beef_carpaccio": 4.5, "beef_tartare": 5.2,
-    "chicken": 1.8, "chicken_wings": 2.4, "chicken_quesadilla": 2.1,
-    "grilled_salmon": 2.1, "sushi": 1.5, "sashimi": 1.4, "ramen": 1.7,
-    "rice": 0.8, "fried_rice": 0.9, "pad_thai": 1.4, "pho": 1.6,
-    "soup": 0.5, "clam_chowder": 1.3, "hot_and_sour_soup": 0.5,
-    "omelette": 0.9, "eggs_benedict": 1.4, "pancakes": 0.6, "waffles": 0.6,
-    "french_toast": 0.8, "breakfast_burrito": 1.8, "huevos_rancheros": 1.2,
-    "ice_cream": 0.9, "cheesecake": 1.1, "chocolate_cake": 0.8, "chocolate_mousse": 0.7,
-    "tiramisu": 0.7, "panna_cotta": 0.7, "creme_brulee": 0.8,
-    "apple_pie": 0.8, "carrot_cake": 0.5, "red_velvet_cake": 0.6,
-    "donuts": 0.4, "macarons": 0.4, "cup_cakes": 0.4, "cannoli": 0.5,
-    "baklava": 0.6, "beignets": 0.5, "churros": 0.4, "strawberry_shortcake": 0.5,
-    "coffee": 0.21, "tea": 0.03, "juice": 0.2, "milk": 0.6,
-    "bread": 0.5, "garlic_bread": 0.4, "bruschetta": 0.3,
-    "tacos": 2.2, "nachos": 1.6, "hot_dog": 2.1, "poutine": 1.8,
-    "fish_and_chips": 2.2, "spring_rolls": 0.5, "dumplings": 0.9,
-    "gyoza": 0.8, "bibimbap": 1.2, "peking_duck": 3.2, "takoyaki": 1.1,
-    "lobster_bisque": 2.4, "lobster_roll_sandwich": 2.5,
-    "shrimp_and_grits": 2.3, "crab_cakes": 1.6, "scallops": 1.2, "mussels": 0.9,
-    "oysters": 0.8, "sashimi": 1.4, "tuna_tartare": 1.8, "fried_calamari": 1.5,
-    "ceviche": 1.1, "foie_gras": 3.8, "escargots": 0.7,
-    "hummus": 0.3, "falafel": 0.5, "guacamole": 0.4, "edamame": 0.3,
-    "risotto": 1.1, "gnocchi": 0.8, "ravioli": 1.3, "macaroni_and_cheese": 1.4,
-    "paella": 2.2, "pulled_pork_sandwich": 3.1, "pork_chop": 3.4,
-    "prime_rib": 9.2, "filet_mignon": 8.5, "baby_back_ribs": 5.4,
-    "beet_salad": 0.4, "caprese_salad": 0.6, "seaweed_salad": 0.2,
-    "cheese_plate": 2.2, "deviled_eggs": 0.8, "club_sandwich": 1.7,
-    "grilled_cheese_sandwich": 1.2, "croque_madame": 1.6,
-    "frozen_yogurt": 0.6, "miso_soup": 0.3, "onion_rings": 0.5,
-    "french_onion_soup": 0.7, "bread_pudding": 0.6,
-}
-
 # GBDT dataset feature defaults (mean/mode from Carbon Emission.csv — 10,001 rows)
 GBDT_DEFAULTS = {
     'Body Type': 'normal',
