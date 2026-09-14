@@ -48,11 +48,15 @@ except ImportError:
 
 try:
     import pandas as pd
-    import xgboost as xgb
-    HAS_XGB = True
 except ImportError:
-    HAS_XGB = False
-    logger.warning("xgboost not installed")
+    pd = None
+    logger.warning("pandas not installed")
+
+# XGBoost is retained only for compatibility with an unused legacy artifact.
+# Importing recent wheels pulls GPU/NCCL dependencies and can keep a small web
+# service from binding its port. The serving path uses the committed sklearn and
+# LightGBM artifacts instead, so do not import it at process startup.
+HAS_XGB = False
 
 try:
     import lightgbm as lgb
@@ -258,15 +262,10 @@ def load_models(models_dir: str = "ml/models"):
         except Exception as exc:
             logger.warning("Annual carbon candidate load failed: %s", exc)
 
-    # 1. XGBoost GBDT
-    try:
-        with open(f"{models_dir}/gbdt_carbon_model.pkl", 'rb') as f:
-            gbdt_xgb_data = pickle.load(f)
-        logger.info("XGBoost model loaded")
-    except Exception as e:
-        logger.warning(f"XGBoost load failed: {e}")
+    # Legacy XGBoost artifacts are deliberately not loaded in the web process.
+    # The reproducible sklearn pipeline above remains the compatibility path.
 
-    # 2. LightGBM GBDT
+    # 1. LightGBM GBDT
     lgb_path = f"{models_dir}/lgbm_carbon_model.pkl"
     if os.path.exists(lgb_path):
         try:
@@ -276,7 +275,7 @@ def load_models(models_dir: str = "ml/models"):
         except Exception as e:
             logger.warning(f"LightGBM load failed: {e}")
 
-    # 3. Gemini Vision
+    # 2. Gemini Vision
     if HAS_GEMINI:
         api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('EMERGENT_LLM_KEY')
         if api_key:
@@ -290,7 +289,7 @@ def load_models(models_dir: str = "ml/models"):
             except Exception as e:
                 logger.warning(f"Gemini config failed: {e}")
 
-    # 4. HF API key (optional)
+    # 3. HF API key (optional)
     HF_API_KEY = os.environ.get('HF_API_KEY', '')
 
 
@@ -478,8 +477,9 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
     except Exception:
         pass
 
-    # The providers are independent candidates. Agreement improves review value,
-    # but is not evidence of a calibrated probability or product accuracy.
+    # The providers are independent image-only candidates. A single remote model
+    # can confidently misclassify a meal, so one candidate is not sufficient to
+    # turn a user-entered dish name into a carbon estimate.
     vit_result = _predict_food_vit(raw_bytes)
     gemini_result = _predict_food_gemini(raw_bytes)
 
@@ -498,42 +498,30 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
         if gem_food_raw.lower() != "none" and gem_confidence >= 40:
             gem_food = gem_food_raw
 
-    # ── Ensemble decision ─────────────────────────────────────────────────────
+    # ── Conservative verification gate ───────────────────────────────────────
     chosen_food: Optional[str] = None
     chosen_confidence: float = 0.0
 
     if vit_food and gem_food:
-        # Both models fired — check agreement
-        vit_key = vit_food.lower().replace(" ", "_")
-        gem_key = gem_food.lower().replace(" ", "_")
-        agree = (vit_key in gem_key) or (gem_key in vit_key) or (vit_food.lower()[:6] == gem_food.lower()[:6])
-
-        if agree and vit_score >= 70:
-            # Strong agreement → use Gemini's richer name (handles Indian food better)
+        if _dish_names_agree(vit_food, gem_food):
             chosen_food = gem_food
-            chosen_confidence = (vit_score * 0.45 + gem_confidence * 0.55)
-        elif vit_score >= 80:
-            # ViT very confident, use it
-            chosen_food = vit_food
-            chosen_confidence = vit_score
+            chosen_confidence = min(vit_score, gem_confidence)
         else:
-            # Prefer Gemini (better at Indian food, contextual understanding)
-            chosen_food = gem_food
-            chosen_confidence = gem_confidence
-    elif gem_food:
-        chosen_food = gem_food
-        chosen_confidence = gem_confidence
-    elif vit_food:
-        chosen_food = vit_food
-        chosen_confidence = vit_score
+            return {
+                "status": "rejected",
+                "message": "The image checks disagreed about this meal, so no estimate was created.",
+                "suggestion": "Use a clearer photo focused on one dish, or record the meal manually.",
+                "confidence": None,
+                "image_candidate": f"{vit_food.title()} / {gem_food.title()}",
+            }
 
     if not chosen_food or chosen_confidence < 35:
         return {
             "status": "rejected",
-            "message": "We could not independently identify food in this image.",
-            "suggestion": "Use a clear, well-lit photo focused on the meal, then try again.",
+            "message": "Two independent image checks could not verify this meal.",
+            "suggestion": "Use a clear, well-lit photo focused on one dish, then try again.",
             "confidence": None,
-            "confidence_note": "No candidate met the unvalidated review threshold.",
+            "confidence_note": "No carbon estimate is shown until image-only candidates agree.",
         }
 
     if not _dish_names_agree(confirmed_name, chosen_food):

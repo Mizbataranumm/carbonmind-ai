@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [logOpen, setLogOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [stats, setStats] = useState(null);
+  const isDemo = Boolean(user?.is_demo);
 
   const refreshStats = useCallback(() => {
     if (!user?.id) return;
@@ -80,6 +81,10 @@ export default function Dashboard() {
             Welcome back, <span className="text-green">{user?.name || 'Explorer'}</span> 👋
           </h1>
           <p className="text-secondary mt-2 text-base">Your carbon dashboard — {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+          <div className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-mono-data uppercase tracking-widest ${isDemo ? 'border-green/25 bg-green/10 text-green' : 'border-glass-border bg-widget text-secondary'}`}>
+            <span className={`h-2 w-2 rounded-full ${isDemo ? 'bg-green' : 'bg-cyan'}`} />
+            {isDemo ? 'Demo workspace' : 'Private personal account'}
+          </div>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-glass-border bg-widget text-sm">

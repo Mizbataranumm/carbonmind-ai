@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from datetime import date
 from pathlib import Path
 import sys
 import unittest
@@ -23,14 +24,20 @@ from backend.server import (
     MorningActivity,
     PredictDayRequest,
     SimulateRequest,
+    DemoLoginRequest,
+    _demo_activity_logs,
     _merge_daily_activities,
     _hash_password,
+    _public_user,
     _verify_password,
     cors_origins,
+    demo_login,
     predict_day,
     predict_weekly,
     simulate,
     food_scan,
+    DemoLoginRequest,
+    demo_login,
 )
 
 
@@ -112,7 +119,7 @@ class ModelContractTests(unittest.TestCase):
         vit_result = {"food": "french fries", "score": 0.99}
 
         with patch.object(ml_service, "_predict_food_vit", return_value=vit_result), \
-             patch.object(ml_service, "_predict_food_gemini", return_value=None):
+             patch.object(ml_service, "_predict_food_gemini", return_value={"food": "french fries", "confidence": 90, "serving_g": 200}):
             mismatch = ml_service.predict_food(image_data, hint="biryani")
             match = ml_service.predict_food(image_data, hint="french fries")
 
@@ -121,6 +128,16 @@ class ModelContractTests(unittest.TestCase):
         self.assertEqual(match["status"], "success")
         self.assertEqual(match["method"], "vision_dish_agreement")
         self.assertEqual(match["co2_kg"], 0.4)
+
+    def test_food_scan_rejects_when_independent_image_checks_disagree(self):
+        image_data = base64.b64encode(b"test-image-bytes").decode("ascii")
+
+        with patch.object(ml_service, "_predict_food_vit", return_value={"food": "french fries", "score": 0.99}), \
+             patch.object(ml_service, "_predict_food_gemini", return_value={"food": "chicken biryani", "confidence": 95, "serving_g": 300}):
+            result = ml_service.predict_food(image_data, hint="french fries")
+
+        self.assertEqual(result["status"], "rejected")
+        self.assertIn("disagreed", result["message"])
 
     def test_reproducible_daily_pipeline_and_metrics_are_loadable(self):
         project_root = Path(__file__).resolve().parents[2]
@@ -166,6 +183,38 @@ class ModelContractTests(unittest.TestCase):
         token = _issue_access_token("user-123")
         self.assertEqual(_read_access_token(token)["sub"], "user-123")
         self.assertIsNone(_read_access_token(token + "tampered"))
+
+    def test_demo_sessions_have_distinct_ids(self):
+        first = asyncio.run(demo_login(DemoLoginRequest(name="Eco Explorer")))
+        second = asyncio.run(demo_login(DemoLoginRequest(name="Eco Explorer")))
+
+        self.assertTrue(first["is_demo"])
+        self.assertTrue(second["is_demo"])
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertTrue(first["id"].startswith("demo-"))
+
+    def test_demo_user_is_explicitly_marked_and_seeded(self):
+        user = asyncio.run(demo_login(DemoLoginRequest(name="Eco Explorer")))
+        demo_logs = _demo_activity_logs(date(2026, 9, 14))
+
+        self.assertTrue(user["id"].startswith("demo-"))
+        self.assertTrue(user["is_demo"])
+        self.assertGreater(len(demo_logs), 0)
+        self.assertGreater(demo_logs[-1]["total_kg"], 0)
+
+    def test_fresh_public_user_is_not_demo(self):
+        user = _public_user({
+            "id": "fresh-user",
+            "name": "Fresh User",
+            "email": "fresh@example.com",
+            "avatar": "/avatars/avatar_sofia.png",
+            "carbon_aura": "#9EABBC",
+            "streak": 0,
+            "xp": 0,
+            "grade": "Newbie",
+        })
+
+        self.assertFalse(user["is_demo"])
 
     def test_default_cors_policy_is_not_a_wildcard(self):
         self.assertNotIn("*", cors_origins)

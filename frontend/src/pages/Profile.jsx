@@ -166,6 +166,7 @@ const Profile = () => {
   const [annualResult, setAnnualResult] = useState(null);
   const [estimating, setEstimating] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const isDemo = Boolean(user?.is_demo);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -214,6 +215,10 @@ const Profile = () => {
   };
 
   const persistLifestyleProfile = async () => {
+    if (isDemo) {
+      toast.info("Demo profile changes are not saved", { description: "Create a personal account to save your lifestyle profile." });
+      return;
+    }
     setSavingProfile(true);
     try {
       await saveLifestyleProfile({ user_id: user.id, lifestyle_profile: lifestyleProfile });
@@ -283,6 +288,9 @@ const Profile = () => {
           <div className="flex-1 text-center sm:text-left mt-2">
             <h1 className="font-display text-3xl font-bold">{user.name}</h1>
             <div className="font-mono-data text-secondary mt-1 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+              <span className={`px-2 py-0.5 rounded-full border text-xs ${isDemo ? "bg-cyan/10 text-cyan border-cyan/20" : "bg-widget text-secondary border-glass-border"}`}>
+                {isDemo ? "Demo account" : "Personal account"}
+              </span>
                 <span className="px-2 py-0.5 rounded-full bg-green/10 text-green border border-green/20 text-xs">
                 Grade {stats?.grade || "Newbie"}
               </span>
@@ -487,6 +495,13 @@ const Profile = () => {
         <div className="space-y-4">
           <h2 className="font-display text-xl ml-2">Account</h2>
           <div className="glass rounded-2xl overflow-hidden p-6 text-center space-y-4">
+            {isDemo && (
+              <div className="rounded-xl border border-cyan/20 bg-cyan/5 p-3 text-left">
+                <p className="text-sm font-medium text-cyan">You are exploring a demo workspace.</p>
+                <p className="mt-1 text-xs leading-relaxed text-secondary">A personal account lets you save your lifestyle profile and build a record that belongs only to you.</p>
+                <a href="/auth" className="mt-3 inline-flex text-sm font-medium text-green hover:underline">Create a personal account</a>
+              </div>
+            )}
             <p className="text-sm text-secondary">
               Signed in as{" "}
               <strong className="text-main break-all">{user.email || user.name}</strong>.

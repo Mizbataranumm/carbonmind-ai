@@ -22,9 +22,9 @@ const Auth = () => {
   const handleDemo = async () => {
     setLoading(true);
     try {
-      const u = await demoLogin(name || "Eco Explorer");
+      const u = await demoLogin("Eco Explorer");
       setUser(u);
-      toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
+      toast.success("Demo workspace ready", { description: "This is separate from a personal account." });
       navigate("/dashboard");
     } catch (e) {
       toast.error("Could not start session");
@@ -51,7 +51,7 @@ const Auth = () => {
       }
       setUser(u);
       toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
-      navigate("/dashboard");
+      navigate(mode === "register" && !u.onboarding_completed ? "/onboarding" : "/dashboard");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Invalid credentials");
     } finally {

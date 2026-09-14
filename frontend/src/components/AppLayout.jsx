@@ -22,6 +22,7 @@ const AppLayout = () => {
   const { user, setUser, theme, toggleTheme } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const isDemo = Boolean(user?.is_demo);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState(null);
@@ -109,10 +110,18 @@ const AppLayout = () => {
             </div>
             <div>
               <div className="font-display font-bold text-xl leading-none" style={{ color: 'var(--text-primary)' }}>CarbonMind</div>
-              <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] mt-1" style={{ color: 'var(--neon-green)' }}>Personal carbon record</div>
+              <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] mt-1" style={{ color: 'var(--neon-green)' }}>
+                {isDemo ? "Demo workspace" : "Personal carbon record"}
+              </div>
             </div>
           </div>
           <div className="mt-3 h-px" style={{ background: 'linear-gradient(90deg,rgba(0,255,178,0.3),transparent)' }} />
+          {isDemo && (
+            <div className="mt-3 px-3 py-2 rounded-xl border border-cyan/25 bg-cyan/5">
+              <p className="font-mono-data text-[9px] uppercase tracking-widest text-cyan">Demo account</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-secondary">Explore the sample data, then create an account for your own record.</p>
+            </div>
+          )}
         </div>
 
         <nav className="flex flex-col gap-1">
@@ -163,8 +172,9 @@ const AppLayout = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm truncate text-main group-hover:text-green transition-colors">{user.name}</p>
-              <p className="text-[10px] text-secondary truncate font-mono-data">Activity profile</p>
+              <p className="text-[10px] text-secondary truncate font-mono-data">{isDemo ? "Demo sample account" : "Private activity profile"}</p>
             </div>
+            {isDemo && <span className="rounded-full border border-green/25 bg-green/10 px-2 py-1 text-[9px] font-mono-data uppercase tracking-widest text-green">Demo</span>}
           </div>
         </div>
       </aside>
@@ -192,6 +202,11 @@ const AppLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isDemo && (
+              <span className="hidden sm:inline-flex items-center rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-1 font-mono-data text-[10px] uppercase tracking-widest text-cyan">
+                Demo mode
+              </span>
+            )}
             <button
               onClick={toggleTheme}
               className="h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"

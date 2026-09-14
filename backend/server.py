@@ -16,6 +16,7 @@ import json
 import secrets
 import time
 import re
+import asyncio
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -67,19 +68,35 @@ from ml_service import (
     predict_weekly_arima,
 )
 
+async def _warm_models() -> None:
+    """Load optional model artifacts without delaying the web server port bind."""
+    try:
+        await asyncio.to_thread(load_models, models_dir=str(Path(__file__).parent / "ml" / "models"))
+    except Exception:
+        logger.exception("Background model warm-up failed")
+
+
+async def _create_database_indexes() -> None:
+    if db is None:
+        return
+    try:
+        await db.users.create_index("email", unique=True)
+        await db.daily_activity_logs.create_index([("user_id", 1), ("day", 1)], unique=True)
+        await db.community_likes.create_index([("post_id", 1), ("user_id", 1)], unique=True)
+        await db.community_joins.create_index([("challenge_id", 1), ("user_id", 1)], unique=True)
+        await db.certificates.create_index("cert_id", unique=True)
+        await db.food_scan_feedback.create_index([("user_id", 1), ("created_at", -1)])
+    except Exception as exc:
+        logger.warning("Database index setup skipped: %s", exc)
+
+
 @app.on_event("startup")
 async def startup_event():
-    load_models(models_dir=str(Path(__file__).parent / "ml" / "models"))
-    if db is not None:
-        try:
-            await db.users.create_index("email", unique=True)
-            await db.daily_activity_logs.create_index([("user_id", 1), ("day", 1)], unique=True)
-            await db.community_likes.create_index([("post_id", 1), ("user_id", 1)], unique=True)
-            await db.community_joins.create_index([("challenge_id", 1), ("user_id", 1)], unique=True)
-            await db.certificates.create_index("cert_id", unique=True)
-            await db.food_scan_feedback.create_index([("user_id", 1), ("created_at", -1)])
-        except Exception as exc:
-            logger.warning("Database index setup skipped: %s", exc)
+    # Render does not mark a web service healthy until the process has bound
+    # $PORT. Model deserialisation and a cold MongoDB connection must not hold
+    # that step hostage.
+    asyncio.create_task(_warm_models())
+    asyncio.create_task(_create_database_indexes())
 
 
 # ====== Models ======
@@ -104,6 +121,7 @@ class UserProfile(BaseModel):
     streak: int
     xp: int
     grade: str
+    is_demo: bool = False
     onboarding_completed: bool = False
     onboarding_step: int = 1
     onboarding_preferences: dict = {}
@@ -299,6 +317,7 @@ async def _optional_current_user_id(credentials: Optional[HTTPAuthorizationCrede
 
 def _public_user(user_doc: dict, include_token: bool = False) -> dict:
     user = {key: value for key, value in user_doc.items() if key not in {"_id", "password"}}
+    user["is_demo"] = bool(user.get("is_demo", _is_demo_user(user.get("id", ""))))
     if include_token:
         user["access_token"] = _issue_access_token(user["id"])
     return user
@@ -372,16 +391,20 @@ async def save_lifestyle_profile(req: SaveLifestyleProfileRequest, current_user_
 # ====== Auth ======
 @api_router.post("/auth/demo-login", response_model=UserProfile)
 async def demo_login(req: DemoLoginRequest):
-    is_demo = not req.name or req.name.lower() in ["eco explorer", "demo"]
     user = {
-        "id": "demo-123" if is_demo else str(uuid.uuid4()),
-        "name": req.name or "Eco Explorer",
-        "email": "demo@carbonmind.ai" if is_demo else f"{req.name.lower().replace(' ', '')}@earth.io",
-        "avatar": "/avatars/avatar_emily.png" if is_demo else "/avatars/avatar_sofia.png",
-        "carbon_aura": "#00FFB2" if is_demo else "#9EABBC",
-        "streak": 14 if is_demo else 0,
-        "xp": 2480 if is_demo else 0,
-        "grade": "A-" if is_demo else "Newbie",
+        # Do not share a demo identity between visitors. A shared ID would make
+        # one visitor's activities visible to another visitor's demo session.
+        "id": f"demo-{uuid.uuid4()}",
+        "name": (req.name or "Eco Explorer").strip() or "Eco Explorer",
+        "email": "demo-session@carbonmind.ai",
+        "avatar": "/avatars/avatar_emily.png",
+        "carbon_aura": "#00FFB2",
+        "streak": 14,
+        "xp": 2480,
+        "grade": "A-",
+        "is_demo": True,
+        "onboarding_completed": True,
+        "onboarding_step": 4,
     }
     return _public_user(user, include_token=True)
 
@@ -407,6 +430,9 @@ async def register(req: RegisterRequest):
         "streak": 0,
         "xp": 0,
         "grade": "Newbie",
+        "is_demo": False,
+        "onboarding_completed": False,
+        "onboarding_step": 1,
     }
     await users_col.insert_one(user_doc.copy())
     return _public_user(user_doc, include_token=True)
@@ -435,6 +461,28 @@ ACTIVITY_META = {
 }
 
 
+def _is_demo_user(user_id: str) -> bool:
+    return user_id == "demo-123" or user_id.startswith("demo-")
+
+
+def _demo_activity_logs(today: date, user_id: str = "demo-123") -> List[dict]:
+    sample_totals = [4.9, 5.4, 4.2, 6.1, 5.0, 4.7, 4.4]
+    logs = []
+    for offset, total in enumerate(reversed(sample_totals)):
+        day = today - timedelta(days=offset)
+        if offset == 0:
+            activities = [
+                {"id": "demo-transport", "type": "transport", "label": "Metro commute", "kg": 1.1, "occurred_at": datetime.combine(day, datetime.min.time(), timezone.utc).replace(hour=9, minute=10).isoformat()},
+                {"id": "demo-food", "type": "food", "label": "Vegetarian lunch", "kg": 1.0, "occurred_at": datetime.combine(day, datetime.min.time(), timezone.utc).replace(hour=13, minute=5).isoformat()},
+                {"id": "demo-electricity", "type": "electricity", "label": "Evening home electricity", "kg": 1.6, "occurred_at": datetime.combine(day, datetime.min.time(), timezone.utc).replace(hour=19, minute=20).isoformat()},
+                {"id": "demo-devices", "type": "devices", "label": "Laptop and internet use", "kg": 0.7, "occurred_at": datetime.combine(day, datetime.min.time(), timezone.utc).replace(hour=21, minute=15).isoformat()},
+            ]
+        else:
+            activities = [{"id": f"demo-day-{offset}", "type": "other", "label": "Demo sample total", "kg": total, "occurred_at": datetime.combine(day, datetime.min.time(), timezone.utc).replace(hour=18).isoformat()}]
+        logs.append({"user_id": user_id, "day": day.isoformat(), "activities": activities, "total_kg": round(sum(item["kg"] for item in activities), 2)})
+    return logs
+
+
 def _sum_activities(activities: List[dict]) -> dict:
     totals = {kind: 0.0 for kind in ACTIVITY_META}
     for activity in activities:
@@ -445,9 +493,12 @@ def _sum_activities(activities: List[dict]) -> dict:
 
 
 async def _daily_logs(user_id: str, start: date, end: date) -> List[dict]:
-    return await _database_or_503().daily_activity_logs.find(
+    logs = await _database_or_503().daily_activity_logs.find(
         {"user_id": user_id, "day": {"$gte": start.isoformat(), "$lte": end.isoformat()}}
     ).to_list(length=400)
+    if logs or not _is_demo_user(user_id):
+        return logs
+    return [log for log in _demo_activity_logs(end, user_id) if start.isoformat() <= log["day"] <= end.isoformat()]
 
 
 def _merge_daily_activities(existing: List[dict], incoming: List[dict], *, append: bool, source: Optional[str]) -> tuple[List[dict], int]:
