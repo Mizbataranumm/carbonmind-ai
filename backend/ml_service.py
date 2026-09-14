@@ -34,6 +34,21 @@ from typing import Optional, List
 import numpy as np
 from PIL import Image
 
+try:
+    # Package import used by tests and local module execution.
+    from .food_emissions import (
+        estimate_food_emissions,
+        food_catalog_status,
+        normalise_food_key as _normalise_catalog_key,
+    )
+except ImportError:
+    # Render starts ``uvicorn server:app`` from the backend directory.
+    from food_emissions import (  # type: ignore[no-redef]
+        estimate_food_emissions,
+        food_catalog_status,
+        normalise_food_key as _normalise_catalog_key,
+    )
+
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -135,6 +150,7 @@ def get_model_status(models_dir: str = "ml/models") -> dict:
                 "cnn_artifact_exists": (model_path / "cnn_food_model.pt").exists(),
                 "cnn_metadata_exists": (model_path / "cnn_food_metadata.json").exists(),
                 "serving_note": "The checked-in CNN artifact is present but not used by predict_food().",
+                "emissions_calculation": food_catalog_status(),
             },
             "daily_carbon_predictor": {
                 "xgboost_loaded": gbdt_xgb_data is not None,
@@ -158,8 +174,10 @@ def get_model_status(models_dir: str = "ml/models") -> dict:
     }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# IPCC / Poore & Nemecek 2018 emission factors (kg CO2e per typical serving)
+# Legacy serving-factor catalog (not used by the serving path)
 # ─────────────────────────────────────────────────────────────────────────────
+# Kept temporarily to avoid breaking external imports while
+# Food_Product_Emissions.csv becomes the calculation source for predict_food().
 FOOD_CO2_FACTORS = {
     # Indian / South Asian
     "biryani": 2.2, "chicken_biryani": 2.8, "mutton_biryani": 4.1, "veg_biryani": 1.2,
@@ -297,24 +315,13 @@ def load_models(models_dir: str = "ml/models"):
 # HELPER: food-factor lookup and dish-name agreement
 # ─────────────────────────────────────────────────────────────────────────────
 def _normalise_food_key(food_name: str) -> str:
-    return "_".join(re.findall(r"[a-z0-9]+", (food_name or "").lower()))
+    return _normalise_catalog_key(food_name)
 
 
 def _co2_from_name(food_name: str) -> Optional[float]:
-    """Resolve an exact food name or a complete catalog phrase in a longer name."""
-    key = _normalise_food_key(food_name)
-    if not key:
-        return None
-    if key in FOOD_CO2_FACTORS:
-        return FOOD_CO2_FACTORS[key]
-
-    # Only accept a complete catalog phrase embedded in a longer user phrase.
-    # Do not match a short input such as "baby" to "baby_back_ribs".
-    matches = [(catalog_name, value) for catalog_name, value in FOOD_CO2_FACTORS.items()
-               if catalog_name in key]
-    if matches:
-        return max(matches, key=lambda x: len(x[0]))[1]
-    return None
+    """Compatibility helper backed by the CSV recipe catalog's default portion."""
+    estimate = estimate_food_emissions(food_name)
+    return float(estimate["co2_kg"]) if estimate else None
 
 
 def _dish_names_agree(confirmed_name: str, image_candidate: str) -> bool:
@@ -430,15 +437,6 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
             "confidence": None,
         }
 
-    confirmed_co2 = _co2_from_name(confirmed_name)
-    if confirmed_co2 is None:
-        return {
-            "status": "rejected",
-            "message": f"'{confirmed_name}' is not yet in the supported food-factor catalog.",
-            "suggestion": "Use a more specific supported dish name or add a catalog factor before estimating it.",
-            "confidence": None,
-        }
-
     # Decode image once
     raw_bytes: Optional[bytes] = None
     if base64_image_str:
@@ -533,17 +531,30 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
             "image_candidate": chosen_food.title(),
         }
 
-    serving_g = int(gemini_result.get("serving_g", 300)) if gemini_result else 300
+    serving_g = gemini_result.get("serving_g") if gemini_result else None
+    emission_estimate = estimate_food_emissions(confirmed_name, serving_g)
+    if emission_estimate is None:
+        return {
+            "status": "rejected",
+            "message": f"'{confirmed_name}' does not yet have a reviewed recipe in the Food Product Emissions catalog.",
+            "suggestion": "Use a specific option such as Chicken Biryani, Veg Biryani, Margherita Pizza, Beef Burger, Garden Salad, or Tomato Pasta.",
+            "confidence": None,
+        }
 
     return {
         "status": "success",
-        "food_category": confirmed_name.title(),
-        "co2_kg": round(float(confirmed_co2), 2),
+        "food_category": emission_estimate["food_category"],
+        "co2_kg": emission_estimate["co2_kg"],
         "confidence": None,
         "raw_candidate_score": round(chosen_confidence, 1),
         "confidence_note": "The image candidate and dish-name agreement are not yet validated on a held-out real-world food/non-food set.",
-        "serving_size_g": serving_g,
+        "serving_size_g": emission_estimate["serving_size_g"],
+        "default_serving_g": emission_estimate["default_serving_g"],
         "method": "vision_dish_agreement",
+        "emissions_method": emission_estimate["method"],
+        "factor_source": emission_estimate["factor_source"],
+        "components": emission_estimate["components"],
+        "portion_note": emission_estimate["portion_note"],
         "image_candidate": chosen_food.title(),
         "requires_user_confirmation": True,
     }

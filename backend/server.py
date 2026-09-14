@@ -1265,11 +1265,11 @@ async def food_scan(req: FoodScanRequest):
         
     items = [
         {
-            "name": pred["food_category"].capitalize(),
-            "portion": "1 serving",
-            "category": "mixed",
+            "name": pred["food_category"],
+            "portion": f"{pred['serving_size_g']} g estimated portion",
+            "category": "recipe estimate",
             "co2_kg": pred["co2_kg"],
-            "tip": "Confirm the dish and portion before treating this as a food-footprint record.",
+            "tip": pred.get("portion_note", "Confirm the dish and portion before treating this as a food-footprint record."),
         }
     ]
     total = pred["co2_kg"]
@@ -1280,14 +1280,18 @@ async def food_scan(req: FoodScanRequest):
         "data": {
             "total_co2_kg": total,
             "carbon_label": carbon_label,
-            "ai_note": f"The photo candidate '{pred['image_candidate']}' matched the dish name '{pred['food_category']}'. This is a typical-serving food-factor estimate; confirm the portion before logging.",
+            "ai_note": f"The photo candidate '{pred['image_candidate']}' matched '{pred['food_category']}'. The estimate uses {pred.get('factor_source', 'the configured factor catalog')} and a {pred['serving_size_g']} g recipe portion; confirm the portion before logging.",
             "items": items,
             "method": pred.get("method", "vision_candidate"),
+            "emissions_method": pred.get("emissions_method"),
             "image_candidate": pred.get("image_candidate"),
-            "model_version": "food_scan_candidate_routing_v1",
+            "model_version": "food_scan_candidate_recipe_lca_v2",
             "model_status": "candidate_not_product_validated",
             "confidence": pred.get("confidence"),
             "confidence_note": pred.get("confidence_note", "Confidence is model output, not validated real-world accuracy."),
+            "serving_size_g": pred.get("serving_size_g"),
+            "factor_source": pred.get("factor_source"),
+            "recipe_components": pred.get("components", []),
         },
         "message": f"Successfully analyzed {pred['food_category']}",
         "timestamp": datetime.now(timezone.utc).isoformat()

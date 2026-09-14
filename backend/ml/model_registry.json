@@ -8,7 +8,7 @@
       "current_runtime": [
         "Hugging Face Inference API: nateraw/food",
         "Gemini Vision when GEMINI_API_KEY or EMERGENT_LLM_KEY is configured",
-        "image candidate and confirmed dish-name agreement before a food-factor estimate",
+        "image candidate and confirmed dish-name agreement before a CSV-backed recipe emission estimate",
         "limited portrait-looking-image rejection; no validated non-food classifier"
       ],
       "checked_in_artifacts": [
@@ -18,7 +18,8 @@
       "known_issues": [
         "Checked-in CNN metadata reports best_accuracy = 4.0",
         "Local CNN artifact is not loaded by the serving code",
-        "Text-only dish names are deliberately rejected; a successful scan requires an independent image candidate to agree with the dish name",
+        "Text-only dish names are deliberately rejected; a successful scan requires independent image candidates to agree with the dish name",
+        "Food_Product_Emissions.csv provides product-level emission factors; reviewed recipes and portion assumptions are required to estimate a mixed dish",
         "No committed real-world image validation report"
       ],
       "required_release_metrics": [

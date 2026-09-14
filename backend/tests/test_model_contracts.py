@@ -18,6 +18,7 @@ from backend.ml_service import (
     predict_food,
     predict_gbdt,
 )
+from backend.food_emissions import estimate_food_emissions, load_food_product_factors
 import backend.ml_service as ml_service
 from backend.server import (
     FoodScanRequest,
@@ -114,6 +115,25 @@ class ModelContractTests(unittest.TestCase):
         self.assertIsNone(ml_service._co2_from_name("baby"))
         self.assertIsNone(ml_service._co2_from_name("baby girl"))
 
+    def test_food_factor_rejects_a_generic_dish_without_a_reviewed_recipe(self):
+        self.assertIsNone(ml_service._co2_from_name("pizza"))
+        self.assertIsNone(ml_service._co2_from_name("burger"))
+
+    def test_food_factor_catalog_reads_the_project_csv(self):
+        factors = load_food_product_factors()
+
+        self.assertEqual(factors["potatoes"], 0.46)
+        self.assertEqual(factors["rice"], 4.45)
+
+    def test_french_fries_are_calculated_from_csv_factors_and_portion(self):
+        estimate = estimate_food_emissions("french fries", serving_g=180)
+
+        self.assertIsNotNone(estimate)
+        self.assertEqual(estimate["factor_source"], "Food_Product_Emissions.csv")
+        self.assertEqual(estimate["serving_size_g"], 180)
+        self.assertEqual(estimate["co2_kg"], 0.146)
+        self.assertEqual({item["ingredient"] for item in estimate["components"]}, {"Potatoes", "Sunflower Oil"})
+
     def test_food_scan_requires_image_candidate_and_dish_name_to_agree(self):
         image_data = base64.b64encode(b"test-image-bytes").decode("ascii")
         vit_result = {"food": "french fries", "score": 0.99}
@@ -127,7 +147,8 @@ class ModelContractTests(unittest.TestCase):
         self.assertIn("does not match", mismatch["message"])
         self.assertEqual(match["status"], "success")
         self.assertEqual(match["method"], "vision_dish_agreement")
-        self.assertEqual(match["co2_kg"], 0.4)
+        self.assertEqual(match["co2_kg"], 0.162)
+        self.assertEqual(match["factor_source"], "Food_Product_Emissions.csv")
 
     def test_food_scan_rejects_when_independent_image_checks_disagree(self):
         image_data = base64.b64encode(b"test-image-bytes").decode("ascii")

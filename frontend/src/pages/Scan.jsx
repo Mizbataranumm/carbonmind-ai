@@ -309,7 +309,7 @@ const Scan = () => {
                 setHint(e.target.value);
                 if (error) setError("");
               }}
-              placeholder="e.g. French Fries, Chicken Biryani, Indian Thali, Pizza..."
+              placeholder="e.g. French Fries, Chicken Biryani, Veg Biryani..."
               className="input-glass !py-2 !px-3 text-sm mt-1"
               data-testid="scan-hint"
             />
@@ -320,12 +320,13 @@ const Scan = () => {
               <span className="font-mono-data text-[9px] uppercase tracking-wider text-secondary mr-1">Quick Select:</span>
               {[
                 { dish: "French Fries", label: "🍟 French Fries" },
-                { dish: "Biryani", label: "🍗 Biryani" },
+                { dish: "Chicken Biryani", label: "🍗 Chicken Biryani" },
+                { dish: "Veg Biryani", label: "🍚 Veg Biryani" },
                 { dish: "Indian Thali", label: "🍛 Indian Thali" },
-                { dish: "Pizza", label: "🍕 Pizza" },
-                { dish: "Burger", label: "🍔 Burger" },
-                { dish: "Salad", label: "🥗 Salad" },
-                { dish: "Pasta", label: "🍝 Pasta" },
+                { dish: "Margherita Pizza", label: "🍕 Margherita Pizza" },
+                { dish: "Beef Burger", label: "🍔 Beef Burger" },
+                { dish: "Garden Salad", label: "🥗 Garden Salad" },
+                { dish: "Tomato Pasta", label: "🍝 Tomato Pasta" },
                 { dish: "Coffee", label: "☕ Coffee" },
               ].map((pill) => (
                 <button
