@@ -1,217 +1,101 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { X, Volume2, VolumeX, Mic, MicOff, Leaf, TrendingDown, Lightbulb, CheckCircle, Send, Sparkles, Phone, MessageSquare } from "lucide-react";
-import { sendChat } from "@/lib/api";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { CheckCircle2, Leaf, RotateCcw, Volume2, VolumeX, X } from "lucide-react";
 
-const VoiceCallModal = ({ open, onClose, userName = "Explorer", weeklyKg = 41.8, topCategory = "Transport" }) => {
-  const [tab, setTab] = useState("briefing"); // "briefing" | "talk"
-  
-  // Briefing state
+const tipFor = (topCategory) => {
+  const tips = {
+    Transport: "For a short upcoming trip, walking, cycling, or public transport can lower the transport part of your record.",
+    Electricity: "Switch off unused devices and defer high-energy tasks when practical to reduce electricity use.",
+    Food: "For a future meal, a lower-impact option can reduce the food part of your record.",
+    Devices: "Unplug idle chargers and put devices to sleep when you are finished using them.",
+  };
+  return tips[topCategory] || "Add a completed activity or confirm a meal when it happens to keep your record useful.";
+};
+
+export default function VoiceCallModal({ open, onClose, userName = "Explorer", todayKg = 0, topCategory = "No recorded category" }) {
   const [speaking, setSpeaking] = useState(false);
-  const [done, setDone] = useState(false);
   const [caption, setCaption] = useState("");
-  const [currentPart, setCurrentPart] = useState(0);
-  const utterRef = useRef(null);
-  const partsRef = useRef([]);
-  const isCancelled = useRef(false);
+  const [finished, setFinished] = useState(false);
+  const cancelled = useRef(false);
 
-  // Interactive Talk state
-  const [isListening, setIsListening] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [agentSpeaking, setAgentSpeaking] = useState(false);
-  const [agentReply, setAgentReply] = useState("Hello! I'm your AI Carbon Agent. Tap the mic to talk, or select a question below.");
-  const recognitionRef = useRef(null);
-
-  const todayKg = weeklyKg > 0 ? (weeklyKg / 7).toFixed(1) : "0.0";
-  const budget = 6.5;
-  const overUnder = parseFloat(todayKg) > budget ? "over" : "under";
-  const diff = Math.abs(parseFloat(todayKg) - budget).toFixed(1);
-
-  const tips = [
-    "Try cycling or walking for short trips under 2 km.",
-    "Switch off appliances fully instead of leaving them on standby.",
-    "One plant-based meal today can save up to 2.5 kg of CO2.",
-  ];
-
-  const buildScript = () => [
-    { text: `Hey ${userName}! Here is your CarbonMind daily voice briefing.`, icon: "wave" },
-    { text: `Today you emitted approximately ${todayKg} kilograms of CO2. Your daily budget is ${budget} kilograms. You are ${diff} kg ${overUnder} budget.`, icon: "chart" },
-    { text: `Your biggest emission source is ${topCategory}. This is where you can make the most impact.`, icon: "source" },
-    { text: `Tip 1: ${tips[0]}`, icon: "tip" },
-    { text: `Tip 2: ${tips[1]}`, icon: "tip" },
-    { text: `Tip 3: ${tips[2]}`, icon: "tip" },
-    { text: `Great effort today, ${userName}. Every small action counts. See you tomorrow!`, icon: "done" },
-  ];
-
-  const stopAll = () => {
-    isCancelled.current = true;
-    window.speechSynthesis?.cancel();
-    utterRef.current = null;
-    setSpeaking(false);
-    setAgentSpeaking(false);
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+  const parts = useMemo(() => {
+    const recorded = Number(todayKg) > 0;
+    if (!recorded) {
+      return [
+        `Hi ${userName}. This is your CarbonMind daily audio brief.`,
+        "There are no saved activities for today yet, so there is no emissions total to report.",
+        "Add a completed activity or confirm a scanned meal when it happens. Your brief will then use that saved record.",
+      ];
     }
-    setIsListening(false);
-  };
 
-  const speakText = (text, onComplete) => {
+    const remaining = Math.abs(6.5 - Number(todayKg)).toFixed(1);
+    const budgetMessage = Number(todayKg) > 6.5
+      ? `That is ${remaining} kilograms above your 6.5 kilogram daily budget.`
+      : `That is ${remaining} kilograms below your 6.5 kilogram daily budget.`;
+    return [
+      `Hi ${userName}. Here is your CarbonMind daily audio brief.`,
+      `Your saved activity record totals ${Number(todayKg).toFixed(1)} kilograms of CO2 equivalent today. ${budgetMessage}`,
+      `Your largest recorded category is ${topCategory}. ${tipFor(topCategory)}`,
+      "This briefing uses only your saved activity record. It is an audio summary, not a phone call or a two-way assistant.",
+    ];
+  }, [todayKg, topCategory, userName]);
+
+  const stop = () => {
+    cancelled.current = true;
     window.speechSynthesis?.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.0;
-    u.pitch = 1.05;
-    u.volume = 1.0;
-    const voices = window.speechSynthesis?.getVoices() || [];
-    const preferred = voices.find(v => v.lang === "en-IN") || voices.find(v => v.lang.startsWith("en")) || null;
-    if (preferred) u.voice = preferred;
-    u.onend = () => {
-      setAgentSpeaking(false);
-      if (onComplete) onComplete();
-    };
-    u.onerror = () => {
-      setAgentSpeaking(false);
-      if (onComplete) onComplete();
-    };
-    setAgentSpeaking(true);
-    window.speechSynthesis?.speak(u);
+    setSpeaking(false);
   };
 
-  // Briefing runner
+  const play = () => {
+    if (!("speechSynthesis" in window)) {
+      setCaption("Audio playback is not available in this browser. You can still read the briefing below.");
+      return;
+    }
+
+    stop();
+    cancelled.current = false;
+    setFinished(false);
+    setSpeaking(true);
+    let index = 0;
+
+    const speakNext = () => {
+      if (cancelled.current) return;
+      if (index >= parts.length) {
+        setSpeaking(false);
+        setFinished(true);
+        return;
+      }
+      const text = parts[index];
+      index += 1;
+      setCaption(text);
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find((voice) => voice.lang === "en-IN") || voices.find((voice) => voice.lang.startsWith("en"));
+      if (preferred) utterance.voice = preferred;
+      utterance.onend = speakNext;
+      utterance.onerror = speakNext;
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakNext();
+  };
+
+  useEffect(() => () => stop(), []);
+
   useEffect(() => {
     if (!open) {
-      stopAll();
-      setDone(false);
+      stop();
       setCaption("");
-      setCurrentPart(0);
-      return;
+      setFinished(false);
     }
+  }, [open]);
 
-    if (tab === "briefing") {
-      isCancelled.current = false;
-      const script = buildScript();
-      partsRef.current = script;
-      setSpeaking(true);
-      setDone(false);
-      setCurrentPart(0);
-
-      let idx = 0;
-      const playNext = () => {
-        if (isCancelled.current) return;
-        if (idx >= script.length) {
-          setSpeaking(false);
-          setDone(true);
-          return;
-        }
-        const part = script[idx];
-        setCaption(part.text);
-        setCurrentPart(idx);
-        idx++;
-
-        const u = new SpeechSynthesisUtterance(part.text);
-        u.rate = 1.0;
-        u.pitch = 1.05;
-        u.volume = 1.0;
-        const voices = window.speechSynthesis?.getVoices() || [];
-        const preferred = voices.find(v => v.lang === "en-IN") || voices.find(v => v.lang.startsWith("en")) || null;
-        if (preferred) u.voice = preferred;
-
-        u.onend = () => setTimeout(playNext, 400);
-        u.onerror = () => setTimeout(playNext, 300);
-        utterRef.current = u;
-        window.speechSynthesis?.speak(u);
-      };
-
-      setTimeout(playNext, 600);
-    } else {
-      stopAll();
-      // Greet when opening talk tab
-      speakText(`Hello ${userName}! How can I help you today? You can ask me about your emissions or how to reduce your carbon footprint.`);
-    }
-
-    return () => stopAll();
-  }, [open, tab]);
-
-  // Setup Web Speech API for Talk tab
-  const toggleListening = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. You can click any question below to interact!");
-      return;
-    }
-
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-    } else {
-      window.speechSynthesis?.cancel();
-      setAgentSpeaking(false);
-      const rec = new SpeechRecognition();
-      rec.continuous = false;
-      rec.interimResults = false;
-      rec.lang = "en-US";
-
-      rec.onstart = () => {
-        setIsListening(true);
-        setTranscript("Listening to you...");
-      };
-
-      rec.onresult = (e) => {
-        const text = e.results[0][0].transcript;
-        setTranscript(text);
-        handleUserQuery(text);
-      };
-
-      rec.onerror = (e) => {
-        setIsListening(false);
-        setTranscript("");
-      };
-
-      rec.onend = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current = rec;
-      rec.start();
-    }
+  const close = () => {
+    stop();
+    onClose();
   };
-
-  const handleUserQuery = async (queryText) => {
-    if (!queryText) return;
-    setTranscript(queryText);
-    let reply = "";
-    try {
-      const res = await sendChat("voice-session", queryText);
-      reply = res?.reply || res?.message || "I am here to help you reduce your carbon footprint!";
-    } catch (e) {
-      const q = queryText.toLowerCase();
-      if (q.includes("hello") || q.includes("hi") || q.includes("hlo") || q.includes("hey")) {
-        reply = `Hello ${userName}! How can I help you with your carbon footprint today?`;
-      } else if (q.includes("where") && (q.includes("co2") || q.includes("emission") || q.includes("using"))) {
-        reply = "Personal emissions mainly come from transport (driving and flights), home electricity, and food choices like meat and dairy. Check your dashboard for your exact breakdown!";
-      } else if (q.includes("what is carbon footprint") || q.includes("carbon footprint")) {
-        reply = "A carbon footprint is the total amount of greenhouse gases emitted into the atmosphere by our everyday actions, measured in kilograms of CO2.";
-      } else if (q.includes("how to use") || q.includes("app")) {
-        reply = "You can scan meals with the Food Scanner, predict daily emissions with the Daily Forecaster, or view your 10-year trajectory on the Simulator.";
-      } else {
-        reply = "Great question! Small daily swaps like walking short distances and eating more plant-based meals can cut your annual emissions significantly.";
-      }
-    }
-    setAgentReply(reply);
-    speakText(reply);
-  };
-
-  const totalParts = buildScript().length;
-  const progress = totalParts > 0 ? Math.round((currentPart / totalParts) * 100) : 0;
-
-  const icons = {
-    wave: <Mic className="h-7 w-7 text-green" />,
-    chart: <TrendingDown className="h-7 w-7 text-cyan" />,
-    source: <Leaf className="h-7 w-7 text-[#FFD166]" />,
-    tip: <Lightbulb className="h-7 w-7 text-green" />,
-    done: <CheckCircle className="h-7 w-7 text-green" />,
-  };
-
-  const currentIcon = partsRef.current[currentPart]?.icon || "wave";
 
   return (
     <AnimatePresence>
@@ -220,200 +104,51 @@ const VoiceCallModal = ({ open, onClose, userName = "Explorer", weeklyKg = 41.8,
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onMouseDown={close}
         >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-app/80 backdrop-blur-2xl" onClick={() => { stopAll(); onClose(); }} />
-
           <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 10 }}
-            className="relative z-10 w-full max-w-sm mx-auto"
-            onClick={e => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            className="relative w-full max-w-md rounded-2xl border border-glass-border bg-panel p-5 shadow-2xl sm:p-6"
+            onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="glass border border-glass-border rounded-3xl p-6 shadow-2xl overflow-hidden relative" style={{ background: "var(--bg-secondary)" }}>
-              {/* Close button */}
-              <button
-                onClick={() => { stopAll(); onClose(); }}
-                className="absolute right-4 top-4 p-2 bg-widget rounded-full hover:bg-glass-hover-bg transition-colors z-20"
-              >
-                <X className="h-4 w-4 text-secondary" />
-              </button>
+            <button type="button" onClick={close} className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-lg text-secondary hover:bg-widget hover:text-main" aria-label="Close daily audio brief">
+              <X className="h-4 w-4" />
+            </button>
 
-              {/* Mode Tabs */}
-              <div className="flex bg-widget p-1 rounded-2xl border border-glass-border mb-5">
-                <button
-                  onClick={() => setTab("briefing")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    tab === "briefing" ? "bg-green text-app shadow-md" : "text-secondary hover:text-main"
-                  }`}
-                >
-                  <Volume2 className="h-3.5 w-3.5" /> Audio Brief
-                </button>
-                <button
-                  onClick={() => setTab("talk")}
-                  className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                    tab === "talk" ? "bg-green text-app shadow-md" : "text-secondary hover:text-main"
-                  }`}
-                >
-                  <Mic className="h-3.5 w-3.5" /> Talk with Agent
-                </button>
+            <div className="pr-10">
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Saved-record audio</div>
+              <h2 className="mt-1 font-display text-2xl text-main">Daily audio brief</h2>
+              <p className="mt-2 text-sm leading-relaxed text-secondary">A short playback of today&apos;s saved activity record. It does not record your voice or answer questions.</p>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center rounded-2xl border border-glass-border bg-widget p-5 text-center">
+              <div className={`flex h-16 w-16 items-center justify-center rounded-full border ${speaking ? "border-green bg-green/15 text-green" : "border-glass-border bg-panel text-secondary"}`}>
+                <Leaf className={`h-7 w-7 ${speaking ? "animate-pulse" : ""}`} />
               </div>
+              <p className="mt-4 font-mono-data text-2xl text-main">{Number(todayKg).toFixed(1)} <span className="text-sm text-secondary">kg CO2e saved today</span></p>
+              <p className="mt-1 text-xs text-secondary">{topCategory === "No recorded category" ? "No category recorded" : `Largest category: ${topCategory}`}</p>
+            </div>
 
-              {/* TAB 1: DAILY BRIEFING */}
-              {tab === "briefing" && (
-                <div className="text-center">
-                  <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mb-2">
-                    // Carbon Audio Brief
-                  </div>
+            <div className="mt-4 min-h-24 rounded-xl border border-glass-border bg-widget p-4 text-sm leading-relaxed text-secondary">
+              {caption || "Press play to hear the briefing. The text will appear here as it plays."}
+            </div>
 
-                  <div className="relative mx-auto h-20 w-20 mb-4">
-                    <motion.div
-                      animate={speaking ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                      transition={{ duration: 1.2, repeat: Infinity }}
-                      className="h-20 w-20 rounded-full bg-gradient-to-br from-green to-cyan flex items-center justify-center mx-auto"
-                      style={{ boxShadow: speaking ? "0 0 35px rgba(0,255,178,0.4)" : "0 0 15px rgba(0,255,178,0.15)" }}
-                    >
-                      {icons[currentIcon]}
-                    </motion.div>
-                  </div>
+            {finished && <div className="mt-3 flex items-center gap-2 text-sm text-green"><CheckCircle2 className="h-4 w-4" /> Briefing complete</div>}
 
-                  <h2 className="text-lg font-display font-bold text-main">Daily Briefing</h2>
-                  <p className="text-xs text-secondary mt-0.5 mb-3">
-                    {done ? "Briefing complete!" : speaking ? "Speaking aloud..." : "Paused"}
-                  </p>
-
-                  {!done && (
-                    <div className="w-full h-1 bg-glass-bg rounded-full mb-4 overflow-hidden">
-                      <motion.div
-                        animate={{ width: `${progress}%` }}
-                        className="h-full bg-gradient-to-r from-green to-cyan rounded-full"
-                      />
-                    </div>
-                  )}
-
-                  <div className="bg-glass-bg border border-glass-border rounded-2xl p-3.5 mb-4 min-h-[75px] flex items-center justify-center text-center">
-                    <p className="text-xs text-main leading-relaxed">
-                      {caption || "Preparing your briefing..."}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-widget rounded-xl p-2 text-center border border-glass-border">
-                      <div className="text-base font-bold font-mono-data text-green">{todayKg}</div>
-                      <div className="text-[10px] text-secondary">kg today</div>
-                    </div>
-                    <div className="bg-widget rounded-xl p-2 text-center border border-glass-border">
-                      <div className="text-base font-bold font-mono-data text-cyan">{budget}</div>
-                      <div className="text-[10px] text-secondary">kg budget</div>
-                    </div>
-                    <div className={`rounded-xl p-2 text-center border ${overUnder === 'under' ? 'bg-green/10 border-green/30' : 'bg-red-400/10 border-red-400/30'}`}>
-                      <div className={`text-base font-bold font-mono-data ${overUnder === 'under' ? 'text-green' : 'text-red-400'}`}>
-                        {overUnder === 'under' ? '-' : '+'}{diff}
-                      </div>
-                      <div className="text-[10px] text-secondary">vs budget</div>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => { stopAll(); onClose(); }}
-                    className="w-full py-2.5 rounded-xl bg-green text-app font-bold hover:bg-green/90 transition-colors text-sm"
-                  >
-                    Done
-                  </button>
-                </div>
-              )}
-
-              {/* TAB 2: INTERACTIVE VOICE AGENT */}
-              {tab === "talk" && (
-                <div className="text-center">
-                  <div className="font-mono-data text-[10px] uppercase tracking-widest text-cyan mb-2">
-                    // Live AI Voice Assistant
-                  </div>
-
-                  {/* Mic orb button */}
-                  <div className="relative mx-auto h-24 w-24 mb-4 flex items-center justify-center">
-                    <button
-                      onClick={toggleListening}
-                      className={`h-20 w-20 rounded-full flex items-center justify-center transition-all shadow-xl ${
-                        isListening
-                          ? "bg-red-500 text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.6)]"
-                          : agentSpeaking
-                            ? "bg-green text-app shadow-[0_0_30px_rgba(0,255,178,0.5)]"
-                            : "bg-gradient-to-br from-green to-cyan text-app hover:scale-105"
-                      }`}
-                      title={isListening ? "Listening... tap to stop" : "Tap to speak"}
-                    >
-                      {isListening ? (
-                        <Mic className="h-8 w-8 animate-bounce" />
-                      ) : (
-                        <Mic className="h-8 w-8" />
-                      )}
-                    </button>
-                  </div>
-
-                  <p className="text-xs font-bold text-main">
-                    {isListening ? "🔴 Listening to you... Speak now" : agentSpeaking ? "🔊 AI Speaking..." : "Tap the Mic or a question below"}
-                  </p>
-
-                  {/* Transcript / Reply Display */}
-                  <div className="bg-glass-bg border border-glass-border rounded-2xl p-3.5 my-3 min-h-[90px] flex flex-col justify-center text-left">
-                    {transcript && (
-                      <p className="text-[11px] text-secondary mb-1">
-                        <strong>You:</strong> {transcript}
-                      </p>
-                    )}
-                    <p className="text-xs text-main leading-relaxed">
-                      <strong className="text-green">Coach:</strong> {agentReply}
-                    </p>
-                  </div>
-
-                  {/* Quick question pills */}
-                  <div className="space-y-1.5 mb-4 text-left">
-                    <p className="text-[10px] font-mono-data text-secondary uppercase tracking-wider">Quick Prompts:</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        onClick={() => handleUserQuery("Hello")}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-widget border border-glass-border text-secondary hover:text-green hover:border-green/40 transition"
-                      >
-                        👋 Hello
-                      </button>
-                      <button
-                        onClick={() => handleUserQuery("Where am I using more CO2?")}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-widget border border-glass-border text-secondary hover:text-green hover:border-green/40 transition"
-                      >
-                        📊 Where am I using more CO2?
-                      </button>
-                      <button
-                        onClick={() => handleUserQuery("What is carbon footprint?")}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-widget border border-glass-border text-secondary hover:text-green hover:border-green/40 transition"
-                      >
-                        🌱 What is carbon footprint?
-                      </button>
-                      <button
-                        onClick={() => handleUserQuery("How to use this app?")}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-widget border border-glass-border text-secondary hover:text-green hover:border-green/40 transition"
-                      >
-                        📱 How to use app?
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => { stopAll(); onClose(); }}
-                    className="w-full py-2.5 rounded-xl border border-glass-border bg-widget hover:bg-glass-hover-bg text-secondary hover:text-main text-xs font-bold transition-all"
-                  >
-                    Close Voice Agent
-                  </button>
-                </div>
-              )}
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button type="button" onClick={speaking ? stop : play} className="btn-primary inline-flex items-center justify-center gap-2 !py-3">
+                {speaking ? <><VolumeX className="h-4 w-4" /> Stop</> : <><Volume2 className="h-4 w-4" /> Play brief</>}
+              </button>
+              <button type="button" onClick={play} disabled={speaking} className="inline-flex items-center justify-center gap-2 rounded-xl border border-glass-border bg-widget py-3 text-sm font-semibold text-main transition hover:bg-glass-hover-bg disabled:cursor-not-allowed disabled:opacity-50">
+                <RotateCcw className="h-4 w-4" /> Replay
+              </button>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
-};
-
-export default VoiceCallModal;
+}

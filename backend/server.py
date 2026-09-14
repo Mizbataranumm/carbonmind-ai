@@ -8,7 +8,19 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
+import base64
+import hashlib
+import hmac
+import json
+import secrets
+import time
+import re
+from fastapi import Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Optional AI integration — falls back gracefully if not installed
 try:
@@ -22,6 +34,11 @@ load_dotenv(ROOT_DIR / '.env')
 
 mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/carbonmind')
 db_name = os.environ.get('DB_NAME', 'carbonmind')
+auth_secret = os.environ.get("AUTH_SECRET")
+if not auth_secret:
+    auth_secret = secrets.token_urlsafe(48)
+    logger.warning("AUTH_SECRET is not set; sessions will be invalid after a restart. Configure it before deployment.")
+auth_scheme = HTTPBearer(auto_error=False)
 
 try:
     client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=2500)
@@ -34,19 +51,35 @@ except Exception as e:
 app = FastAPI(title="CarbonMind AI")
 api_router = APIRouter(prefix="/api")
 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from ml_service import load_models, predict_food, predict_gbdt, predict_weekly_arima, predict_lstm
+from ml_service import (
+    ANNUAL_CARBON_FEATURES,
+    GBDT_DEFAULTS,
+    get_model_status,
+    load_models,
+    missing_annual_carbon_features,
+    predict_annual_carbon,
+    predict_food,
+    predict_gbdt,
+    predict_weekly_arima,
+)
 
 @app.on_event("startup")
 async def startup_event():
     load_models(models_dir=str(Path(__file__).parent / "ml" / "models"))
+    if db is not None:
+        try:
+            await db.users.create_index("email", unique=True)
+            await db.daily_activity_logs.create_index([("user_id", 1), ("day", 1)], unique=True)
+            await db.community_likes.create_index([("post_id", 1), ("user_id", 1)], unique=True)
+            await db.community_joins.create_index([("challenge_id", 1), ("user_id", 1)], unique=True)
+            await db.certificates.create_index("cert_id", unique=True)
+            await db.food_scan_feedback.create_index([("user_id", 1), ("created_at", -1)])
+        except Exception as exc:
+            logger.warning("Database index setup skipped: %s", exc)
 
 
 # ====== Models ======
@@ -74,6 +107,7 @@ class UserProfile(BaseModel):
     onboarding_completed: bool = False
     onboarding_step: int = 1
     onboarding_preferences: dict = {}
+    access_token: Optional[str] = None
 
 class ChatRequest(BaseModel):
     session_id: str
@@ -84,12 +118,37 @@ class ChatResponse(BaseModel):
     session_id: str
 
 class MorningActivity(BaseModel):
-    type: str  # transport / electricity / food / devices
-    kg: float
+    type: str
+    kg: float = Field(ge=0, le=100)
+
+class DailyActivity(BaseModel):
+    type: str
+    kg: float = Field(ge=0, le=100)
+    label: Optional[str] = None
+    occurred_at: Optional[str] = None
+    event_id: Optional[str] = Field(default=None, min_length=1, max_length=80)
+
+class SaveDailyActivitiesRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+    activities: List[DailyActivity] = Field(min_length=1, max_length=100)
+    day: Optional[str] = None
+    append: bool = False
+    source: Optional[str] = Field(default=None, pattern=r"^[a-z][a-z0-9_]{0,31}$")
 
 class PredictDayRequest(BaseModel):
     morning_activities: List[MorningActivity]
-    daily_budget_kg: float = 6.5
+    daily_budget_kg: float = Field(default=6.5, gt=0, le=100)
+    observation_hours: float = Field(default=2.0, gt=0, le=24)
+    lifestyle_profile: Optional[dict] = None
+
+
+class AnnualCarbonRequest(BaseModel):
+    lifestyle_profile: dict
+
+
+class SaveLifestyleProfileRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+    lifestyle_profile: dict
 
 class PredictDayResponse(BaseModel):
     predicted_full_day_kg: float
@@ -115,7 +174,12 @@ class VoiceTipsResponse(BaseModel):
 
 class FoodScanRequest(BaseModel):
     image_base64: Optional[str] = None
-    hint: Optional[str] = None  # optional description hint
+    hint: Optional[str] = Field(default=None, max_length=120)
+
+class FoodScanFeedbackRequest(BaseModel):
+    predicted_food: Optional[str] = Field(default=None, max_length=120)
+    confirmed_food: str = Field(min_length=1, max_length=120)
+    scan_method: Optional[str] = Field(default=None, max_length=80)
 
 class FoodItem(BaseModel):
     name: str
@@ -129,22 +193,21 @@ class FoodScanResponse(BaseModel):
     total_co2_kg: float
     ai_note: str
 
-class CertificateRequest(BaseModel):
-    user_name: str
-    month: Optional[str] = None
-    co2_saved_kg: Optional[float] = None
-    grade: Optional[str] = "A-"
-
 class CertificateResponse(BaseModel):
     cert_id: str
     user_name: str
     month: str
-    co2_saved_kg: float
+    co2_recorded_kg: float
+    recorded_days: int
+    verification_status: str
     grade: str
     equivalents: dict
     issued_at: str
     signature: str
     verify_url: str
+
+class PhoneCallRequest(BaseModel):
+    phone_number: str = Field(min_length=10, max_length=20)
 
 class SimulateRequest(BaseModel):
     transport: str  # car / public / bike / mixed
@@ -156,11 +219,89 @@ class SimulateRequest(BaseModel):
 class SimulateResponse(BaseModel):
     current_annual_co2: float
     projected_co2: float
-    future_temp_delta: float
+    future_temp_delta: Optional[float] = None
+    temperature_note: Optional[str] = None
     earth_health: int
     future_summary: str
     yearly_breakdown: List[dict]
     recommendations: List[str]
+    method: str = "scenario_calculator"
+    model_version: str = "scenario_calculator_v1"
+    model_status: str = "transparent_scenario_not_time_series_ml"
+    assumptions: List[str] = []
+
+
+def _database_or_503():
+    if db is None:
+        raise HTTPException(status_code=503, detail="Database is not configured.")
+    return db
+
+
+def _hash_password(password: str) -> str:
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=2**14, r=8, p=1, dklen=32)
+    return "scrypt$16384$8$1$%s$%s" % (
+        base64.urlsafe_b64encode(salt).decode("ascii"),
+        base64.urlsafe_b64encode(digest).decode("ascii"),
+    )
+
+
+def _verify_password(password: str, stored: str) -> bool:
+    if not stored.startswith("scrypt$"):
+        # Supports one-time migration of records created by the original demo app.
+        return hmac.compare_digest(password, stored)
+    try:
+        _, n, r, p, encoded_salt, encoded_digest = stored.split("$", 5)
+        salt = base64.urlsafe_b64decode(encoded_salt.encode("ascii"))
+        expected = base64.urlsafe_b64decode(encoded_digest.encode("ascii"))
+        actual = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=int(n), r=int(r), p=int(p), dklen=len(expected))
+        return hmac.compare_digest(actual, expected)
+    except (ValueError, TypeError):
+        return False
+
+
+def _issue_access_token(user_id: str) -> str:
+    payload = {"sub": user_id, "exp": int(time.time()) + 60 * 60 * 24 * 7}
+    encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).rstrip(b"=")
+    signature = hmac.new(auth_secret.encode("utf-8"), encoded, hashlib.sha256).digest()
+    return f"{encoded.decode('ascii')}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode('ascii')}"
+
+
+def _read_access_token(token: str) -> Optional[dict]:
+    try:
+        encoded, provided_signature = token.split(".", 1)
+        expected_signature = hmac.new(auth_secret.encode("utf-8"), encoded.encode("ascii"), hashlib.sha256).digest()
+        padded_signature = provided_signature + "=" * (-len(provided_signature) % 4)
+        if not hmac.compare_digest(expected_signature, base64.urlsafe_b64decode(padded_signature.encode("ascii"))):
+            return None
+        padded_payload = encoded + "=" * (-len(encoded) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded_payload.encode("ascii")))
+        return payload if payload.get("sub") and int(payload.get("exp", 0)) >= int(time.time()) else None
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+async def _current_user_id(credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme)) -> str:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Authentication is required.")
+    payload = _read_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Session is invalid or expired.")
+    return payload["sub"]
+
+
+async def _optional_current_user_id(credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme)) -> Optional[str]:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        return None
+    payload = _read_access_token(credentials.credentials)
+    return payload["sub"] if payload else None
+
+
+def _public_user(user_doc: dict, include_token: bool = False) -> dict:
+    user = {key: value for key, value in user_doc.items() if key not in {"_id", "password"}}
+    if include_token:
+        user["access_token"] = _issue_access_token(user["id"])
+    return user
 
 
 # ====== Routes ======
@@ -168,9 +309,15 @@ class SimulateResponse(BaseModel):
 async def root():
     return {"message": "CarbonMind AI API online", "status": "ok"}
 
+@api_router.get("/ml/status")
+async def ml_status():
+    return get_model_status(models_dir=str(Path(__file__).parent / "ml" / "models"))
+
 @api_router.get("/onboarding/status")
-async def get_onboarding_status(user_id: str):
-    user = await db.users.find_one({"id": user_id})
+async def get_onboarding_status(user_id: str, current_user_id: str = Depends(_current_user_id)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own onboarding status.")
+    user = await _database_or_503().users.find_one({"id": user_id})
     if not user:
         return {"status": "error", "message": "User not found"}
     return {
@@ -182,10 +329,14 @@ async def get_onboarding_status(user_id: str):
     }
 
 @api_router.post("/onboarding/save")
-async def save_onboarding(req: dict):
+async def save_onboarding(req: dict, current_user_id: str = Depends(_current_user_id)):
     user_id = req.get("user_id")
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only update your own onboarding data.")
     preferences = req.get("preferences", {})
-    await db.users.update_one(
+    if not isinstance(preferences, dict):
+        raise HTTPException(status_code=422, detail="preferences must be an object.")
+    await _database_or_503().users.update_one(
         {"id": user_id},
         {"$set": {
             "onboarding_completed": True,
@@ -194,6 +345,29 @@ async def save_onboarding(req: dict):
         }}
     )
     return {"status": "success", "message": "Onboarding saved successfully"}
+
+
+@api_router.get("/profile/lifestyle")
+async def get_lifestyle_profile(user_id: str, current_user_id: str = Depends(_current_user_id)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own lifestyle profile.")
+    user = await _database_or_503().users.find_one({"id": user_id}, {"lifestyle_profile": 1})
+    return {"lifestyle_profile": (user or {}).get("lifestyle_profile", {})}
+
+
+@api_router.put("/profile/lifestyle")
+async def save_lifestyle_profile(req: SaveLifestyleProfileRequest, current_user_id: str = Depends(_current_user_id)):
+    if req.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only update your own lifestyle profile.")
+    missing = missing_annual_carbon_features(req.lifestyle_profile)
+    if missing:
+        raise HTTPException(status_code=422, detail={"message": "Complete every profile field before saving.", "missing_fields": missing})
+    result = await _database_or_503().users.update_one(
+        {"id": req.user_id}, {"$set": {"lifestyle_profile": req.lifestyle_profile}}
+    )
+    if result.matched_count != 1:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return {"status": "success", "lifestyle_profile": req.lifestyle_profile}
 
 # ====== Auth ======
 @api_router.post("/auth/demo-login", response_model=UserProfile)
@@ -209,19 +383,25 @@ async def demo_login(req: DemoLoginRequest):
         "xp": 2480 if is_demo else 0,
         "grade": "A-" if is_demo else "Newbie",
     }
-    return user
+    return _public_user(user, include_token=True)
 
 @api_router.post("/auth/register", response_model=UserProfile)
 async def register(req: RegisterRequest):
-    users_col = db.users
+    if not req.name.strip() or len(req.name.strip()) > 80:
+        raise HTTPException(status_code=422, detail="Name must be between 1 and 80 characters.")
+    if "@" not in req.email or len(req.email) > 254:
+        raise HTTPException(status_code=422, detail="Enter a valid email address.")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=422, detail="Password must contain at least 8 characters.")
+    users_col = _database_or_503().users
     existing = await users_col.find_one({"email": req.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="User already exists")
     user_doc = {
         "id": str(uuid.uuid4()),
-        "name": req.name,
+        "name": req.name.strip(),
         "email": req.email.lower(),
-        "password": req.password,
+        "password": _hash_password(req.password),
         "avatar": "/avatars/avatar_sofia.png",
         "carbon_aura": "#9EABBC",
         "streak": 0,
@@ -229,190 +409,229 @@ async def register(req: RegisterRequest):
         "grade": "Newbie",
     }
     await users_col.insert_one(user_doc.copy())
-    return user_doc
+    return _public_user(user_doc, include_token=True)
 
 @api_router.post("/auth/login", response_model=UserProfile)
 async def login(req: LoginRequest):
     if req.email.lower() == "demo@carbonmind.ai" or req.email.lower() == "demo":
         return await demo_login(DemoLoginRequest(name="Eco Explorer"))
     
-    users_col = db.users
-    user_doc = await users_col.find_one({"email": req.email.lower(), "password": req.password})
-    if not user_doc:
+    users_col = _database_or_503().users
+    user_doc = await users_col.find_one({"email": req.email.lower()})
+    if not user_doc or not _verify_password(req.password, user_doc.get("password", "")):
         raise HTTPException(status_code=401, detail="Invalid credentials or user not found")
-    
-    # Exclude MongoDB specific internal id to match UserProfile schema
-    user_doc.pop("_id", None)
-    return user_doc
+
+    if not user_doc["password"].startswith("scrypt$"):
+        await users_col.update_one({"_id": user_doc["_id"]}, {"$set": {"password": _hash_password(req.password)}})
+    return _public_user(user_doc, include_token=True)
+
+
+ACTIVITY_META = {
+    "transport": {"name": "Transport", "budget": 4.0, "color": "#00FFB2", "icon": "car"},
+    "electricity": {"name": "Electricity", "budget": 2.5, "color": "#00D9FF", "icon": "zap"},
+    "food": {"name": "Food", "budget": 1.2, "color": "#FFD166", "icon": "utensils"},
+    "devices": {"name": "Devices", "budget": 0.8, "color": "#FF66E1", "icon": "monitor"},
+    "other": {"name": "Other", "budget": 0.5, "color": "#9EABBC", "icon": "activity"},
+}
+
+
+def _sum_activities(activities: List[dict]) -> dict:
+    totals = {kind: 0.0 for kind in ACTIVITY_META}
+    for activity in activities:
+        kind = activity.get("type", "other")
+        if kind in totals:
+            totals[kind] += float(activity.get("kg", 0))
+    return totals
+
+
+async def _daily_logs(user_id: str, start: date, end: date) -> List[dict]:
+    return await _database_or_503().daily_activity_logs.find(
+        {"user_id": user_id, "day": {"$gte": start.isoformat(), "$lte": end.isoformat()}}
+    ).to_list(length=400)
+
+
+def _merge_daily_activities(existing: List[dict], incoming: List[dict], *, append: bool, source: Optional[str]) -> tuple[List[dict], int]:
+    """Merge one daily update without treating a network retry as a second activity."""
+    if source:
+        retained = [item for item in existing if item.get("source") != source]
+        for item in incoming:
+            item["source"] = source
+        return retained + incoming, 0
+
+    if not append:
+        return incoming, 0
+
+    known_event_ids = {item.get("event_id") for item in existing if item.get("event_id")}
+    accepted = []
+    duplicate_count = 0
+    for item in incoming:
+        event_id = item.get("event_id")
+        if event_id and event_id in known_event_ids:
+            duplicate_count += 1
+            continue
+        accepted.append(item)
+        if event_id:
+            known_event_ids.add(event_id)
+    return existing + accepted, duplicate_count
+
+
+@api_router.post("/activities/daily")
+async def save_daily_activities(req: SaveDailyActivitiesRequest, current_user_id: str = Depends(_current_user_id)):
+    if req.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only save your own activities.")
+    activity_types = {activity.type for activity in req.activities}
+    invalid_types = activity_types - set(ACTIVITY_META)
+    if invalid_types:
+        raise HTTPException(status_code=422, detail=f"Unsupported activity types: {sorted(invalid_types)}")
+    try:
+        logged_day = date.fromisoformat(req.day) if req.day else datetime.now(timezone.utc).date()
+    except ValueError:
+        raise HTTPException(status_code=422, detail="day must use YYYY-MM-DD format.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    incoming_activities = []
+    for activity in req.activities:
+        item = activity.model_dump()
+        item["id"] = str(uuid.uuid4())
+        item["label"] = (item["label"] or ACTIVITY_META[item["type"]]["name"])[:120]
+        item["occurred_at"] = item["occurred_at"] or now
+        incoming_activities.append(item)
+    logs = _database_or_503().daily_activity_logs
+    existing = await logs.find_one({"user_id": req.user_id, "day": logged_day.isoformat()}) if (req.append or req.source) else None
+    activities, duplicate_count = _merge_daily_activities(
+        (existing or {}).get("activities", []),
+        incoming_activities,
+        append=req.append,
+        source=req.source,
+    )
+    if len(activities) > 100:
+        raise HTTPException(status_code=422, detail="A daily record can contain at most 100 activities.")
+    total = round(sum(float(item["kg"]) for item in activities), 2)
+    await logs.replace_one(
+        {"user_id": req.user_id, "day": logged_day.isoformat()},
+        {"user_id": req.user_id, "day": logged_day.isoformat(), "activities": activities, "total_kg": total, "updated_at": now},
+        upsert=True,
+    )
+    return {
+        "status": "success",
+        "day": logged_day.isoformat(),
+        "activity_count": len(activities),
+        "total_kg": total,
+        "source": req.source,
+        "duplicate_count": duplicate_count,
+    }
 
 
 @api_router.get("/carbon/stats")
-async def carbon_stats(is_new: bool = False):
-    """Mock dashboard stats. Demo data."""
-    if is_new:
-        return {
-            "today_kg": 0.0,
-            "week_kg": 0.0,
-            "month_kg": 0.0,
-            "year_kg": 0.0,
-            "grade": "Newbie",
-            "trend_pct": 0.0,
-            "score": 0,
-            "weekly_trend": [
-                {"day": "Mon", "kg": 0.0, "target": 6.5},
-                {"day": "Tue", "kg": 0.0, "target": 6.5},
-                {"day": "Wed", "kg": 0.0, "target": 6.5},
-                {"day": "Thu", "kg": 0.0, "target": 6.5},
-                {"day": "Fri", "kg": 0.0, "target": 6.5},
-                {"day": "Sat", "kg": 0.0, "target": 6.5},
-                {"day": "Sun", "kg": 0.0, "target": 6.5},
-            ],
-            "breakdown": [
-                {"name": "Transport", "value": 0, "color": "#00FFB2"},
-                {"name": "Electricity", "value": 0, "color": "#00D9FF"},
-                {"name": "Food", "value": 0, "color": "#FFD166"},
-                {"name": "Devices", "value": 0, "color": "#FF66E1"},
-                {"name": "Other", "value": 100, "color": "#9EABBC"},
-            ],
-            "prediction": [
-                {"month": "Jan", "actual": 0, "predicted": 0},
-                {"month": "Feb", "actual": 0, "predicted": 0},
-                {"month": "Mar", "actual": 0, "predicted": 0},
-                {"month": "Apr", "actual": 0, "predicted": 0},
-                {"month": "May", "actual": None, "predicted": 0},
-                {"month": "Jun", "actual": None, "predicted": 0},
-                {"month": "Jul", "actual": None, "predicted": 0},
-                {"month": "Aug", "actual": None, "predicted": 0},
-            ],
-            "achievements": [
-                {"id": 1, "title": "First Step", "desc": "Log your first activity", "icon": "leaf", "earned": False},
-                {"id": 2, "title": "Green Streak", "desc": "14 days under target", "icon": "flame", "earned": False},
-            ],
-            "recommendations": [
-                {"id": 1, "title": "Log your daily commute", "impact": "Start tracking", "category": "transport"},
-                {"id": 2, "title": "Scan a meal", "impact": "Learn footprints", "category": "food"},
-            ],
-        }
-
+async def carbon_stats(user_id: str, current_user_id: str = Depends(_current_user_id)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own carbon statistics.")
+    today = datetime.now(timezone.utc).date()
+    logs = await _daily_logs(user_id, today - timedelta(days=364), today)
+    logs_by_day = {log["day"]: log for log in logs}
+    today_total = float(logs_by_day.get(today.isoformat(), {}).get("total_kg", 0))
+    last_7_days = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    previous_7_days = [today - timedelta(days=offset) for offset in range(13, 6, -1)]
+    week_total = round(sum(float(logs_by_day.get(day.isoformat(), {}).get("total_kg", 0)) for day in last_7_days), 2)
+    previous_total = sum(float(logs_by_day.get(day.isoformat(), {}).get("total_kg", 0)) for day in previous_7_days)
+    trend_pct = round(((week_total - previous_total) / previous_total) * 100, 1) if previous_total else 0.0
+    month_total = round(sum(float(log["total_kg"]) for log in logs if log["day"][:7] == today.strftime("%Y-%m")), 2)
+    year_total = round(sum(float(log["total_kg"]) for log in logs), 2)
+    streak = 0
+    streak_day = today
+    while streak_day.isoformat() in logs_by_day:
+        streak += 1
+        streak_day -= timedelta(days=1)
+    today_activities = logs_by_day.get(today.isoformat(), {}).get("activities", [])
+    breakdown = _sum_activities(today_activities)
+    non_zero_total = sum(breakdown.values())
+    grade = "Newbie" if not logs else "A+" if today_total <= 4 else "A" if today_total <= 5.5 else "A-" if today_total <= 6.5 else "B"
     return {
-        "today_kg": 6.4,
-        "week_kg": 41.8,
-        "month_kg": 178.3,
-        "year_kg": 2140.0,
-        "grade": "A-",
-        "trend_pct": -8.2,
-        "score": 78,
-        "weekly_trend": [
-            {"day": "Mon", "kg": 7.2, "target": 6.5},
-            {"day": "Tue", "kg": 6.8, "target": 6.5},
-            {"day": "Wed", "kg": 5.4, "target": 6.5},
-            {"day": "Thu", "kg": 6.2, "target": 6.5},
-            {"day": "Fri", "kg": 8.1, "target": 6.5},
-            {"day": "Sat", "kg": 4.9, "target": 6.5},
-            {"day": "Sun", "kg": 3.2, "target": 6.5},
-        ],
-        "breakdown": [
-            {"name": "Transport", "value": 42, "color": "#00FFB2"},
-            {"name": "Electricity", "value": 27, "color": "#00D9FF"},
-            {"name": "Food", "value": 18, "color": "#FFD166"},
-            {"name": "Devices", "value": 8, "color": "#FF66E1"},
-            {"name": "Other", "value": 5, "color": "#9EABBC"},
-        ],
-        "prediction": [
-            {"month": "Jan", "actual": 180, "predicted": 180},
-            {"month": "Feb", "actual": 175, "predicted": 175},
-            {"month": "Mar", "actual": 168, "predicted": 168},
-            {"month": "Apr", "actual": 178, "predicted": 178},
-            {"month": "May", "actual": None, "predicted": 162},
-            {"month": "Jun", "actual": None, "predicted": 154},
-            {"month": "Jul", "actual": None, "predicted": 148},
-            {"month": "Aug", "actual": None, "predicted": 141},
-        ],
+        "source": "saved_user_activities",
+        "today_kg": round(today_total, 2),
+        "week_kg": week_total,
+        "month_kg": month_total,
+        "year_kg": year_total,
+        "grade": grade,
+        "trend_pct": trend_pct,
+        "score": max(0, min(100, round(100 - today_total * 10))),
+        "streak": streak,
+        "weekly_trend": [{"day": day.strftime("%a"), "kg": round(float(logs_by_day.get(day.isoformat(), {}).get("total_kg", 0)), 2), "target": 6.5} for day in last_7_days],
+        "breakdown": [{"name": meta["name"], "value": round((breakdown[kind] / non_zero_total * 100), 1) if non_zero_total else 0, "kg": round(breakdown[kind], 2), "color": meta["color"]} for kind, meta in ACTIVITY_META.items()],
+        "activity_days": len(logs),
+        "recent_activities": [{"id": activity["id"], "label": activity["label"], "type": activity["type"], "kg": round(float(activity["kg"]), 2), "time": activity.get("occurred_at", "")} for activity in today_activities],
         "achievements": [
-            {"id": 1, "title": "Green Streak", "desc": "14 days under target", "icon": "flame", "earned": True},
-            {"id": 2, "title": "Bike Knight", "desc": "Cycled 50km this week", "icon": "bike", "earned": True},
-            {"id": 3, "title": "Plant Lord", "desc": "20 meatless meals", "icon": "leaf", "earned": True},
-            {"id": 4, "title": "Solar Adept", "desc": "Reduce grid use by 30%", "icon": "sun", "earned": False},
-        ],
-        "recommendations": [
-            {"id": 1, "title": "Switch to LED bulbs", "impact": "-0.6 kg/day", "category": "electricity"},
-            {"id": 2, "title": "Cycle for trips < 3km", "impact": "-1.2 kg/day", "category": "transport"},
-            {"id": 3, "title": "Try 2 meatless days", "impact": "-0.9 kg/day", "category": "food"},
-            {"id": 4, "title": "Unplug idle devices", "impact": "-0.3 kg/day", "category": "devices"},
+            {"id": 1, "title": "First Step", "desc": "Log your first activity", "icon": "leaf", "earned": bool(logs)},
+            {"id": 2, "title": "Seven-day record", "desc": "Record seven activity days", "icon": "flame", "earned": len(logs) >= 7},
         ],
     }
 
 
 @api_router.get("/tracker/live")
-async def tracker_live(is_new: bool = False):
-    if is_new:
-        return {
-            "activities": [],
-            "categories": [
-                {"name": "Transport", "kg": 0.0, "budget": 4.0, "trend": 0.0, "color": "#00FFB2"},
-                {"name": "Electricity", "kg": 0.0, "budget": 2.5, "trend": 0.0, "color": "#00D9FF"},
-                {"name": "Food", "kg": 0.0, "budget": 1.2, "trend": 0.0, "color": "#FFD166"},
-                {"name": "Devices", "kg": 0.0, "budget": 0.8, "trend": 0.0, "color": "#FF66E1"},
-            ],
-            "realtime": [{"t": f"{i:02d}", "kg": 0.0} for i in range(0, 24, 3)],
-        }
+async def tracker_live(user_id: str, current_user_id: str = Depends(_current_user_id)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own activity tracker.")
+    today = datetime.now(timezone.utc).date()
+    logs = await _daily_logs(user_id, today - timedelta(days=55), today)
+    logs_by_day = {log["day"]: log for log in logs}
+    activities = logs_by_day.get(today.isoformat(), {}).get("activities", [])
+    yesterday = logs_by_day.get((today - timedelta(days=1)).isoformat(), {}).get("activities", [])
+    totals, yesterday_totals = _sum_activities(activities), _sum_activities(yesterday)
+    timeline = {f"{hour:02d}": 0.0 for hour in range(0, 24, 3)}
+    rendered_activities = []
+    for activity in activities:
+        try:
+            occurred = datetime.fromisoformat(activity["occurred_at"].replace("Z", "+00:00"))
+        except (KeyError, ValueError, TypeError):
+            occurred = datetime.now(timezone.utc)
+        bucket = f"{(occurred.hour // 3) * 3:02d}"
+        timeline[bucket] += float(activity["kg"])
+        rendered_activities.append({
+            "id": activity["id"], "type": activity["type"], "label": activity["label"], "kg": float(activity["kg"]),
+            "time": occurred.strftime("%H:%M"), "icon": ACTIVITY_META[activity["type"]]["icon"],
+        })
     return {
-        "activities": [
-            {"id": 1, "type": "transport", "label": "Morning commute", "kg": 2.1, "time": "08:14", "icon": "car"},
-            {"id": 2, "type": "electricity", "label": "Home appliances", "kg": 1.8, "time": "12:30", "icon": "zap"},
-            {"id": 3, "type": "food", "label": "Lunch (vegetarian)", "kg": 0.6, "time": "13:05", "icon": "utensils"},
-            {"id": 4, "type": "devices", "label": "Laptop + monitor", "kg": 0.4, "time": "16:00", "icon": "monitor"},
-            {"id": 5, "type": "transport", "label": "Evening cycle", "kg": 0.0, "time": "19:20", "icon": "bike"},
-        ],
-        "categories": [
-            {"name": "Transport", "kg": 2.1, "budget": 4.0, "trend": -0.4, "color": "#00FFB2"},
-            {"name": "Electricity", "kg": 1.8, "budget": 2.5, "trend": -0.2, "color": "#00D9FF"},
-            {"name": "Food", "kg": 0.6, "budget": 1.2, "trend": -0.1, "color": "#FFD166"},
-            {"name": "Devices", "kg": 0.4, "budget": 0.8, "trend": 0.0, "color": "#FF66E1"},
-        ],
-        "realtime": [
-            {"t": "00", "kg": 0.2}, {"t": "03", "kg": 0.1}, {"t": "06", "kg": 0.3},
-            {"t": "09", "kg": 1.8}, {"t": "12", "kg": 2.4}, {"t": "15", "kg": 1.1},
-            {"t": "18", "kg": 0.6}, {"t": "21", "kg": 0.3},
-        ],
+        "source": "saved_user_activities",
+        "activities": rendered_activities,
+        "categories": [{"name": meta["name"], "kg": round(totals[kind], 2), "budget": meta["budget"], "trend": round(totals[kind] - yesterday_totals[kind], 2), "color": meta["color"]} for kind, meta in ACTIVITY_META.items() if kind != "other"],
+        "realtime": [{"t": hour, "kg": round(value, 2)} for hour, value in timeline.items()],
+        "heatmap": [{"day": (today - timedelta(days=offset)).isoformat(), "kg": round(float(logs_by_day.get((today - timedelta(days=offset)).isoformat(), {}).get("total_kg", 0)), 2)} for offset in range(55, -1, -1)],
     }
 
 
 @api_router.post("/future/simulate", response_model=SimulateResponse)
 async def simulate(req: SimulateRequest):
-    import random
     transport_factor = {"car": 4.6, "mixed": 2.8, "public": 1.4, "bike": 0.2}.get(req.transport, 2.5)
     diet_factor = {"meat": 3.3, "mixed": 2.1, "vegetarian": 1.4, "vegan": 1.0}.get(req.diet, 2.0)
     electric_co2 = req.electricity_kwh * 0.4 / 1000  # tons
     flights_co2 = req.flights_per_year * 0.9
     base = transport_factor + diet_factor + electric_co2 + flights_co2
     current = round(base, 2)
-    
-    # ML Inference via LSTM
-    # Generate 30 days of pseudo-historical data centered around base/365
-    daily_base = base / 365
-    historical_30_days = [[max(0, daily_base + random.gauss(0, daily_base*0.1))] for _ in range(30)]
-    lstm_preds = predict_lstm(historical_30_days)
-    
-    if lstm_preds:
-        # LSTM predicts next 7 days, extrapolate to a year for projection
-        projected_daily_avg = sum(lstm_preds) / len(lstm_preds)
-        projected = round(projected_daily_avg * 365, 2)
-    else:
-        projected = round(base * ((0.97) ** req.horizon_years), 2)
-        
+
+    reduction_rate = 0.03
+    if req.transport in ["public", "bike"]:
+        reduction_rate += 0.015
+    if req.diet in ["vegetarian", "vegan"]:
+        reduction_rate += 0.015
+    if req.flights_per_year == 0:
+        reduction_rate += 0.01
+    projected = round(base * ((1 - reduction_rate) ** req.horizon_years), 2)
+
     yearly = []
     for i in range(req.horizon_years + 1):
-        yearly.append({"year": datetime.now().year + i, "co2": round(base + (projected - base)*(i/req.horizon_years) if req.horizon_years else base, 2)})
+        year_co2 = round(base * ((1 - reduction_rate) ** i), 2) if req.horizon_years else base
+        yearly.append({"year": datetime.now().year + i, "co2": year_co2})
         
     earth_health = max(0, min(100, int(100 - (projected * 8))))
-    temp_delta = round((projected - 2.0) * 0.18, 2)
+    # A personal footprint cannot predict local or global temperature change.
+    # Keep the response field for API compatibility, but make its limitation explicit.
+    temp_delta = None
     if projected < 3.5:
-        summary = f"Your future-self walks a lighter Earth. By {datetime.now().year + req.horizon_years}, your carbon footprint drops by {round((1 - projected/base)*100)}%. Forests breathe easier because of you."
+        summary = f"Under these scenario assumptions, your estimated footprint is {round((1 - projected/base)*100)}% lower by {datetime.now().year + req.horizon_years}."
     elif projected < 6:
-        summary = f"You're on a balanced trajectory. Small upgrades — public transit, plant-based meals — could shave another 25%."
+        summary = "This scenario is directionally lower, but transport, food, electricity, and flight choices still leave room for reductions."
     else:
-        summary = f"Your trajectory needs a course-correction. Without changes, you contribute to a +{temp_delta}°C local impact by {datetime.now().year + req.horizon_years}."
+        summary = "This scenario remains carbon-intensive. The action list shows the largest assumed levers, not a climate forecast."
     recs = []
     if req.transport == "car":
         recs.append("Switch 2 weekly commutes to cycling or public transit (-1.2 t/yr)")
@@ -423,26 +642,36 @@ async def simulate(req: SimulateRequest):
     if req.flights_per_year >= 3:
         recs.append("Replace 1 short-haul flight with rail (-0.5 t/yr)")
     if not recs:
-        recs.append("You're already a sustainability pioneer. Share your habits in the Community.")
+        recs.append("No single input crosses this scenario's action threshold; adjust transport, diet, electricity, or flights to compare alternatives.")
     return SimulateResponse(
         current_annual_co2=current,
         projected_co2=projected,
         future_temp_delta=temp_delta,
+        temperature_note="Personal emissions cannot be converted into an individual temperature-change prediction.",
         earth_health=earth_health,
         future_summary=summary,
         yearly_breakdown=yearly,
         recommendations=recs,
+        method="scenario_calculator",
+        model_status="transparent_scenario_not_time_series_ml",
+        assumptions=[
+            "Annual electricity emissions use 0.4 kg CO2e per kWh.",
+            "Flights are estimated at 0.9 t CO2e each.",
+            f"Scenario reduction rate is {round(reduction_rate * 100, 1)}% per year from selected habits.",
+            "This is not an LSTM forecast; it is a transparent planning scenario.",
+        ],
     )
 
 
 @api_router.get("/community/feed")
-async def community_feed(user_id: Optional[str] = None):
+async def community_feed(current_user_id: Optional[str] = Depends(_optional_current_user_id)):
     """Returns feed with real like counts, join status, and any user-created posts."""
     # Seed defaults into MongoDB on first call
-    posts_col = db.community_posts
-    challenges_col = db.community_challenges
-    likes_col = db.community_likes
-    joins_col = db.community_joins
+    database = _database_or_503()
+    posts_col = database.community_posts
+    challenges_col = database.community_challenges
+    likes_col = database.community_likes
+    joins_col = database.community_joins
 
     if await posts_col.count_documents({}) == 0:
         seed_posts = [
@@ -469,8 +698,8 @@ async def community_feed(user_id: Optional[str] = None):
         pid = p["post_id"]
         extra_likes = await likes_col.count_documents({"post_id": pid})
         liked_by_me = False
-        if user_id:
-            liked_by_me = (await likes_col.count_documents({"post_id": pid, "user_id": user_id})) > 0
+        if current_user_id:
+            liked_by_me = (await likes_col.count_documents({"post_id": pid, "user_id": current_user_id})) > 0
         posts_out.append({
             "id": pid,
             "user": p["user"],
@@ -490,8 +719,8 @@ async def community_feed(user_id: Optional[str] = None):
         cid = c["challenge_id"]
         extra_members = await joins_col.count_documents({"challenge_id": cid})
         joined_by_me = False
-        if user_id:
-            joined_by_me = (await joins_col.count_documents({"challenge_id": cid, "user_id": user_id})) > 0
+        if current_user_id:
+            joined_by_me = (await joins_col.count_documents({"challenge_id": cid, "user_id": current_user_id})) > 0
         challenges_out.append({
             "id": cid,
             "title": c["title"],
@@ -516,19 +745,21 @@ async def community_feed(user_id: Optional[str] = None):
 
 
 class LikeRequest(BaseModel):
-    user_id: str
-    post_id: str
+    post_id: str = Field(min_length=1, max_length=100)
 
 @api_router.post("/community/like")
-async def like_post(req: LikeRequest):
-    likes_col = db.community_likes
-    posts_col = db.community_posts
-    existing = await likes_col.find_one({"post_id": req.post_id, "user_id": req.user_id})
+async def like_post(req: LikeRequest, current_user_id: str = Depends(_current_user_id)):
+    database = _database_or_503()
+    likes_col = database.community_likes
+    posts_col = database.community_posts
+    if not await posts_col.find_one({"post_id": req.post_id}):
+        raise HTTPException(status_code=404, detail="Post not found")
+    existing = await likes_col.find_one({"post_id": req.post_id, "user_id": current_user_id})
     if existing:
         await likes_col.delete_one({"_id": existing["_id"]})
         liked = False
     else:
-        await likes_col.insert_one({"post_id": req.post_id, "user_id": req.user_id, "at": datetime.now(timezone.utc).isoformat()})
+        await likes_col.insert_one({"post_id": req.post_id, "user_id": current_user_id, "at": datetime.now(timezone.utc).isoformat()})
         liked = True
     post = await posts_col.find_one({"post_id": req.post_id})
     extra = await likes_col.count_documents({"post_id": req.post_id})
@@ -537,15 +768,16 @@ async def like_post(req: LikeRequest):
 
 
 class CommentRequest(BaseModel):
-    user_id: str
-    user_name: str
-    post_id: str
-    text: str
+    post_id: str = Field(min_length=1, max_length=100)
+    text: str = Field(min_length=1, max_length=500)
 
 @api_router.post("/community/comment")
-async def add_comment(req: CommentRequest):
-    posts_col = db.community_posts
-    comment = {"id": str(uuid.uuid4()), "user": req.user_name, "text": req.text[:500], "at": datetime.now(timezone.utc).isoformat()}
+async def add_comment(req: CommentRequest, current_user_id: str = Depends(_current_user_id)):
+    database = _database_or_503()
+    posts_col = database.community_posts
+    user_doc = await database.users.find_one({"id": current_user_id})
+    display_name = (user_doc or {}).get("name", "Eco Explorer")
+    comment = {"id": str(uuid.uuid4()), "user": display_name, "text": req.text.strip(), "at": datetime.now(timezone.utc).isoformat()}
     r = await posts_col.update_one({"post_id": req.post_id}, {"$push": {"comments": comment}})
     if r.matched_count == 0:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -553,19 +785,21 @@ async def add_comment(req: CommentRequest):
 
 
 class JoinRequest(BaseModel):
-    user_id: str
-    challenge_id: str
+    challenge_id: str = Field(min_length=1, max_length=100)
 
 @api_router.post("/community/join")
-async def join_challenge(req: JoinRequest):
-    joins_col = db.community_joins
-    challenges_col = db.community_challenges
-    existing = await joins_col.find_one({"challenge_id": req.challenge_id, "user_id": req.user_id})
+async def join_challenge(req: JoinRequest, current_user_id: str = Depends(_current_user_id)):
+    database = _database_or_503()
+    joins_col = database.community_joins
+    challenges_col = database.community_challenges
+    if not await challenges_col.find_one({"challenge_id": req.challenge_id}):
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    existing = await joins_col.find_one({"challenge_id": req.challenge_id, "user_id": current_user_id})
     if existing:
         await joins_col.delete_one({"_id": existing["_id"]})
         joined = False
     else:
-        await joins_col.insert_one({"challenge_id": req.challenge_id, "user_id": req.user_id, "at": datetime.now(timezone.utc).isoformat()})
+        await joins_col.insert_one({"challenge_id": req.challenge_id, "user_id": current_user_id, "at": datetime.now(timezone.utc).isoformat()})
         joined = True
     ch = await challenges_col.find_one({"challenge_id": req.challenge_id})
     extra = await joins_col.count_documents({"challenge_id": req.challenge_id})
@@ -574,26 +808,27 @@ async def join_challenge(req: JoinRequest):
 
 
 class CreatePostRequest(BaseModel):
-    user_id: str
-    user_name: str
-    avatar: Optional[str] = None
-    text: str
-    tag: Optional[str] = "Milestone"
+    text: str = Field(min_length=1, max_length=600)
+    tag: str = Field(default="Milestone", max_length=40)
 
 @api_router.post("/community/post")
-async def create_post(req: CreatePostRequest):
-    posts_col = db.community_posts
+async def create_post(req: CreatePostRequest, current_user_id: str = Depends(_current_user_id)):
+    database = _database_or_503()
+    posts_col = database.community_posts
+    user_doc = await database.users.find_one({"id": current_user_id})
+    display_name = (user_doc or {}).get("name", "Eco Explorer")
+    avatar = (user_doc or {}).get("avatar") or f"https://api.dicebear.com/7.x/adventurer/svg?seed={current_user_id}&backgroundColor=transparent"
     doc = {
         "post_id": "u_" + uuid.uuid4().hex[:10],
-        "user": req.user_name,
-        "avatar": req.avatar or f"https://api.dicebear.com/7.x/adventurer/svg?seed={req.user_name}&skinColor=f2d3b1,f5cfa0,e8b88a&hairColor=2c1b18,4a2511,3d1c02&backgroundColor=transparent",
+        "user": display_name,
+        "avatar": avatar,
         "time": "now",
-        "text": req.text[:600],
+        "text": req.text.strip(),
         "base_likes": 0,
         "tag": req.tag or "Milestone",
         "comments": [],
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "user_id": req.user_id,
+        "user_id": current_user_id,
     }
     await posts_col.insert_one(doc)
     return {"ok": True, "post_id": doc["post_id"]}
@@ -615,7 +850,7 @@ COACH_RESPONSES = {
         "Typically, personal carbon emissions come from 4 major categories:\n1. 🚗 **Transport (~40-45%)**: Driving petrol/diesel cars and flying produce the highest emissions.\n2. ⚡ **Electricity & Heating (~25-30%)**: Grid power, air conditioning, and appliances.\n3. 🍽 **Diet (~18-20%)**: Meat (especially red meat and dairy) has high emissions.\n4. 📱 **Devices & Consumer Goods (~10-15%)**.\nYou can check your live breakdown directly on the Dashboard!",
     ],
     "how_to_use": [
-        "Here is how you can use CarbonMind AI:\n• 📷 **Food Scanner**: Take a photo of your meal to calculate its CO₂ impact.\n• 📊 **Daily Forecaster**: Log morning habits to predict today's total footprint using GBDT.\n• 📡 **Live Tracker**: Log your transport, electricity, and food in real time.\n• 🔮 **10-Year Simulator**: Test different lifestyle changes and see your future trajectory.\n• 📞 **Call Me / Voice Brief**: Get an automated voice briefing or talk to our AI voice coach!",
+        "Here is how you can use CarbonMind:\n• 📷 **Food Scanner**: Verify a meal photo and confirm it before adding it to your record.\n• ➕ **Add activity**: Save a completed activity with your own CO2e estimate.\n• 📈 **Plan today**: Explore a transparent end-of-day projection without saving it.\n• 🗂 **Activity history**: Review the completed activities saved today.\n• 🔮 **Future scenarios**: Compare transparent lifestyle assumptions over time.\n• 🔊 **Daily audio brief**: Hear a one-way summary of your saved record.",
     ],
     "food": [
         "Great question! Food accounts for about 26% of global emissions. Try swapping one meat meal per day for a plant-based option — this alone can save up to 2.5 kg CO₂ daily. Legumes like lentils and chickpeas are excellent protein-rich alternatives!",
@@ -689,87 +924,94 @@ async def chat_sustainability(req: ChatRequest):
 
 
 
-# ====== Predictive Budget Alert (XGBoost + LightGBM Ensemble) ======
-@api_router.post("/predict/day")
-async def predict_day(req: dict):
-    activities = req.get("morning_activities", [])
-    budget = req.get("daily_budget_kg", 6.5)
-
-    # User lifestyle features from request (or smart defaults)
-    user_transport = req.get("user_transport", "public")
-    user_diet = req.get("user_diet", "omnivore")
-    user_tv_hours = float(req.get("user_tv_hours", 3.0))
-    user_vehicle_km = float(req.get("user_vehicle_km", 400.0))
-    user_body_type = req.get("user_body_type", "normal")
-    user_shower = req.get("user_shower", "daily")
-    user_heating = req.get("user_heating", "natural gas")
-    user_vehicle_type = req.get("user_vehicle_type", "petrol")
-    user_grocery = float(req.get("user_grocery", 200.0))
-    user_air_travel = req.get("user_air_travel", "rarely")
-    user_waste_size = req.get("user_waste_size", "medium")
-    user_waste_count = int(req.get("user_waste_count", 3))
-    user_internet_hours = float(req.get("user_internet_hours", 4.0))
-    user_energy_eff = req.get("user_energy_eff", "Sometimes")
-
-    # Map full 14 features for XGBoost + LightGBM Ensemble
-    user_data = {
-        'Body Type': user_body_type,
-        'Diet': user_diet,
-        'How Often Shower': user_shower,
-        'Heating Energy Source': user_heating,
-        'Transport': user_transport,
-        'Vehicle Type': user_vehicle_type,
-        'Monthly Grocery Bill': user_grocery,
-        'Frequency of Traveling by Air': user_air_travel,
-        'Vehicle Monthly Distance Km': user_vehicle_km,
-        'Waste Bag Size': user_waste_size,
-        'Waste Bag Weekly Count': user_waste_count,
-        'How Long TV PC Daily Hour': user_tv_hours,
-        'How Long Internet Daily Hour': user_internet_hours,
-        'Energy efficiency': user_energy_eff
+# ====== Annual profile candidate and daily activity projection ======
+@api_router.post("/predict/annual")
+async def predict_annual(req: AnnualCarbonRequest):
+    missing = missing_annual_carbon_features(req.lifestyle_profile)
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "A full lifestyle profile is required for this annual estimate.", "missing_fields": missing},
+        )
+    annual_kg = predict_annual_carbon(req.lifestyle_profile)
+    if annual_kg is None:
+        raise HTTPException(status_code=503, detail="The annual carbon candidate is unavailable.")
+    return {
+        "annual_kg_co2e": round(annual_kg, 2),
+        "daily_equivalent_kg": round(annual_kg / 365, 2),
+        "model_used": "lightgbm_product_18_no_sex_candidate",
+        "model_version": "annual_carbon_product_18_v1",
+        "model_status": "candidate_not_product_validated",
+        "feature_coverage": 1.0,
+        "model_note": "This is an annual lifestyle estimate from the complete recorded profile. It is not a measured daily footprint or a validated commercial carbon-accounting result.",
     }
-    pred_val = predict_gbdt(user_data)
+
+
+@api_router.post("/predict/day")
+async def predict_day(req: PredictDayRequest):
+    activities = [activity.model_dump() for activity in req.morning_activities]
+    invalid_types = {activity["type"] for activity in activities} - {"transport", "electricity", "food", "devices", "other"}
+    if invalid_types:
+        raise HTTPException(status_code=422, detail=f"Unsupported activity types: {sorted(invalid_types)}")
+
+    budget = req.daily_budget_kg
+    morning_total = sum(activity["kg"] for activity in activities)
+    profile = req.lifestyle_profile or {}
+    complete_profile = not missing_annual_carbon_features(profile)
+    pred_val = predict_annual_carbon(profile) if complete_profile else None
 
     if pred_val is not None:
-        # Annual CO2 (kg/yr) converted to daily estimate
-        predicted = round(pred_val / 365, 2)
+        predicted = round(max(morning_total, pred_val / 365), 2)
+        model_used = "lightgbm_product_18_no_sex_candidate"
+        model_version = "annual_carbon_product_18_v1"
+        model_status = "candidate_not_product_validated"
+        model_note = "This candidate model uses a complete annual lifestyle profile. It is converted to a daily equivalent only for comparison and is not validated for a partial morning-activity log."
     else:
-        # Fallback: extrapolate from morning activities
-        morning_total = sum(float(a.get("kg", 0)) for a in activities)
-        predicted = round(max(morning_total / 0.3, 1.5), 2)
+        predicted = round(morning_total * (24 / req.observation_hours), 2)
+        model_used = "activity_rate_projection"
+        model_version = "activity_rate_projection_v1"
+        model_status = "transparent_rule_based_projection"
+        model_note = f"Projection scales {req.observation_hours:g} logged hours to a 24-hour day; it is not a trained-model forecast."
 
-    # Clamp to realistic daily range
-    predicted = max(0.5, min(50.0, predicted))
+    predicted = min(100.0, predicted)
     exceeds = predicted > budget
     over_pct = round((predicted - budget) / budget * 100, 1)
 
     # Build 24-hour S-curve accumulation
     import math
     hourly_curve = []
-    for h in range(25):
+    for h in range(1, 25):
         frac = h / 24
         s = 1 / (1 + math.exp(-10 * (frac - 0.5)))
         kg = round(predicted * s, 2)
         hourly_curve.append({"hour": f"{h:02d}:00", "kg": kg})
+
+    breakdown = {}
+    for activity in activities:
+        activity_type = activity["type"]
+        breakdown[activity_type] = breakdown.get(activity_type, 0.0) + activity["kg"]
 
     return {
         "predicted_full_day_kg": predicted,
         "budget_kg": budget,
         "exceeds": exceeds,
         "over_pct": over_pct,
-        "model_used": "XGBoost+LightGBM Ensemble (R²=0.90)" if pred_val is not None else "fallback",
-        "user_inputs": {
-            "transport": user_transport,
-            "diet": user_diet,
-            "tv_hours": user_tv_hours,
-            "vehicle_km": user_vehicle_km,
-        },
+        "model_used": model_used,
+        "model_version": model_version,
+        "model_status": model_status,
+        "model_note": model_note,
+        "observation_hours": req.observation_hours,
+        "profile_feature_coverage": round(sum(feature in profile and profile[feature] is not None for feature in ANNUAL_CARBON_FEATURES) / len(ANNUAL_CARBON_FEATURES), 2),
         "ai_headline": (
-            f"⚠️ Alert! Projected {predicted} kg today — {abs(over_pct)}% above your {budget} kg budget. Cut back on {user_transport} trips."
+            f"Alert: this projection reaches {predicted} kg today, {abs(over_pct)}% above your {budget} kg budget."
             if exceeds else
-            f"✅ Great pacing! Projected {predicted} kg — {abs(over_pct)}% under your {budget} kg target. Keep it up!"
+            f"Current projection: {predicted} kg today, {abs(over_pct)}% below your {budget} kg budget."
         ),
         "hourly_curve": hourly_curve,
+        "breakdown_by_type": [
+            {"type": key, "kg": round(value, 2)}
+            for key, value in sorted(breakdown.items())
+        ],
         "equivalents": {
             "trees_to_offset": round(predicted / 21.7, 1),
             "km_by_car": round(predicted * 6.3, 1),
@@ -782,21 +1024,23 @@ async def predict_day(req: dict):
 # ====== Weekly Forecast (Holt-Winters Triple Exponential Smoothing) ======
 @api_router.post("/predict/weekly")
 async def predict_weekly(req: dict):
-    """Forecast next 7 days of emissions using Holt-Winters / ARIMA."""
+    """Return an unevaluated seven-day baseline from observed daily history."""
     history = req.get("daily_history", [])
-    if not history or len(history) < 5:
-        # Generate baseline 14-day sample if user is new
-        base = req.get("daily_budget_kg", 6.5)
-        import random
-        history = [round(base + random.uniform(-1.2, 1.4), 2) for _ in range(14)]
+    if not isinstance(history, list) or len(history) < 5:
+        raise HTTPException(status_code=422, detail="At least five real daily observations are required for a weekly forecast.")
+    try:
+        history = [float(value) for value in history]
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="daily_history must contain numeric emission values.")
 
     forecast_res = predict_weekly_arima(history)
     if not forecast_res:
         avg = sum(history) / len(history)
         forecast_res = {
             "forecast": [round(avg, 2)] * 7,
-            "lower_ci": [round(avg * 0.8, 2)] * 7,
-            "upper_ci": [round(avg * 1.2, 2)] * 7,
+            "lower_band": [round(avg * 0.8, 2)] * 7,
+            "upper_band": [round(avg * 1.2, 2)] * 7,
+            "band_note": "Heuristic band; it is not a calibrated confidence interval.",
             "trend": "stable",
             "pct_change": 0.0,
             "weekly_total": round(avg * 7, 2),
@@ -805,6 +1049,7 @@ async def predict_weekly(req: dict):
 
     return {
         "status": "success",
+        "model_version": "weekly_holt_winters_baseline_v1",
         "forecast_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         **forecast_res
     }
@@ -828,45 +1073,45 @@ async def voice_call_tips(req: dict):
     }
 
 
-# ====== Twilio AI Voice Call ======
+# ====== One-way Twilio phone briefing ======
 @api_router.post("/voice/phone-call")
-async def voice_phone_call(req: dict):
-    """Place an outbound Twilio call that reads the user's daily carbon summary."""
-    import random
+async def voice_phone_call(req: PhoneCallRequest, current_user_id: str = Depends(_current_user_id)):
+    """Place an outbound, one-way call that reads the user's saved daily record."""
 
-    phone_number = req.get("phone_number", "")
-    user_name = req.get("user_name", "there")
-    today_kg = req.get("today_kg", 5.9)
-    top_category = req.get("top_category", "Transport")
-    weekly_kg = req.get("weekly_kg", 41.8)
+    phone_number = re.sub(r"[\s()-]", "", req.phone_number)
+    if not re.fullmatch(r"\+?[1-9]\d{9,14}", phone_number):
+        raise HTTPException(status_code=422, detail="Enter a valid international phone number.")
+    database = _database_or_503()
+    today = datetime.now(timezone.utc).date()
+    logs = await _daily_logs(current_user_id, today - timedelta(days=6), today)
+    logs_by_day = {log["day"]: log for log in logs}
+    today_log = logs_by_day.get(today.isoformat(), {})
+    today_kg = round(float(today_log.get("total_kg", 0)), 1)
+    weekly_kg = round(sum(float(log.get("total_kg", 0)) for log in logs), 1)
+    totals = _sum_activities(today_log.get("activities", []))
+    top_category = ACTIVITY_META[max(totals, key=totals.get)]["name"] if any(totals.values()) else "No recorded category"
+    user_doc = await database.users.find_one({"id": current_user_id})
+    user_name = (user_doc or {}).get("name", "Eco Explorer")
     budget = 6.5
 
     overunder = "under" if today_kg <= budget else "over"
     diff = abs(round(today_kg - budget, 1))
 
-    tips = [
-        "Try cycling or walking for trips under 2 kilometres.",
-        "Unplug chargers and devices when not in use to cut standby power.",
-        "Eat one plant-based meal today to save up to 2 and a half kilograms of CO2.",
-        "Use public transport instead of driving to reduce transport emissions by up to 70 percent.",
-        "Set your thermostat one degree lower to save around 8 percent on heating energy.",
-    ]
-    selected_tips = random.sample(tips, 3)
-
-    # Build the voice script
-    script = (
-        f"Hello {user_name}! This is CarbonMind AI with your daily carbon briefing. "
-        f"Today you emitted approximately {today_kg} kilograms of CO2. "
-        f"Your daily budget is {budget} kilograms. "
-        f"You are {diff} kilograms {overunder} budget. "
-        f"Your biggest emission source today is {top_category}. "
-        f"Here are three personalised tips to reduce your footprint. "
-        f"Tip one: {selected_tips[0]}. "
-        f"Tip two: {selected_tips[1]}. "
-        f"Tip three: {selected_tips[2]}. "
-        f"Great work tracking your carbon today, {user_name}. "
-        f"Every small action adds up. See you tomorrow. Goodbye!"
-    )
+    if today_kg <= 0:
+        script = (
+            f"Hello {user_name}. This is your CarbonMind phone briefing. "
+            "There are no saved activities for today yet, so there is no emissions total to report. "
+            "Add a completed activity or confirm a scanned meal when it happens. "
+            "This is a one-way audio briefing and does not listen for a response. Goodbye."
+        )
+    else:
+        script = (
+            f"Hello {user_name}. This is your CarbonMind phone briefing. "
+            f"Your saved activity record totals {today_kg} kilograms of CO2 equivalent today. "
+            f"That is {diff} kilograms {overunder} your {budget} kilogram daily budget. "
+            f"Your largest recorded category is {top_category}. "
+            "This is a one-way audio briefing and does not listen for a response. Goodbye."
+        )
 
     # Try Twilio
     account_sid = os.environ.get("TWILIO_ACCOUNT_SID", "")
@@ -880,7 +1125,8 @@ async def voice_phone_call(req: dict):
         return {
             "ok": True,
             "demo": True,
-            "message": "Twilio not configured. Use Voice Brief on Dashboard instead.",
+            "mode": "one_way_audio",
+            "message": "Phone briefings are not enabled for this deployment.",
             "script": script,
         }
 
@@ -899,14 +1145,15 @@ async def voice_phone_call(req: dict):
             from_=from_number,
             twiml=str(twiml),
         )
-        logger.info(f"Twilio call placed: {call.sid} to {phone_number}")
-        return {"ok": True, "call_sid": call.sid, "demo": False}
+        logger.info("Twilio call placed: %s", call.sid)
+        return {"ok": True, "call_sid": call.sid, "demo": False, "mode": "one_way_audio"}
 
     except ImportError:
         return {
             "ok": True,
             "demo": True,
-            "message": "Twilio package not installed. Run: pip install twilio",
+            "mode": "one_way_audio",
+            "message": "Phone briefings are not enabled for this deployment.",
             "script": script,
         }
     except Exception as e:
@@ -916,19 +1163,28 @@ async def voice_phone_call(req: dict):
 
 # ====== Food Carbon Scanner ======
 @api_router.post("/food/scan")
-async def food_scan(req: dict):
-    base64_img = req.get("image_base64")
+async def food_scan(req: FoodScanRequest):
+    base64_img = req.image_base64
+    hint = req.hint
     
     if not base64_img:
         return {
             "status": "error",
-            "message": "No image provided.",
+            "message": "No meal photo was provided.",
             "suggestion": "Please upload an image.",
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+    if not hint or not hint.strip():
+        return {
+            "status": "error",
+            "message": "Enter the dish name before analyzing the photo.",
+            "suggestion": "Type or select the dish shown in the photo.",
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     # Check size (rough base64 estimation)
-    if len(base64_img) * 0.75 > 10 * 1024 * 1024:
+    if base64_img and len(base64_img) * 0.75 > 10 * 1024 * 1024:
         return {
             "status": "error",
             "message": "Invalid file. Max 10MB.",
@@ -936,9 +1192,7 @@ async def food_scan(req: dict):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-    # Run PyTorch CNN Inference
-    hint = req.get("hint")
-    pred = predict_food(base64_img, hint=hint)
+    pred = predict_food(base64_img or "", hint=hint)
     
     if pred["status"] == "error":
         return {
@@ -952,8 +1206,9 @@ async def food_scan(req: dict):
         return {
             "status": "error",
             "message": pred["message"],
-            "suggestion": pred["suggestion"],
-            "confidence": pred["confidence"],
+            "suggestion": pred.get("suggestion", "Try another clear photo of the meal."),
+            "confidence": pred.get("confidence"),
+            "image_candidate": pred.get("image_candidate"),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
@@ -963,7 +1218,7 @@ async def food_scan(req: dict):
             "portion": "1 serving",
             "category": "mixed",
             "co2_kg": pred["co2_kg"],
-            "tip": f"AI identified {pred['food_category']}.",
+            "tip": "Confirm the dish and portion before treating this as a food-footprint record.",
         }
     ]
     total = pred["co2_kg"]
@@ -974,49 +1229,91 @@ async def food_scan(req: dict):
         "data": {
             "total_co2_kg": total,
             "carbon_label": carbon_label,
-            "ai_note": f"Identified {pred['food_category']} (~{total} kg CO₂e) with {pred['confidence']:.1f}% confidence using IPCC factors.",
+            "ai_note": f"The photo candidate '{pred['image_candidate']}' matched the dish name '{pred['food_category']}'. This is a typical-serving food-factor estimate; confirm the portion before logging.",
             "items": items,
-            "method": pred.get("method", "vision_ensemble"),
+            "method": pred.get("method", "vision_candidate"),
+            "image_candidate": pred.get("image_candidate"),
+            "model_version": "food_scan_candidate_routing_v1",
+            "model_status": "candidate_not_product_validated",
+            "confidence": pred.get("confidence"),
+            "confidence_note": pred.get("confidence_note", "Confidence is model output, not validated real-world accuracy."),
         },
         "message": f"Successfully analyzed {pred['food_category']}",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
+@api_router.post("/food/feedback")
+async def save_food_scan_feedback(req: FoodScanFeedbackRequest, current_user_id: str = Depends(_current_user_id)):
+    """Store a user correction for audit; images are deliberately never retained here."""
+    feedback = {
+        "feedback_id": str(uuid.uuid4()),
+        "user_id": current_user_id,
+        "predicted_food": req.predicted_food.strip() if req.predicted_food else None,
+        "confirmed_food": req.confirmed_food.strip(),
+        "scan_method": req.scan_method,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await _database_or_503().food_scan_feedback.insert_one(feedback)
+    return {"status": "saved", "feedback_id": feedback["feedback_id"], "image_retained": False}
+
+
 # ====== Carbon Certificate Generator ======
 @api_router.post("/certificate/generate")
-async def generate_certificate(req: dict):
-    import hashlib
-    user_name = req.get("user_name", "Eco Explorer")
-    grade = req.get("grade", "A-")
-    co2_saved_kg = req.get("co2_saved_kg", 24.8)
+async def generate_certificate(current_user_id: str = Depends(_current_user_id)):
+    today = datetime.now(timezone.utc).date()
+    month_start = today.replace(day=1)
+    logs = await _daily_logs(current_user_id, month_start, today)
+    co2_recorded_kg = round(sum(float(log.get("total_kg", 0)) for log in logs), 2)
+    database = _database_or_503()
+    user_doc = await database.users.find_one({"id": current_user_id})
+    user_name = (user_doc or {}).get("name", "Eco Explorer")
+    grade = "Recorded" if logs else "No activity recorded"
     cert_id = "CM-" + str(uuid.uuid4())[:8].upper()
     month = datetime.now(timezone.utc).strftime("%B %Y")
-    # Deterministic signature based on cert content
-    sig_raw = f"{cert_id}:{user_name}:{co2_saved_kg}:{month}"
-    signature = hashlib.sha256(sig_raw.encode()).hexdigest()[:48]
-    return {
+    issued_at = datetime.now(timezone.utc).isoformat()
+    signature = hmac.new(auth_secret.encode("utf-8"), f"{cert_id}:{current_user_id}:{co2_recorded_kg}:{month}".encode("utf-8"), hashlib.sha256).hexdigest()[:48]
+    certificate = {
         "cert_id": cert_id,
         "user_name": user_name,
         "grade": grade,
-        "co2_saved_kg": round(float(co2_saved_kg), 1),
+        "co2_recorded_kg": co2_recorded_kg,
+        "recorded_days": len(logs),
+        "verification_status": "user_entered_activity_summary",
         "month": month,
-        "issued_at": datetime.now(timezone.utc).isoformat(),
+        "issued_at": issued_at,
         "equivalents": {
-            "trees_planted_equivalent": round(float(co2_saved_kg) / 21.7, 1),
-            "km_by_car_avoided": round(float(co2_saved_kg) * 6.3, 1),
+            "trees_to_offset": round(co2_recorded_kg / 21.7, 1),
+            "km_by_car_equivalent": round(co2_recorded_kg * 6.3, 1),
         },
         "signature": signature,
-        "verify_url": f"https://carbonmind.ai/verify/{cert_id}",
+        "verify_url": "",
+        "user_id": current_user_id,
     }
+    await database.certificates.insert_one(certificate.copy())
+    return {key: value for key, value in certificate.items() if key not in {"_id", "user_id"}}
+
+
+@api_router.get("/certificate/{cert_id}")
+async def get_certificate(cert_id: str):
+    certificate = await _database_or_503().certificates.find_one({"cert_id": cert_id})
+    if not certificate:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    return {key: value for key, value in certificate.items() if key not in {"_id", "user_id"}}
 
 
 app.include_router(api_router)
 
+default_cors_origins = "http://localhost:3000,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002"
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get('CORS_ORIGINS', default_cors_origins).split(',')
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_credentials=cors_origins != ["*"],
+    allow_origins=cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1026,4 +1323,3 @@ app.add_middleware(
 async def shutdown_db_client():
     if client:
         client.close()
-

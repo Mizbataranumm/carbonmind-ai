@@ -16,7 +16,7 @@ const Community = () => {
   const [showAllChallenges, setShowAllChallenges] = useState(false);
 
   const load = async () => {
-    const d = await getCommunityFeed(user?.id);
+    const d = await getCommunityFeed();
     setFeed(d);
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [user?.id]);
@@ -30,7 +30,7 @@ const Community = () => {
       posts: f.posts.map(p => p.id === postId ? { ...p, liked_by_me: !p.liked_by_me, likes: p.likes + (p.liked_by_me ? -1 : 1) } : p)
     }));
     try {
-      const r = await likePost({ user_id: user.id, post_id: postId });
+      const r = await likePost({ post_id: postId });
       setFeed(f => ({
         ...f,
         posts: f.posts.map(p => p.id === postId ? { ...p, likes: r.likes, liked_by_me: r.liked } : p)
@@ -46,7 +46,7 @@ const Community = () => {
     const text = (commentInputs[postId] || "").trim();
     if (!text) return;
     try {
-      const r = await commentPost({ user_id: user.id, user_name: user.name, post_id: postId, text });
+      const r = await commentPost({ post_id: postId, text });
       setFeed(f => ({
         ...f,
         posts: f.posts.map(p => p.id === postId ? { ...p, comments: [...(p.comments || []), r.comment] } : p)
@@ -63,7 +63,7 @@ const Community = () => {
       challenges: f.challenges.map(c => c.id === challengeId ? { ...c, joined_by_me: !c.joined_by_me, members: c.members + (c.joined_by_me ? -1 : 1) } : c)
     }));
     try {
-      const r = await joinChallenge({ user_id: user.id, challenge_id: challengeId });
+      const r = await joinChallenge({ challenge_id: challengeId });
       setFeed(f => ({
         ...f,
         challenges: f.challenges.map(c => c.id === challengeId ? { ...c, joined_by_me: r.joined, members: r.members } : c)
@@ -76,7 +76,7 @@ const Community = () => {
     if (!newPostText.trim()) return;
     setPosting(true);
     try {
-      await createPost({ user_id: user.id, user_name: user.name, avatar: user.avatar, text: newPostText, tag: newPostTag });
+      await createPost({ text: newPostText, tag: newPostTag });
       setNewPostText("");
       await load();
       toast.success("Post shared with the community 🌿");

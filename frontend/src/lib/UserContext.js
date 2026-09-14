@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 const UserContext = createContext(null);
+const DEFAULT_THEME = "dark";
+
+const getInitialTheme = () => {
+  try {
+    const savedTheme = localStorage.getItem("cm_theme");
+    return savedTheme === "light" || savedTheme === "dark" ? savedTheme : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME;
+  }
+};
 
 export const UserProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -10,9 +20,7 @@ export const UserProvider = ({ children }) => {
     } catch { return null; }
   });
 
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("cm_theme") || "dark";
-  });
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
     if (user) localStorage.setItem("cm_user", JSON.stringify(user));
@@ -20,7 +28,11 @@ export const UserProvider = ({ children }) => {
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem("cm_theme", theme);
+    try {
+      localStorage.setItem("cm_theme", theme);
+    } catch {
+      // The visual preference still works for this visit when storage is unavailable.
+    }
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 

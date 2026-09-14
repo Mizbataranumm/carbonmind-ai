@@ -4,20 +4,19 @@ import { Download, Share2, Leaf, Award, TreePine, Car, CheckCircle2, Sparkles } 
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { generateCertificate } from "@/lib/api";
-import { useUser } from "@/lib/UserContext";
 
 const Certificate = () => {
-  const { user } = useUser();
   const [cert, setCert] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState(user?.xp === 0 ? 0 : 24.8);
   const certRef = useRef(null);
 
   const issue = async () => {
     setLoading(true);
     try {
-      const r = await generateCertificate({ user_name: user?.name || "Eco Explorer", co2_saved_kg: saved, grade: user?.grade || "A-" });
+      const r = await generateCertificate();
       setCert(r);
+    } catch {
+      toast.error("Could not generate the monthly activity summary.");
     } finally { setLoading(false); }
   };
 
@@ -44,19 +43,19 @@ const Certificate = () => {
 
   const share = async () => {
     if (!cert) return;
-    const text = `I just earned my CarbonMind AI carbon reduction certificate A saved ${cert.co2_saved_kg} kg CO₂ this ${cert.month}! 🌱`;
+    const text = `My CarbonMind activity summary records ${cert.co2_recorded_kg} kg CO₂e across ${cert.recorded_days} day(s) in ${cert.month}.`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "CarbonMind Certificate", text, url: cert.verify_url });
+        await navigator.share({ title: "CarbonMind Activity Summary", text });
       } catch { /* user cancelled */ }
     } else {
-      await navigator.clipboard.writeText(`${text} ${cert.verify_url}`);
-      toast.success("Copied to clipboard", { description: "Ready to share on LinkedIn / Instagram" });
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied to clipboard");
     }
   };
 
   if (!cert) return (
-    <div className="font-mono-data text-secondary">Generating certificate...</div>
+    <div className="font-mono-data text-secondary">Generating activity summary...</div>
   );
 
   return (
@@ -65,10 +64,9 @@ const Certificate = () => {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Novel Feature 04</div>
-            <h2 className="font-display text-3xl mt-1">Verified Carbon Certificate</h2>
+            <h2 className="font-display text-3xl mt-1">Monthly Activity Summary</h2>
             <p className="text-sm text-secondary mt-2 max-w-2xl">
-              Monthly, verifiable carbon reduction certificate A shareable on LinkedIn or Instagram.
-              Real-world social incentive that outlasts short-term gamification.
+              A summary of the activity records you entered this month. It is not independently verified carbon reduction.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -82,27 +80,20 @@ const Certificate = () => {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-4">
-          <label className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">CO₂ saved this month</label>
-          <input
-            type="number" step="0.1" value={saved}
-            onChange={(e) => setSaved(parseFloat(e.target.value) || 0)}
-            className="input-glass !py-2 !px-3 text-sm w-36"
-            data-testid="cert-saved-input"
-          />
           <button onClick={issue} disabled={loading} className="btn-ghost text-sm inline-flex items-center gap-2" data-testid="cert-reissue-btn">
-            <Sparkles className="h-4 w-4" /> {loading ? "Issuing..." : "Re-issue"}
+            <Sparkles className="h-4 w-4" /> {loading ? "Refreshing..." : "Refresh summary"}
           </button>
         </div>
       </div>
 
       {/* THE CERTIFICATE A captured to PNG */}
-      {user?.xp === 0 && saved === 0 ? (
+      {cert.recorded_days === 0 ? (
         <div className="text-center py-20 glass rounded-3xl border border-dashed border-glass-border flex flex-col items-center">
           <Award className="h-12 w-12 text-secondary mb-4 opacity-50" />
           <h3 className="font-display text-2xl">No emissions tracked yet</h3>
           <p className="text-secondary mt-2 max-w-md">
             Start logging your daily transport, meals, and energy usage. 
-            Once you generate carbon savings, you can issue your first verified certificate!
+            Once you have activity records, this page can summarize them for the month.
           </p>
         </div>
       ) : (
@@ -136,7 +127,7 @@ const Certificate = () => {
               </div>
               <div>
                 <div style={{ fontFamily: "Outfit, sans-serif", fontWeight: 700, fontSize: 18, color: "#fff" }}>CarbonMind</div>
-                <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--neon-green)", letterSpacing: "0.15em" }}>AI · CERTIFIED</div>
+                  <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--neon-green)", letterSpacing: "0.15em" }}>ACTIVITY SUMMARY</div>
               </div>
             </div>
             <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--text-muted)" }}>
@@ -147,10 +138,10 @@ const Certificate = () => {
           {/* Body */}
           <div className="text-center mt-10">
             <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--neon-green)", letterSpacing: "0.25em", textTransform: "uppercase" }}>
-              Certificate of Carbon Reduction
+              Monthly Activity Summary
             </div>
             <div className="mt-2" style={{ fontFamily: "Manrope, sans-serif", fontSize: 13, color: "var(--text-muted)" }}>
-              This is to certify that
+              Summary for
             </div>
             <h1 style={{
               fontFamily: "Outfit, sans-serif",
@@ -167,9 +158,8 @@ const Certificate = () => {
               {cert.user_name}
             </h1>
             <div className="mt-4 max-w-xl mx-auto" style={{ fontFamily: "Manrope, sans-serif", fontSize: 15, color: "#cfd8e0", lineHeight: 1.6 }}>
-              has demonstrated measurable and verifiable sustainable action for{" "}
-              <span style={{ color: "var(--neon-green)", fontWeight: 600 }}>{cert.month}</span>,
-              reducing personal carbon emissions and contributing to a lighter planet.
+              entered activity records for <span style={{ color: "var(--neon-green)", fontWeight: 600 }}>{cert.month}</span>.
+              This report is based on user-entered activity data.
             </div>
           </div>
 
@@ -186,7 +176,7 @@ const Certificate = () => {
             }}
           >
             <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
-              Total CO₂ Reduced
+              Total CO₂ Recorded
             </div>
             <div style={{
               fontFamily: "JetBrains Mono, monospace",
@@ -197,14 +187,14 @@ const Certificate = () => {
               marginTop: 6,
               textShadow: "0 0 30px rgba(0,255,178,0.4)",
             }}>
-              {cert.co2_saved_kg}<span style={{ fontSize: 20, color: "var(--text-muted)", marginLeft: 4 }}>kg</span>
+              {cert.co2_recorded_kg}<span style={{ fontSize: 20, color: "var(--text-muted)", marginLeft: 4 }}>kg</span>
             </div>
 
             {/* Equivalents */}
             <div className="grid grid-cols-3 gap-3 mt-5">
-              <EquivBox icon={<TreePine size={16} />} value={cert.equivalents.trees_planted_equivalent} label="trees eq." />
-              <EquivBox icon={<Car size={16} />} value={cert.equivalents.km_by_car_avoided} label="km car avoided" />
-              <EquivBox icon={<Award size={16} />} value={cert.grade} label="grade" />
+              <EquivBox icon={<TreePine size={16} />} value={cert.equivalents.trees_to_offset} label="trees to offset" />
+              <EquivBox icon={<Car size={16} />} value={cert.equivalents.km_by_car_equivalent} label="car-km equivalent" />
+              <EquivBox icon={<Award size={16} />} value={cert.recorded_days} label="recorded days" />
             </div>
           </div>
 
@@ -223,7 +213,7 @@ const Certificate = () => {
               <CheckCircle2 size={16} style={{ color: "var(--neon-green)" }} />
               <div>
                 <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--neon-green)", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                  Blockchain Verified
+                  Integrity tag
                 </div>
                 <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, color: "#5C6B7A", marginTop: 2, maxWidth: 250, wordBreak: "break-all" }}>
                   {cert.signature}

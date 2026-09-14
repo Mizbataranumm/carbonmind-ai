@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Bell, Shield, LogOut, Award, Flame, Leaf, Camera, X, Check, Phone, HelpCircle } from "lucide-react";
+import { LogOut, CalendarDays, BarChart3, Leaf, Camera, X, Check, Calculator } from "lucide-react";
+import { toast } from "sonner";
 import { useUser } from "@/lib/UserContext";
+import { getCarbonStats, getLifestyleProfile, predictAnnualCarbon, saveLifestyleProfile } from "@/lib/api";
 
 // ── 10 preset avatars from user profile photos ─────────────
 const PRESET_AVATARS = [
@@ -16,6 +18,55 @@ const PRESET_AVATARS = [
   { id: "avatar_9",  src: "/avatars/profile_avatar_9.png",  label: "Avatar 9" },
   { id: "avatar_10", src: "/avatars/profile_avatar_10.png", label: "Avatar 10" },
 ];
+
+const EMPTY_LIFESTYLE_PROFILE = {
+  "Body Type": "",
+  "Diet": "",
+  "How Often Shower": "",
+  "Heating Energy Source": "",
+  "Transport": "",
+  "Vehicle Type": "",
+  "Social Activity": "",
+  "Monthly Grocery Bill": "",
+  "Frequency of Traveling by Air": "",
+  "Vehicle Monthly Distance Km": "",
+  "Waste Bag Size": "",
+  "Waste Bag Weekly Count": "",
+  "How Long TV PC Daily Hour": "",
+  "How Many New Clothes Monthly": "",
+  "How Long Internet Daily Hour": "",
+  "Energy efficiency": "",
+  "Recycling": "",
+  "Cooking_With": "",
+};
+
+const LIFESTYLE_SELECT_FIELDS = [
+  { key: "Body Type", label: "Body type", options: [["underweight", "Underweight"], ["normal", "Normal"], ["overweight", "Overweight"], ["obese", "Obese"]] },
+  { key: "Diet", label: "Diet", options: [["omnivore", "Omnivore"], ["pescatarian", "Pescatarian"], ["vegetarian", "Vegetarian"], ["vegan", "Vegan"]] },
+  { key: "How Often Shower", label: "Shower frequency", options: [["less frequently", "Less frequently"], ["daily", "Daily"], ["more frequently", "More frequently"], ["twice a day", "Twice a day"]] },
+  { key: "Heating Energy Source", label: "Heating energy", options: [["electricity", "Electricity"], ["natural gas", "Natural gas"], ["wood", "Wood"], ["coal", "Coal"]] },
+  { key: "Transport", label: "Primary transport", options: [["public", "Public transit"], ["walk/bicycle", "Walk / bicycle"], ["private", "Private vehicle"]] },
+  { key: "Vehicle Type", label: "Vehicle fuel", options: [["electric", "Electric"], ["hybrid", "Hybrid"], ["lpg", "LPG"], ["diesel", "Diesel"], ["petrol", "Petrol"]] },
+  { key: "Social Activity", label: "Social activity", options: [["never", "Never"], ["sometimes", "Sometimes"], ["often", "Often"]] },
+  { key: "Frequency of Traveling by Air", label: "Air travel", options: [["never", "Never"], ["rarely", "Rarely"], ["frequently", "Frequently"], ["very frequently", "Very frequently"]] },
+  { key: "Waste Bag Size", label: "Waste bag size", options: [["small", "Small"], ["medium", "Medium"], ["large", "Large"], ["extra large", "Extra large"]] },
+  { key: "Energy efficiency", label: "Energy efficiency", options: [["No", "No"], ["Sometimes", "Sometimes"], ["Yes", "Yes"]] },
+];
+
+const LIFESTYLE_NUMBER_FIELDS = [
+  { key: "Monthly Grocery Bill", label: "Monthly grocery bill", min: 0, max: 10000, step: 1 },
+  { key: "Vehicle Monthly Distance Km", label: "Vehicle distance / month (km)", min: 0, max: 30000, step: 1 },
+  { key: "Waste Bag Weekly Count", label: "Waste bags / week", min: 0, max: 50, step: 1 },
+  { key: "How Long TV PC Daily Hour", label: "TV / PC hours daily", min: 0, max: 24, step: 0.5 },
+  { key: "How Many New Clothes Monthly", label: "New clothes / month", min: 0, max: 100, step: 1 },
+  { key: "How Long Internet Daily Hour", label: "Internet hours daily", min: 0, max: 24, step: 0.5 },
+];
+
+const RECYCLING_OPTIONS = ["Paper", "Plastic", "Glass", "Metal"];
+const COOKING_OPTIONS = ["Stove", "Oven", "Microwave", "Grill", "Airfryer"];
+
+const formatListValue = (values) => values.length ? `[${values.map((value) => `'${value}'`).join(", ")}]` : "[]";
+const listValues = (value, options) => options.filter((option) => String(value || "").includes(`'${option}'`));
 
 // ── Avatar Picker modal ───────────────────────────────────────────────────
 function AvatarPickerModal({ current, onSelect, onClose }) {
@@ -109,9 +160,24 @@ function AvatarPickerModal({ current, onSelect, onClose }) {
 // ── Main Profile Page ─────────────────────────────────────────────────────
 const Profile = () => {
   const { user, setUser } = useUser();
-  const [pushNotifs, setPushNotifs] = useState(true);
-  const [isPrivate, setIsPrivate] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [lifestyleProfile, setLifestyleProfile] = useState(EMPTY_LIFESTYLE_PROFILE);
+  const [annualResult, setAnnualResult] = useState(null);
+  const [estimating, setEstimating] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    getCarbonStats(user.id).then(setStats).catch(() => setStats(null));
+    getLifestyleProfile(user.id)
+      .then(({ lifestyle_profile: savedProfile }) => {
+        if (savedProfile && Object.keys(savedProfile).length) {
+          setLifestyleProfile((current) => ({ ...current, ...savedProfile }));
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
 
   if (!user) return null;
 
@@ -119,10 +185,49 @@ const Profile = () => {
     setUser({ ...user, avatar: src });
   };
 
-  const isNewUser = user?.xp === 0;
+  const recordedDays = stats?.activity_days || 0;
+  const dailyAverage = recordedDays ? (stats.year_kg / recordedDays).toFixed(1) : "0.0";
+  const lifestyleProfileComplete = Object.values(lifestyleProfile).every(
+    (value) => value !== "" && value !== null && value !== undefined,
+  );
+  const setProfileValue = (key, value) => setLifestyleProfile((current) => ({ ...current, [key]: value }));
+
+  const toggleListValue = (key, option, options) => {
+    const selected = listValues(lifestyleProfile[key], options);
+    const next = selected.includes(option)
+      ? selected.filter((value) => value !== option)
+      : options.filter((value) => selected.includes(value) || value === option);
+    setProfileValue(key, formatListValue(next));
+  };
+
+  const estimateAnnualCarbon = async () => {
+    setEstimating(true);
+    try {
+      const result = await predictAnnualCarbon({ lifestyle_profile: lifestyleProfile });
+      setAnnualResult(result);
+      toast.success("Annual estimate ready");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail?.message || "Could not calculate the annual estimate");
+    } finally {
+      setEstimating(false);
+    }
+  };
+
+  const persistLifestyleProfile = async () => {
+    setSavingProfile(true);
+    try {
+      await saveLifestyleProfile({ user_id: user.id, lifestyle_profile: lifestyleProfile });
+      setUser({ ...user, lifestyle_profile: lifestyleProfile });
+      toast.success("Lifestyle profile saved");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail?.message || "Could not save the lifestyle profile");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20">
+    <div className="max-w-5xl mx-auto space-y-6 pb-20">
       {/* Avatar Picker Modal */}
       <AnimatePresence>
         {pickerOpen && (
@@ -135,7 +240,7 @@ const Profile = () => {
       </AnimatePresence>
 
       {/* ── Profile Hero Card ─────────────────────────────────────────── */}
-      <div className="glass p-8 rounded-3xl relative overflow-hidden">
+      <div className="glass p-4 sm:p-6 lg:p-8 rounded-3xl relative overflow-hidden">
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-green/20 to-transparent" />
 
         <div className="relative flex flex-col sm:flex-row items-center sm:items-start gap-6">
@@ -178,10 +283,9 @@ const Profile = () => {
           <div className="flex-1 text-center sm:text-left mt-2">
             <h1 className="font-display text-3xl font-bold">{user.name}</h1>
             <div className="font-mono-data text-secondary mt-1 flex items-center justify-center sm:justify-start gap-2 flex-wrap">
-              <span className="px-2 py-0.5 rounded-full bg-green/10 text-green border border-green/20 text-xs">
-                Grade {user.grade}
+                <span className="px-2 py-0.5 rounded-full bg-green/10 text-green border border-green/20 text-xs">
+                Grade {stats?.grade || "Newbie"}
               </span>
-              <span>· {user.xp} XP</span>
             </div>
             <button
               onClick={() => setPickerOpen(true)}
@@ -193,34 +297,34 @@ const Profile = () => {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 mt-8 pt-8 border-t border-glass-border">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-8 pt-8 border-t border-glass-border">
           <div className="text-center">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-widget text-secondary mb-2">
-              <Flame className="h-5 w-5 text-[#FFD166]" />
+              <CalendarDays className="h-5 w-5 text-[#FFD166]" />
             </div>
-            <div className="font-mono-data text-xl font-bold">{user.streak ?? 0}</div>
-            <div className="text-xs text-secondary mt-1">Day Streak</div>
+            <div className="font-mono-data text-xl font-bold">{recordedDays}</div>
+            <div className="text-xs text-secondary mt-1">Recorded days</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-widget text-secondary mb-2">
-              <Award className="h-5 w-5 text-cyan" />
+              <BarChart3 className="h-5 w-5 text-cyan" />
             </div>
-            <div className="font-mono-data text-xl font-bold">{isNewUser ? 0 : 12}</div>
-            <div className="text-xs text-secondary mt-1">Badges</div>
+            <div className="font-mono-data text-xl font-bold">{stats?.month_kg ?? 0}<span className="text-xs">kg</span></div>
+            <div className="text-xs text-secondary mt-1">This month</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center h-10 w-10 mx-auto rounded-xl bg-widget text-secondary mb-2">
               <Leaf className="h-5 w-5 text-green" />
             </div>
             <div className="font-mono-data text-xl font-bold">
-              {isNewUser ? "0.0" : "8.4"}<span className="text-xs">kg</span>
+              {dailyAverage}<span className="text-xs">kg</span>
             </div>
-            <div className="text-xs text-secondary mt-1">Daily Avg</div>
+            <div className="text-xs text-secondary mt-1">Logged-day avg</div>
           </div>
         </div>
       </div>
 
-      {/* ── Preset Avatars quick-select strip ──────────────────────────── */}
+      {/* ── Preset avatar gallery ─────────────────────────────────────── */}
       <div className="glass rounded-3xl p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -235,21 +339,21 @@ const Profile = () => {
           </button>
         </div>
 
-        {/* Scrollable row of avatars */}
-        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
+        <div className="grid grid-cols-5 place-items-center gap-3 sm:gap-4 max-w-sm mx-auto">
           {PRESET_AVATARS.map(av => {
             const isSelected = user.avatar === av.src;
             return (
               <button
                 key={av.id}
                 onClick={() => handleAvatarSelect(av.src)}
-                className="flex-shrink-0 relative group"
+                className="relative h-12 w-12 sm:h-14 sm:w-14 group focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan focus-visible:ring-offset-2 focus-visible:ring-offset-app rounded-full"
                 title={av.label}
+                aria-label={`Choose ${av.label}`}
               >
-                <div className={`h-14 w-14 rounded-full overflow-hidden border-2 transition-all duration-200 ${
+                <div className={`h-full w-full rounded-full overflow-hidden border-2 transition-colors duration-200 ${
                   isSelected
-                    ? "border-green shadow-[0_0_14px_rgba(0,255,178,0.5)] scale-110"
-                    : "border-glass-border hover:border-cyan/50 hover:scale-110"
+                    ? "border-green ring-2 ring-green/30 shadow-[0_0_14px_rgba(0,255,178,0.35)]"
+                    : "border-glass-border hover:border-cyan/50"
                 }`}>
                   <img
                     src={av.src}
@@ -269,25 +373,101 @@ const Profile = () => {
         </div>
       </div>
 
+      <section className="glass p-4 sm:p-6" aria-labelledby="annual-profile-heading">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+          <div>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Annual lifestyle assessment</div>
+            <h2 id="annual-profile-heading" className="font-display text-xl mt-1">Annual carbon estimate</h2>
+          </div>
+          {annualResult && (
+            <div className="sm:text-right">
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Annual estimate</div>
+              <div className="font-mono-data text-2xl text-green">{annualResult.annual_kg_co2e}<span className="text-sm text-secondary ml-1">kg CO2e</span></div>
+            </div>
+          )}
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {LIFESTYLE_SELECT_FIELDS.map((field) => (
+            <label key={field.key} className="min-w-0">
+              <span className="block font-mono-data text-[10px] uppercase tracking-widest text-secondary mb-1.5">{field.label}</span>
+              <select
+                value={lifestyleProfile[field.key]}
+                onChange={(event) => setProfileValue(field.key, event.target.value)}
+                className="input-glass w-full !py-2.5"
+              >
+                <option value="" disabled>Select an option</option>
+                {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+          ))}
+          {LIFESTYLE_NUMBER_FIELDS.map((field) => (
+            <label key={field.key} className="min-w-0">
+              <span className="block font-mono-data text-[10px] uppercase tracking-widest text-secondary mb-1.5">{field.label}</span>
+              <input
+                type="number"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={lifestyleProfile[field.key]}
+                onChange={(event) => setProfileValue(field.key, event.target.value === "" ? "" : Number(event.target.value))}
+                className="input-glass w-full !py-2.5"
+              />
+            </label>
+          ))}
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-4 mt-5">
+          <MultiChoice
+            label="Recycling"
+            options={RECYCLING_OPTIONS}
+            selected={listValues(lifestyleProfile.Recycling, RECYCLING_OPTIONS)}
+            noneSelected={lifestyleProfile.Recycling === "[]"}
+            onToggle={(option) => toggleListValue("Recycling", option, RECYCLING_OPTIONS)}
+            onToggleNone={() => setProfileValue("Recycling", lifestyleProfile.Recycling === "[]" ? "" : "[]")}
+          />
+          <MultiChoice
+            label="Cooking equipment"
+            options={COOKING_OPTIONS}
+            selected={listValues(lifestyleProfile.Cooking_With, COOKING_OPTIONS)}
+            noneSelected={lifestyleProfile.Cooking_With === "[]"}
+            onToggle={(option) => toggleListValue("Cooking_With", option, COOKING_OPTIONS)}
+            onToggleNone={() => setProfileValue("Cooking_With", lifestyleProfile.Cooking_With === "[]" ? "" : "[]")}
+          />
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 pt-5 border-t border-glass-border">
+          <div className="text-xs text-secondary leading-relaxed max-w-xl">
+            {annualResult?.model_note || (lifestyleProfileComplete
+              ? "Use your current habits to calculate an annual lifestyle estimate."
+              : "Complete all fields to calculate an annual lifestyle estimate.")}
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={persistLifestyleProfile}
+              disabled={savingProfile || !lifestyleProfileComplete}
+              className="btn-ghost px-4 inline-flex items-center justify-center"
+            >
+              {savingProfile ? "Saving..." : "Save profile"}
+            </button>
+            <button
+              type="button"
+              onClick={estimateAnnualCarbon}
+              disabled={estimating || !lifestyleProfileComplete}
+              className="btn-primary px-4 inline-flex items-center justify-center gap-2"
+            >
+              <Calculator className="h-4 w-4" /> {estimating ? "Calculating..." : "Estimate"}
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ── Settings & Account ──────────────────────────────────────────── */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <h2 className="font-display text-xl ml-2">Preferences</h2>
           <div className="glass rounded-2xl overflow-hidden">
-            <SettingRow
-              icon={Bell}
-              title="Push Notifications"
-              desc="Alerts for streaks and limits"
-              active={pushNotifs}
-              onClick={() => setPushNotifs(!pushNotifs)}
-            />
-            <SettingRow
-              icon={Shield}
-              title="Private Profile"
-              desc="Hide stats from community leaderboard"
-              active={isPrivate}
-              onClick={() => setIsPrivate(!isPrivate)}
-            />
             <SettingRow
               icon={Camera}
               title="Change Avatar"
@@ -309,21 +489,8 @@ const Profile = () => {
           <div className="glass rounded-2xl overflow-hidden p-6 text-center space-y-4">
             <p className="text-sm text-secondary">
               Signed in as{" "}
-              <strong className="text-main">{user.name}</strong>.{" "}
-              All data is stored securely.
+              <strong className="text-main break-all">{user.email || user.name}</strong>.
             </p>
-            {/* Help / How to use app */}
-            <div className="text-left p-3 rounded-xl bg-cyan/5 border border-cyan/20 text-xs text-secondary space-y-1">
-              <div className="flex items-center gap-2 text-cyan font-bold text-xs mb-2">
-                <HelpCircle className="h-4 w-4" /> How to use CarbonMind AI
-              </div>
-              <div>📷 <strong>Scan Food</strong> — photograph any meal to log its CO₂</div>
-              <div>📊 <strong>Daily Forecaster</strong> — predict today's total emissions</div>
-              <div>📡 <strong>Live Tracker</strong> — log transport, energy, devices</div>
-              <div>🔮 <strong>10-Year Simulator</strong> — see your future carbon trajectory</div>
-              <div>🤖 <strong>AI Coach</strong> — tap the green bot icon for personalized tips</div>
-              <div>📞 <strong>Call Me</strong> — get an automated phone briefing of your stats</div>
-            </div>
             <button
               onClick={() => { setUser(null); window.location.href = "/"; }}
               className="btn-ghost w-full flex items-center justify-center gap-2 !text-red-400 hover:!bg-red-400/10 hover:!border-red-400/30"
@@ -337,13 +504,41 @@ const Profile = () => {
   );
 };
 
+const MultiChoice = ({ label, options, selected, noneSelected, onToggle, onToggleNone }) => (
+  <fieldset className="border border-glass-border rounded-xl p-3 min-w-0">
+    <legend className="px-1 font-mono-data text-[10px] uppercase tracking-widest text-secondary">{label}</legend>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+      {options.map((option) => (
+        <label key={option} className="inline-flex items-center gap-2 text-sm text-secondary cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selected.includes(option)}
+            onChange={() => onToggle(option)}
+            className="h-4 w-4 accent-[#00FFB2]"
+          />
+          <span>{option}</span>
+        </label>
+      ))}
+      <label className="inline-flex items-center gap-2 text-sm text-secondary cursor-pointer">
+        <input
+          type="checkbox"
+          checked={noneSelected}
+          onChange={onToggleNone}
+          className="h-4 w-4 accent-[#00FFB2]"
+        />
+        <span>None</span>
+      </label>
+    </div>
+  </fieldset>
+);
+
 const SettingRow = ({ icon: Icon, title, desc, active, action, onClick }) => (
-  <div className="flex items-center justify-between p-4 border-b border-glass-border last:border-0 hover:bg-widget transition">
-    <div className="flex items-center gap-4">
+  <div className="flex items-center justify-between gap-3 p-4 border-b border-glass-border last:border-0 hover:bg-widget transition">
+    <div className="flex items-center gap-4 min-w-0">
       <div className="h-10 w-10 rounded-xl bg-widget flex items-center justify-center border border-glass-border">
         <Icon className="h-5 w-5 text-secondary" />
       </div>
-      <div>
+      <div className="min-w-0">
         <div className="font-medium text-sm">{title}</div>
         <div className="text-xs text-secondary mt-0.5">{desc}</div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AreaChart, Area, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { useUser } from '@/lib/UserContext';
 import { useNavigate } from 'react-router-dom';
@@ -9,25 +9,7 @@ import {
 import VoiceCallModal from '@/components/VoiceCallModal';
 import LogActivityModal from '@/components/LogActivityModal';
 import PhoneCallModal from '@/components/PhoneCallModal';
-
-const WEEKLY_DATA = [
-  { day: 'Mon', kg: 8.2 }, { day: 'Tue', kg: 6.5 }, { day: 'Wed', kg: 9.1 },
-  { day: 'Thu', kg: 5.8 }, { day: 'Fri', kg: 7.3 }, { day: 'Sat', kg: 4.2 }, { day: 'Sun', kg: 7.8 },
-];
-
-const EMISSION_DATA = [
-  { name: 'Transport', value: 42, color: '#00FFB2', icon: Car },
-  { name: 'Electricity', value: 27, color: '#00D9FF', icon: Zap },
-  { name: 'Food', value: 18, color: '#FFD166', icon: Utensils },
-  { name: 'Other', value: 13, color: '#888', icon: Activity },
-];
-
-const BADGES = [
-  { label: '14-Day Streak', icon: Flame, color: '#FFD166', earned: true },
-  { label: 'Plant Eater', icon: Leaf, color: '#00FFB2', earned: true },
-  { label: 'Cycle Master', icon: Activity, color: '#00D9FF', earned: false },
-  { label: 'Carbon Saver', icon: Award, color: '#A78BFA', earned: false },
-];
+import { getCarbonStats } from '@/lib/api';
 
 function StatCard({ label, value, unit, icon: Icon, color, sub, trend }) {
   return (
@@ -59,26 +41,42 @@ export default function Dashboard() {
   const [voiceOpen, setVoiceOpen] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const [stats, setStats] = useState(null);
 
-  const isNew = !user || user.xp === 0;
-  const streak = user?.streak ?? (isNew ? 0 : 14);
+  const refreshStats = useCallback(() => {
+    if (!user?.id) return;
+    getCarbonStats(user.id).then(setStats).catch(() => setStats(null));
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshStats();
+  }, [refreshStats]);
+
+  const isNew = !stats?.activity_days;
+  const streak = stats?.streak ?? 0;
   const budget = 6.5;
-  const todayKg = isNew ? 0.0 : 7.8;
-  const weeklyTotal = isNew ? "0.0" : "48.7";
-  const co2Saved = isNew ? "0.0" : "12.3";
-  const grade = isNew ? (user?.grade || "Newbie") : (user?.grade || "A-");
+  const todayKg = stats?.today_kg ?? 0;
+  const weeklyTotal = stats?.week_kg ?? 0;
+  const monthTotal = stats?.month_kg ?? 0;
+  const grade = stats?.grade || "Newbie";
+  const weeklyData = stats?.weekly_trend || [];
+  const emissionData = stats?.breakdown || [];
+  const recentActivities = stats?.recent_activities || [];
   const pct = budget > 0 ? Math.round((todayKg / budget) * 100) : 0;
+  const topCategory = useMemo(() => (
+    emissionData.reduce((leader, item) => (item.kg > leader.kg ? item : leader), { name: 'No recorded category', kg: 0 }).name
+  ), [emissionData]);
 
   return (
     <div className="w-full pb-8 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <VoiceCallModal open={voiceOpen} onClose={() => setVoiceOpen(false)} userName={user?.name || 'Explorer'} weeklyKg={isNew ? 0.0 : 41.8} />
-      <LogActivityModal open={logOpen} onClose={() => setLogOpen(false)} />
-      <PhoneCallModal open={phoneOpen} onClose={() => setPhoneOpen(false)} userName={user?.name || 'Explorer'} weeklyKg={isNew ? 0.0 : 41.8} />
+      <VoiceCallModal open={voiceOpen} onClose={() => setVoiceOpen(false)} userName={user?.name || 'Explorer'} todayKg={todayKg} topCategory={topCategory} />
+      <LogActivityModal open={logOpen} onClose={() => setLogOpen(false)} onSaved={refreshStats} />
+      <PhoneCallModal open={phoneOpen} onClose={() => setPhoneOpen(false)} userName={user?.name || 'Explorer'} todayKg={todayKg} topCategory={topCategory} />
 
       {/* ── HERO HEADER ─────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-5">
         <div>
-          <h1 className="text-3xl font-display font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
             Welcome back, <span className="text-green">{user?.name || 'Explorer'}</span> 👋
           </h1>
           <p className="text-secondary mt-2 text-base">Your carbon dashboard — {new Date().toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -90,21 +88,21 @@ export default function Dashboard() {
           </div>
           <button onClick={() => setVoiceOpen(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan/30 bg-cyan/10 text-cyan font-bold text-sm hover:bg-cyan/20 transition-all shadow-[0_0_15px_rgba(0,217,255,0.1)]">
-            <Mic className="h-5 w-5" /> Voice Brief
+            <Mic className="h-5 w-5" /> Daily audio brief
           </button>
           <button onClick={() => setPhoneOpen(true)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl border border-green/30 bg-green/10 text-green font-bold text-sm hover:bg-green/20 transition-all shadow-[0_0_15px_rgba(0,255,178,0.1)]">
-            <Phone className="h-5 w-5" /> Call Me
+            <Phone className="h-5 w-5" /> Phone briefing
           </button>
         </div>
       </div>
 
       {/* ── STAT CARDS ROW ──────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub={isNew ? "Starting fresh today" : "8.2% vs yesterday"} trend="down" />
-        <StatCard label="Weekly Total" value={weeklyTotal} unit="kg" icon={TrendingDown} color="#00D9FF" sub={isNew ? "Cycle begins today" : "3.4% vs last week"} trend="down" />
-        <StatCard label="CO₂ Saved" value={co2Saved} unit="kg" icon={Leaf} color="#A78BFA" sub={isNew ? "Target: 5 kg this week" : "This month"} trend="down" />
-        <StatCard label="Carbon Grade" value={grade} unit="" icon={Award} color="#FFD166" sub={isNew ? "Log to unlock tier" : "Top 15% globally"} trend="down" />
+        <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub={isNew ? "No activity recorded" : "From saved activities"} trend="down" />
+        <StatCard label="Weekly Total" value={weeklyTotal} unit="kg" icon={TrendingDown} color="#00D9FF" sub={isNew ? "Record your first day" : "Last 7 calendar days"} trend="down" />
+        <StatCard label="Monthly Total" value={monthTotal} unit="kg" icon={Leaf} color="#A78BFA" sub="Current calendar month" trend="down" />
+        <StatCard label="Carbon Grade" value={grade} unit="" icon={Award} color="#FFD166" sub="Based on today’s record" trend="down" />
       </div>
 
       {/* ── QUICK ACTIONS ROW (Full width below) ──────────────────────────────── */}
@@ -113,20 +111,20 @@ export default function Dashboard() {
           className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-green text-app font-bold hover:bg-green/90 transition-all hover:-translate-y-1 shadow-[0_0_20px_rgba(0,255,178,0.2)]">
           <Camera className="h-6 w-6 group-hover:scale-110 transition-transform" /> <span className="text-sm">Scan Food</span>
         </button>
-        <button onClick={() => navigate('/predict')}
+        <button onClick={() => setLogOpen(true)}
           className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-glass-border bg-widget font-bold hover:bg-glass-hover-bg transition-all hover:-translate-y-1 hover:border-green/40 shadow-sm"
           style={{ color: 'var(--text-primary)' }}>
-          <Plus className="h-6 w-6 text-green group-hover:scale-110 transition-transform" /> <span className="text-sm">Log Activity</span>
+          <Plus className="h-6 w-6 text-green group-hover:scale-110 transition-transform" /> <span className="text-sm">Add activity</span>
         </button>
         <button onClick={() => navigate('/tracker')}
           className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-glass-border bg-widget font-bold hover:bg-glass-hover-bg transition-all hover:-translate-y-1 hover:border-cyan/40 shadow-sm"
           style={{ color: 'var(--text-primary)' }}>
-          <Activity className="h-6 w-6 text-cyan group-hover:scale-110 transition-transform" /> <span className="text-sm">Live Tracker</span>
+          <Activity className="h-6 w-6 text-cyan group-hover:scale-110 transition-transform" /> <span className="text-sm">Activity history</span>
         </button>
         <button onClick={() => navigate('/predict')}
           className="group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border border-glass-border bg-widget font-bold hover:bg-glass-hover-bg transition-all hover:-translate-y-1 hover:border-purple-400/40 shadow-sm"
           style={{ color: 'var(--text-primary)' }}>
-          <Target className="h-6 w-6 text-[#A78BFA] group-hover:scale-110 transition-transform" /> <span className="text-sm">Daily Forecast</span>
+          <Target className="h-6 w-6 text-[#A78BFA] group-hover:scale-110 transition-transform" /> <span className="text-sm">Plan today</span>
         </button>
       </div>
 
@@ -176,7 +174,7 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-h-[240px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={WEEKLY_DATA} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradFull" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--neon-green)" stopOpacity={0.3} />
@@ -207,14 +205,14 @@ export default function Dashboard() {
               <div className="w-40 h-40 mb-4">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={EMISSION_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" stroke="none" paddingAngle={3}>
-                      {EMISSION_DATA.map((e, i) => <Cell key={i} fill={e.color} />)}
+                    <Pie data={emissionData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} dataKey="value" stroke="none" paddingAngle={3}>
+                      {emissionData.map((e, i) => <Cell key={i} fill={e.color} />)}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="w-full space-y-3.5">
-                {EMISSION_DATA.map((e, i) => (
+                {emissionData.map((e, i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full shadow-sm" style={{ background: e.color }} />
@@ -239,34 +237,32 @@ export default function Dashboard() {
               <span className="font-bold text-xl" style={{ color: 'var(--text-primary)' }}>Recent Activity</span>
             </div>
             <div className="space-y-3">
-              {isNew ? (
+              {recentActivities.length === 0 ? (
                 <div className="p-4 rounded-2xl border border-dashed border-glass-border text-center py-6">
                   <Leaf className="h-8 w-8 text-green mx-auto mb-2 opacity-80" />
                   <p className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>No activities logged yet today</p>
-                  <p className="text-xs text-secondary mt-1 max-w-[220px] mx-auto">Tap 'Scan Food' or 'Log Activity' to start tracking your daily carbon footprint!</p>
+                  <p className="text-xs text-secondary mt-1 max-w-[220px] mx-auto">Scan a confirmed meal or add a completed activity to start your record.</p>
                   <button onClick={() => navigate('/scan')} className="mt-3 px-3 py-1.5 rounded-lg bg-green/10 border border-green/30 text-green text-xs font-bold hover:bg-green/20 transition-all">
                     + Scan First Meal
                   </button>
                 </div>
               ) : (
-                [
-                  { label: 'Morning Commute', time: '08:14 AM', type: 'Train', kg: 1.2, icon: Car, color: '#00FFB2' },
-                  { label: 'Home Appliances', time: '12:30 PM', type: 'Grid', kg: 1.8, icon: Zap, color: '#00D9FF' },
-                  { label: 'Lunch (Chicken)', time: '01:15 PM', type: 'Food', kg: 0.9, icon: Utensils, color: '#FFD166' },
-                  { label: 'Evening Drive', time: '06:45 PM', type: 'Car', kg: 2.1, icon: Car, color: '#FF4D4D' },
-                ].map((a, i) => {
-                  const Icon = a.icon;
+                recentActivities.map((a) => {
+                  const iconByType = { transport: Car, electricity: Zap, food: Utensils, devices: Activity, other: Activity };
+                  const colorByType = { transport: '#00FFB2', electricity: '#00D9FF', food: '#FFD166', devices: '#FF66E1', other: '#9EABBC' };
+                  const Icon = iconByType[a.type] || Activity;
+                  const color = colorByType[a.type] || '#9EABBC';
                   return (
-                    <div key={i} className="flex items-center gap-4 p-3 rounded-xl border border-glass-border hover:border-green/30 hover:bg-glass-hover-bg transition-all cursor-pointer">
+                    <div key={a.id} className="flex items-center gap-4 p-3 rounded-xl border border-glass-border hover:border-green/30 hover:bg-glass-hover-bg transition-all cursor-pointer">
                       <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                           style={{ background: a.color + '15' }}>
-                        <Icon className="h-5 w-5" style={{ color: a.color }} />
+                           style={{ background: color + '15' }}>
+                        <Icon className="h-5 w-5" style={{ color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>{a.label}</p>
-                        <p className="text-[11px] font-medium text-secondary">{a.time} · {a.type}</p>
+                        <p className="text-[11px] font-medium text-secondary">{a.time ? new Date(a.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recorded'} · {a.type}</p>
                       </div>
-                      <span className="font-mono-data text-sm font-bold" style={{ color: a.color }}>+{a.kg} kg</span>
+                      <span className="font-mono-data text-sm font-bold" style={{ color }}>+{a.kg} kg</span>
                     </div>
                   );
                 })

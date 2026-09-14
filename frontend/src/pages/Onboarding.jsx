@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser } from '@/lib/UserContext';
-import { Leaf, ScanLine, Activity, Sparkles, Users, Award, Mic, TrendingUp, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Leaf, ScanLine, Activity, Sparkles, TrendingUp, CheckCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 export default function Onboarding() {
   const { user, setUser } = useUser();
@@ -23,12 +24,7 @@ export default function Onboarding() {
 
   const handleComplete = async () => {
     try {
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000/api'}/onboarding/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id, preferences })
-      });
-      const data = await res.json();
+      const { data } = await api.post('/onboarding/save', { user_id: user.id, preferences });
       if (data.status === 'success') {
         setUser({ ...user, onboarding_completed: true, onboarding_preferences: preferences, user_transport: preferences.transport, user_diet: preferences.diet });
         toast.success('Welcome aboard!');
@@ -51,35 +47,18 @@ export default function Onboarding() {
       
       <div className="w-full max-w-2xl z-10 relative">
         <div className="mb-8 flex justify-center">
-                  <div className="mb-8 flex justify-center">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-green to-cyan flex items-center justify-center shadow-[0_0_40px_rgba(0,255,178,0.3)]">
             <Leaf className="h-8 w-8 text-[#071014]" strokeWidth={2.5} />
           </div>
         </div>
-        </div>
 
-        <div className="glass p-8 md:p-12 rounded-3xl border border-glass-border shadow-2xl relative overflow-hidden min-h-[450px] flex flex-col">
+        <div className="glass p-5 sm:p-8 md:p-12 rounded-3xl border border-glass-border shadow-2xl relative overflow-hidden min-h-[450px] flex flex-col">
           <AnimatePresence mode="wait" custom={step}>
             {step === 1 && (
               <motion.div key="step1" custom={1} variants={variants} initial="enter" animate="center" exit="exit" className="flex-1 flex flex-col items-center justify-center text-center">
-                <div className="font-mono-data text-xs uppercase tracking-widest text-green mb-4">// WELCOME TO THE FUTURE</div>
-                <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Track Your Carbon Future</h1>
-                <p className="text-secondary text-lg mb-10 max-w-md mx-auto">A futuristic sustainability OS. Monitor your carbon DNA and make a real impact.</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full mb-10">
-                  <div className="bg-widget p-4 rounded-xl border border-glass-border">
-                    <div className="text-green font-mono-data font-bold text-xl mb-1">-34%</div>
-                    <div className="text-xs text-secondary">Avg Reduction</div>
-                  </div>
-                  <div className="bg-widget p-4 rounded-xl border border-glass-border">
-                    <div className="text-cyan font-mono-data font-bold text-xl mb-1">12.4k</div>
-                    <div className="text-xs text-secondary">Eco-citizens</div>
-                  </div>
-                  <div className="bg-widget p-4 rounded-xl border border-glass-border">
-                    <div className="text-green font-mono-data font-bold text-xl mb-1">284t</div>
-                    <div className="text-xs text-secondary">COâ‚‚ Saved</div>
-                  </div>
-                </div>
+                <div className="font-mono-data text-xs uppercase tracking-widest text-green mb-4">// Welcome</div>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold mb-4">Build your activity record</h1>
+                <p className="text-secondary text-lg mb-10 max-w-md mx-auto">Record the choices you make, review meal estimates, and compare explicit lifestyle assumptions.</p>
 
                 <button onClick={() => setStep(2)} className="bg-green text-app px-8 py-4 rounded-xl font-bold hover:bg-green/90 transition-colors flex items-center gap-2 w-full md:w-auto justify-center">
                   Start Tracking <ChevronRight className="h-5 w-5" />
@@ -90,19 +69,16 @@ export default function Onboarding() {
             {step === 2 && (
               <motion.div key="step2" custom={1} variants={variants} initial="enter" animate="center" exit="exit" className="flex-1">
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-display font-bold mb-2">9 Powerful Features</h2>
-                  <p className="text-secondary">Everything you need to master your footprint.</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">Core tools</h2>
+                  <p className="text-secondary">A clear place to record, review, and compare.</p>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   {[
-                    { icon: ScanLine, title: "Food Scanner", desc: "AI image recognition" },
-                    { icon: Activity, title: "Activity Tracker", desc: "Daily logging" },
-                    { icon: Sparkles, title: "Future Predictor", desc: "LSTM forecasting" },
-                    { icon: TrendingUp, title: "AI Coach", desc: "Gemini tips" },
-                    { icon: Users, title: "Community", desc: "Social feed" },
-                    { icon: Award, title: "Gamification", desc: "Badges and Streaks" },
-                    { icon: Mic, title: "Voice Agent", desc: "AI briefings" }
+                    { icon: ScanLine, title: "Food Scanner", desc: "Review a meal candidate" },
+                    { icon: Activity, title: "Activity Tracker", desc: "Save daily activities" },
+                    { icon: Sparkles, title: "Future Planner", desc: "Compare assumptions" },
+                    { icon: TrendingUp, title: "Daily Projection", desc: "Scale recorded hours" }
                   ].map((feat, i) => (
                     <div key={i} className="bg-widget p-3 rounded-xl border border-glass-border flex items-start gap-3">
                       <div className="bg-app p-2 rounded-lg text-green"><feat.icon className="h-4 w-4" /></div>
@@ -124,8 +100,8 @@ export default function Onboarding() {
             {step === 3 && (
               <motion.div key="step3" custom={1} variants={variants} initial="enter" animate="center" exit="exit" className="flex-1">
                 <div className="text-center mb-8">
-                  <h2 className="text-2xl font-display font-bold mb-2">Quick Setup</h2>
-                  <p className="text-secondary">Personalize your AI models.</p>
+                  <h2 className="text-2xl font-display font-bold mb-2">Quick setup</h2>
+                  <p className="text-secondary">Choose your initial preferences. The full annual assessment is available in your profile.</p>
                 </div>
                 
                 <div className="space-y-6 max-w-md mx-auto">
@@ -164,4 +140,3 @@ export default function Onboarding() {
     </div>
   );
 }
-

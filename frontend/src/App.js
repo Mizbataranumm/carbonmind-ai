@@ -5,8 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Toaster } from "sonner";
 
-import Landing from "@/pages/Landing";
 import Auth from "@/pages/Auth";
+import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Tracker from "@/pages/Tracker";
 import Future from "@/pages/Future";

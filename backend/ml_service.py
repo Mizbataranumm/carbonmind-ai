@@ -1,26 +1,22 @@
 ﻿"""
-CarbonMind AI — Production ML Service v2.0
-==========================================
-Model Stack (all production-grade, industry-standard):
+CarbonMind AI ML Service
+========================
+Runtime inference helpers for food scanning, daily carbon prediction, and
+short-horizon forecasting.
 
-  1. FOOD SCANNER  — 2-model ensemble for ~95%+ accuracy:
-       A) Hugging Face Inference API  →  google/vit-base-patch16-224 (fine-tuned Food-101)
-          ViT (Vision Transformer) by Google, 2021. Current state-of-the-art CNN replacement.
-          Achieves 88-93% top-1 on Food-101. Zero RAM on Render (runs on HF servers via API).
-       B) Gemini 1.5 Flash Vision     →  Natural language food understanding, Indian cuisine.
-       Ensemble: If both agree → high confidence. If ViT < 80% → trust Gemini.
+  1. FOOD SCANNER: remote vision and optional Gemini responses are candidate
+     labels only. The user-provided dish name must agree with an independent
+     image candidate before an emissions lookup is returned.
 
-  2. GBDT PREDICTOR — XGBoost + LightGBM ensemble:
-       A) XGBoost (Chen & Guestrin, 2016) — winner of most Kaggle tabular competitions.
-       B) LightGBM (Microsoft, 2017)       — faster, leaf-wise tree growth, top accuracy.
-       Ensemble: weighted average (XGB 55% + LGB 45%) → R² ≈ 0.90+ on Carbon Emission dataset.
-       Full 14-feature mapping (was broken at 4 features — now fixed).
+  2. DAILY CARBON: the preferred artifact is a reproducible sklearn pipeline
+     that owns preprocessing plus the estimator. Legacy XGBoost/LightGBM
+     artifacts remain an optional compatibility fallback.
 
-  3. WEEKLY FORECAST — Holt-Winters Triple Exponential Smoothing:
-       Industry standard for seasonal time-series (used by Amazon, Walmart, IMF).
-       Captures level + trend + weekly seasonality. Much lighter than LSTM.
-       statsmodels ExponentialSmoothing — pure Python, 45 MB, no GPU.
-       For users with 30+ days data: also runs SARIMA for comparison.
+  3. WEEKLY FORECAST: Holt-Winters is used only with observed history. The
+     future planner is implemented separately as a transparent scenario tool.
+
+Product claims must come from committed evaluation artifacts under
+backend/ml/evaluation/. Do not hard-code accuracy, R2, MAE, or confidence claims.
 """
 
 import os
@@ -28,8 +24,11 @@ import json
 import base64
 import pickle
 import logging
+import re
 import requests
+import joblib
 from io import BytesIO
+from pathlib import Path
 from typing import Optional, List
 
 import numpy as np
@@ -73,13 +72,86 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 # Global model state (loaded once on startup via load_models())
 # ─────────────────────────────────────────────────────────────────────────────
-gbdt_xgb_data: Optional[dict] = None   # XGBoost model + encoders
-gbdt_lgb_data: Optional[dict] = None   # LightGBM model + encoders
+gbdt_xgb_data: Optional[dict] = None   # Legacy XGBoost model + encoders
+gbdt_lgb_data: Optional[dict] = None   # Legacy LightGBM model + encoders
+gbdt_pipeline = None                    # Reproducible sklearn preprocessing + estimator
+annual_carbon_champion = None            # Full-schema LightGBM candidate
 _gemini_model = None
 
 # Hugging Face Inference API — Vision Transformer (ViT) fine-tuned on Food-101
 HF_API_URL = "https://api-inference.huggingface.co/models/nateraw/food"
 HF_API_KEY = None   # Set via env var HF_API_KEY (optional — free tier works without key)
+
+
+def get_model_status(models_dir: str = "ml/models") -> dict:
+    """Return model readiness and runtime wiring without claiming accuracy."""
+    model_path = Path(models_dir)
+    registry_path = model_path.parent / "model_registry.json"
+    registry = None
+
+    if registry_path.exists():
+        try:
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            registry = {"error": f"Could not read model registry: {exc}"}
+
+    metrics_path = model_path.parent / "evaluation" / "daily_carbon_gbdt_metrics.json"
+    daily_metrics = None
+    if metrics_path.exists():
+        try:
+            daily_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            daily_metrics = {"error": f"Could not read daily model metrics: {exc}"}
+
+    annual_metrics_path = model_path.parent / "evaluation" / "annual_carbon_model_benchmark.json"
+    annual_metrics = None
+    if annual_metrics_path.exists():
+        try:
+            annual_metrics = json.loads(annual_metrics_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            annual_metrics = {"error": f"Could not read annual model benchmark: {exc}"}
+
+    xgb_features = list(GBDT_DEFAULTS.keys())
+    if gbdt_xgb_data:
+        xgb_features = gbdt_xgb_data.get("features", xgb_features)
+
+    return {
+        "status": "candidate_not_product_validated",
+        "registry": registry,
+        "evaluation": {
+            "daily_carbon": daily_metrics,
+            "annual_carbon_benchmark": annual_metrics,
+        },
+        "runtime": {
+            "food_scanner": {
+                "local_cnn_loaded": False,
+                "hf_vit_configured": True,
+                "gemini_configured": _gemini_model is not None,
+                "hf_api_key_configured": bool(HF_API_KEY),
+                "cnn_artifact_exists": (model_path / "cnn_food_model.pt").exists(),
+                "cnn_metadata_exists": (model_path / "cnn_food_metadata.json").exists(),
+                "serving_note": "The checked-in CNN artifact is present but not used by predict_food().",
+            },
+            "daily_carbon_predictor": {
+                "xgboost_loaded": gbdt_xgb_data is not None,
+                "lightgbm_loaded": gbdt_lgb_data is not None,
+                "schema_features": xgb_features,
+                "pipeline_loaded": gbdt_pipeline is not None,
+                "metric_claim_source": "backend/ml/evaluation/daily_carbon_gbdt_metrics.json" if daily_metrics else "No committed metrics artifact found.",
+            },
+            "annual_carbon_predictor": {
+                "candidate_loaded": annual_carbon_champion is not None,
+                "schema_features": ANNUAL_CARBON_FEATURES,
+                "metric_claim_source": "backend/ml/evaluation/annual_carbon_model_benchmark.json" if annual_metrics else "No committed benchmark artifact found.",
+                "serving_note": "Only /predict/annual and complete 18-field profiles use this annual-emissions candidate.",
+            },
+            "weekly_forecast": {
+                "statsmodels_available": HAS_STATSMODELS,
+                "method": "holt_winters_or_linear_fallback",
+                "serving_note": "predict_lstm() is a compatibility shim over predict_weekly_arima().",
+            },
+        },
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 # IPCC / Poore & Nemecek 2018 emission factors (kg CO2e per typical serving)
@@ -149,12 +221,42 @@ GBDT_DEFAULTS = {
     'Energy efficiency': 'Sometimes',
 }
 
+# Product schema for the annual-emissions candidate. The source dataset's Sex
+# field is excluded deliberately, even though retaining it improves a single
+# holdout score; the app does not collect sensitive data merely for that gain.
+ANNUAL_CARBON_FEATURES = [
+    'Body Type', 'Diet', 'How Often Shower', 'Heating Energy Source',
+    'Transport', 'Vehicle Type', 'Social Activity', 'Monthly Grocery Bill',
+    'Frequency of Traveling by Air', 'Vehicle Monthly Distance Km',
+    'Waste Bag Size', 'Waste Bag Weekly Count', 'How Long TV PC Daily Hour',
+    'How Many New Clothes Monthly', 'How Long Internet Daily Hour',
+    'Energy efficiency', 'Recycling', 'Cooking_With',
+]
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # STARTUP: load_models()
 # ─────────────────────────────────────────────────────────────────────────────
 def load_models(models_dir: str = "ml/models"):
-    global gbdt_xgb_data, gbdt_lgb_data, _gemini_model, HF_API_KEY
+    global gbdt_xgb_data, gbdt_lgb_data, gbdt_pipeline, annual_carbon_champion, _gemini_model, HF_API_KEY
+
+    # Preferred artifact: the pipeline owns both preprocessing and estimator, so
+    # category ordering cannot drift between training and serving.
+    pipeline_path = Path(models_dir) / "daily_carbon_pipeline.joblib"
+    if pipeline_path.exists():
+        try:
+            gbdt_pipeline = joblib.load(pipeline_path)
+            logger.info("Daily carbon pipeline loaded")
+        except Exception as exc:
+            logger.warning("Daily carbon pipeline load failed: %s", exc)
+
+    annual_champion_path = Path(models_dir) / "annual_carbon_champion.joblib"
+    if annual_champion_path.exists():
+        try:
+            annual_carbon_champion = joblib.load(annual_champion_path)
+            logger.info("Full-schema annual carbon candidate loaded")
+        except Exception as exc:
+            logger.warning("Annual carbon candidate load failed: %s", exc)
 
     # 1. XGBoost GBDT
     try:
@@ -193,22 +295,42 @@ def load_models(models_dir: str = "ml/models"):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# HELPER: IPCC table fuzzy lookup
+# HELPER: food-factor lookup and dish-name agreement
 # ─────────────────────────────────────────────────────────────────────────────
+def _normalise_food_key(food_name: str) -> str:
+    return "_".join(re.findall(r"[a-z0-9]+", (food_name or "").lower()))
+
+
 def _co2_from_name(food_name: str) -> Optional[float]:
-    """Match food name against IPCC CO2 table. Handles spaces/underscores."""
-    if not food_name:
+    """Resolve an exact food name or a complete catalog phrase in a longer name."""
+    key = _normalise_food_key(food_name)
+    if not key:
         return None
-    key = food_name.lower().strip().replace(" ", "_").replace("-", "_")
-    # Exact
     if key in FOOD_CO2_FACTORS:
         return FOOD_CO2_FACTORS[key]
-    # Partial (longest match wins)
-    matches = [(k, v) for k, v in FOOD_CO2_FACTORS.items()
-               if k in key or key in k or any(w in key for w in k.split("_") if len(w) > 3)]
+
+    # Only accept a complete catalog phrase embedded in a longer user phrase.
+    # Do not match a short input such as "baby" to "baby_back_ribs".
+    matches = [(catalog_name, value) for catalog_name, value in FOOD_CO2_FACTORS.items()
+               if catalog_name in key]
     if matches:
         return max(matches, key=lambda x: len(x[0]))[1]
     return None
+
+
+def _dish_names_agree(confirmed_name: str, image_candidate: str) -> bool:
+    """Return true only when the confirmed dish and image candidate share a dish phrase."""
+    confirmed_key = _normalise_food_key(confirmed_name)
+    candidate_key = _normalise_food_key(image_candidate)
+    if not confirmed_key or not candidate_key:
+        return False
+    if confirmed_key in candidate_key or candidate_key in confirmed_key:
+        return True
+
+    ignored_words = {"food", "dish", "meal", "plate", "with", "and", "the", "a", "an"}
+    confirmed_tokens = set(confirmed_key.split("_")) - ignored_words
+    candidate_tokens = set(candidate_key.split("_")) - ignored_words
+    return len(confirmed_tokens) >= 2 and len(confirmed_tokens & candidate_tokens) >= 2
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -293,28 +415,30 @@ def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
 # ─────────────────────────────────────────────────────────────────────────────
 def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
     """
-    2-model ensemble food scanner:
-    Priority: hint → ViT+Gemini ensemble → pixel fallback
+    Candidate food-image classifier with a user-confirmed dish verification.
 
-    Ensemble logic:
-    - If ViT confidence > 85% AND Gemini agrees → very high confidence result
-    - If ViT < 60% OR no ViT → trust Gemini
-    - If no Gemini → trust ViT
-    - Both fail → pixel non-food filter + default
+    Scores returned by provider models are ranking scores, not calibrated
+    probabilities. They are retained for evaluation only and must not be
+    described as accuracy or certainty in the product UI.
     """
 
-    # ── Path 1: Hint-based IPCC lookup (fastest, most deterministic) ──────────
-    if hint and hint.strip():
-        co2 = _co2_from_name(hint.strip())
-        if co2 is not None:
-            return {
-                "status": "success",
-                "food_category": hint.strip().title(),
-                "co2_kg": round(co2, 2),
-                "confidence": 98.0,
-                "serving_size_g": 300,
-                "method": "ipcc_hint_lookup",
-            }
+    confirmed_name = " ".join(re.findall(r"[A-Za-z0-9]+", hint or "")).strip()
+    if not confirmed_name:
+        return {
+            "status": "rejected",
+            "message": "Enter the dish name before analyzing the photo.",
+            "suggestion": "Type or select the dish shown in the photo.",
+            "confidence": None,
+        }
+
+    confirmed_co2 = _co2_from_name(confirmed_name)
+    if confirmed_co2 is None:
+        return {
+            "status": "rejected",
+            "message": f"'{confirmed_name}' is not yet in the supported food-factor catalog.",
+            "suggestion": "Use a more specific supported dish name or add a catalog factor before estimating it.",
+            "confidence": None,
+        }
 
     # Decode image once
     raw_bytes: Optional[bytes] = None
@@ -327,12 +451,14 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
 
     if not raw_bytes:
         return {
-            "status": "error",
-            "message": "Invalid image data.",
-            "confidence": 0,
+            "status": "rejected",
+            "message": "Upload a valid food photo before estimating the dish.",
+            "suggestion": "Choose a clear photo where the food is visible.",
+            "confidence": None,
         }
 
-    # ── Pixel non-food rejection (very fast, before API calls) ───────────────
+    # Cheap image-quality guard. This cannot determine whether an image contains
+    # food, so it is deliberately not used as a non-food classifier.
     try:
         img_check = Image.open(BytesIO(raw_bytes)).convert("RGB").resize((64, 64))
         pixels = list(img_check.getdata())
@@ -341,17 +467,19 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
                    if r > 95 and g > 40 and b > 20
                    and max(r, g, b) - min(r, g, b) > 15
                    and abs(r - g) > 15 and r > g and r > b)
-        if skin / total > 0.60 and not hint:
+        if skin / total > 0.60:
             return {
                 "status": "rejected",
-                "message": "❌ No food detected. Please upload a clear photo of a meal.",
-                "suggestion": "Use a Quick Select badge or type a Dish Hint below.",
-                "confidence": 96.0,
+                "message": "The image looks like a portrait rather than a meal. Please upload a clear meal photo.",
+                "suggestion": "Retake the photo with the meal clearly visible.",
+                "confidence": None,
+                "confidence_note": "No validated non-food classifier is configured.",
             }
     except Exception:
         pass
 
-    # ── Path 2: Run ViT and Gemini in parallel (best accuracy via ensemble) ───
+    # The providers are independent candidates. Agreement improves review value,
+    # but is not evidence of a calibrated probability or product accuracy.
     vit_result = _predict_food_vit(raw_bytes)
     gemini_result = _predict_food_gemini(raw_bytes)
 
@@ -373,7 +501,6 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
     # ── Ensemble decision ─────────────────────────────────────────────────────
     chosen_food: Optional[str] = None
     chosen_confidence: float = 0.0
-    method: str = "ipcc_fallback"
 
     if vit_food and gem_food:
         # Both models fired — check agreement
@@ -384,51 +511,53 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
         if agree and vit_score >= 70:
             # Strong agreement → use Gemini's richer name (handles Indian food better)
             chosen_food = gem_food
-            chosen_confidence = min(97.0, (vit_score * 0.45 + gem_confidence * 0.55))
-            method = "ensemble_agreed"
+            chosen_confidence = (vit_score * 0.45 + gem_confidence * 0.55)
         elif vit_score >= 80:
             # ViT very confident, use it
             chosen_food = vit_food
-            chosen_confidence = vit_score * 0.9
-            method = "vit_primary"
+            chosen_confidence = vit_score
         else:
             # Prefer Gemini (better at Indian food, contextual understanding)
             chosen_food = gem_food
-            chosen_confidence = gem_confidence * 0.9
-            method = "gemini_primary"
+            chosen_confidence = gem_confidence
     elif gem_food:
         chosen_food = gem_food
         chosen_confidence = gem_confidence
-        method = "gemini_only"
     elif vit_food:
         chosen_food = vit_food
         chosen_confidence = vit_score
-        method = "vit_only"
 
     if not chosen_food or chosen_confidence < 35:
         return {
             "status": "rejected",
-            "message": "❌ Could not identify the food in this image.",
-            "suggestion": "Try adding a Dish Hint or use a Quick Select badge.",
-            "confidence": chosen_confidence,
+            "message": "We could not independently identify food in this image.",
+            "suggestion": "Use a clear, well-lit photo focused on the meal, then try again.",
+            "confidence": None,
+            "confidence_note": "No candidate met the unvalidated review threshold.",
         }
 
-    # Map to IPCC CO2 factor
-    co2 = _co2_from_name(chosen_food)
-    if co2 is None:
-        # Recognized food not in table yet — use contextual default
-        co2 = 1.6
-        logger.info(f"No IPCC factor for '{chosen_food}' — using 1.6 kg default")
+    if not _dish_names_agree(confirmed_name, chosen_food):
+        return {
+            "status": "rejected",
+            "message": f"The photo candidate ('{chosen_food.title()}') does not match the dish name ('{confirmed_name}').",
+            "suggestion": "Use a clearer photo of the meal or correct the dish name. No estimate was added.",
+            "confidence": None,
+            "image_candidate": chosen_food.title(),
+        }
 
     serving_g = int(gemini_result.get("serving_g", 300)) if gemini_result else 300
 
     return {
         "status": "success",
-        "food_category": chosen_food.title(),
-        "co2_kg": round(float(co2), 2),
-        "confidence": round(chosen_confidence, 1),
+        "food_category": confirmed_name.title(),
+        "co2_kg": round(float(confirmed_co2), 2),
+        "confidence": None,
+        "raw_candidate_score": round(chosen_confidence, 1),
+        "confidence_note": "The image candidate and dish-name agreement are not yet validated on a held-out real-world food/non-food set.",
         "serving_size_g": serving_g,
-        "method": method,
+        "method": "vision_dish_agreement",
+        "image_candidate": chosen_food.title(),
+        "requires_user_confirmation": True,
     }
 
 
@@ -458,10 +587,19 @@ def _build_feature_row(user_inputs: dict, encoders: dict, features: list) -> dic
 
 def predict_gbdt(user_inputs: dict) -> Optional[float]:
     """
-    Predict annual CO2 (kg/year) using XGBoost + LightGBM ensemble.
-    Missing features filled with dataset-mean defaults automatically.
-    Returns float or None.
+    Compatibility inference for the checked-in 14-field annual pipeline.
+
+    Product code should call predict_annual_carbon() only after collecting all
+    19 annual-profile fields. This legacy path remains for existing callers.
     """
+    if gbdt_pipeline is not None:
+        try:
+            row = {feature: user_inputs.get(feature) for feature in GBDT_DEFAULTS}
+            return float(gbdt_pipeline.predict(pd.DataFrame([row]))[0])
+        except Exception as exc:
+            logger.error("Saved daily carbon pipeline prediction error: %s", exc)
+            return None
+
     if not HAS_XGB or not gbdt_xgb_data:
         return None
 
@@ -493,8 +631,31 @@ def predict_gbdt(user_inputs: dict) -> Optional[float]:
     return max(500.0, min(20000.0, xgb_pred))
 
 
+def missing_annual_carbon_features(profile: dict) -> list[str]:
+    """Return full-schema fields that the caller did not explicitly provide."""
+    return [
+        feature
+        for feature in ANNUAL_CARBON_FEATURES
+        if profile.get(feature) is None or (isinstance(profile.get(feature), str) and not profile[feature].strip())
+    ]
+
+
+def predict_annual_carbon(profile: dict) -> Optional[float]:
+    """Predict annual kg CO2e from a complete, user-supplied lifestyle profile."""
+    if missing_annual_carbon_features(profile):
+        return None
+    if annual_carbon_champion is None:
+        return None
+    try:
+        row = {feature: profile[feature] for feature in ANNUAL_CARBON_FEATURES}
+        return max(0.0, float(annual_carbon_champion.predict(pd.DataFrame([row]))[0]))
+    except Exception as exc:
+        logger.error("Annual carbon candidate prediction error: %s", exc)
+        return None
+
+
 # ─────────────────────────────────────────────────────────────────────────────
-# MODEL 3: Holt-Winters Triple Exponential Smoothing (Weekly Forecast)
+# MODEL 3: Holt-Winters Weekly Baseline (requires observed history)
 # ─────────────────────────────────────────────────────────────────────────────
 def predict_weekly_arima(daily_kg_series: List[float]) -> Optional[dict]:
     """
@@ -505,9 +666,8 @@ def predict_weekly_arima(daily_kg_series: List[float]) -> Optional[dict]:
       - 5-13 days: Holt-Winters Double (trend only, no seasonality)
       - <5 days:   Returns None
 
-    Holt-Winters is the gold standard in seasonal time-series forecasting.
-    Used by Amazon, IMF, Walmart for demand planning. Beats LSTM on short horizons
-    (WS score on M3/M4 competition, Makridakis et al. 2018).
+    This is an unevaluated baseline for the user's own observed history. It is
+    not a release-approved forecast until it has rolling backtest metrics.
     """
     if not daily_kg_series or len(daily_kg_series) < 5:
         return None
@@ -523,8 +683,9 @@ def predict_weekly_arima(daily_kg_series: List[float]) -> Optional[dict]:
         forecast = [max(0.1, round(float(m * (last + i) + b), 2)) for i in range(7)]
         return {
             "forecast": forecast,
-            "lower_ci": [max(0.1, v * 0.82) for v in forecast],
-            "upper_ci": [v * 1.18 for v in forecast],
+            "lower_band": [max(0.1, v * 0.82) for v in forecast],
+            "upper_band": [v * 1.18 for v in forecast],
+            "band_note": "Heuristic band; it is not a calibrated confidence interval.",
             "trend": "improving" if m < -0.02 else "worsening" if m > 0.02 else "stable",
             "weekly_total": round(sum(forecast), 2),
             "method": "linear_trend_numpy",
@@ -551,11 +712,11 @@ def predict_weekly_arima(daily_kg_series: List[float]) -> Optional[dict]:
 
         forecast = [max(0.1, round(float(v), 2)) for v in fc]
 
-        # Confidence interval: ±1.28σ of residuals ≈ 80% CI
+        # Residual spread gives a visual uncertainty band, not calibrated coverage.
         residuals = fit.resid
         sigma = float(np.std(residuals)) if len(residuals) > 0 else 0.5
-        lower_ci = [max(0.1, round(v - 1.28 * sigma, 2)) for v in forecast]
-        upper_ci = [round(v + 1.28 * sigma, 2) for v in forecast]
+        lower_band = [max(0.1, round(v - 1.28 * sigma, 2)) for v in forecast]
+        upper_band = [round(v + 1.28 * sigma, 2) for v in forecast]
 
         recent_avg = float(np.mean(series[-7:]))
         forecast_avg = float(np.mean(forecast))
@@ -564,8 +725,9 @@ def predict_weekly_arima(daily_kg_series: List[float]) -> Optional[dict]:
 
         return {
             "forecast": forecast,
-            "lower_ci": lower_ci,
-            "upper_ci": upper_ci,
+            "lower_band": lower_band,
+            "upper_band": upper_band,
+            "band_note": "Heuristic residual band; it is not a calibrated confidence interval.",
             "trend": trend,
             "pct_change": round(pct, 1),
             "weekly_total": round(sum(forecast), 2),

@@ -37,6 +37,9 @@ dist
 
 # Logs and debug files
 npm-debug.log*
+npm-cache/
+frontend-build-check/
+frontend-build-check-*.log
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
@@ -51,6 +54,7 @@ __pycache__/
 *pyc*
 venv/
 .venv/
+.venv-food101/
 
 # Development tools
 chainlit.md

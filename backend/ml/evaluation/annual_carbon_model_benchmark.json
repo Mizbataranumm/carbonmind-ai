@@ -1,0 +1,115 @@
+{
+  "model_family": "annual_carbon_regression_benchmark",
+  "status": "candidate_not_yet_product_approved",
+  "generated_at": "2026-09-14T04:43:57.645124+00:00",
+  "dataset": "Carbon Emission.csv",
+  "dataset_sha256": "69a5afab2716d70dfab934075f4dbc62938c7200c86d7e840a10ee50dad95ad0",
+  "target": "CarbonEmission",
+  "row_count": 10000,
+  "split": "random_80_20_random_state_42",
+  "train_rows": 8000,
+  "test_rows": 2000,
+  "baseline_median": {
+    "mae_kg_year": 763.716,
+    "rmse_kg_year": 1041.5708,
+    "r2_holdout": -0.0434
+  },
+  "candidates": {
+    "hist_gradient_legacy_14": {
+      "mae_kg_year": 267.3233,
+      "rmse_kg_year": 335.2427,
+      "r2_holdout": 0.8919,
+      "feature_count": 14
+    },
+    "hist_gradient_full_19": {
+      "mae_kg_year": 92.0471,
+      "rmse_kg_year": 124.0734,
+      "r2_holdout": 0.9852,
+      "feature_count": 19
+    },
+    "xgboost_full_19": {
+      "mae_kg_year": 96.8263,
+      "rmse_kg_year": 131.9236,
+      "r2_holdout": 0.9833,
+      "feature_count": 19
+    },
+    "lightgbm_full_19": {
+      "mae_kg_year": 87.0779,
+      "rmse_kg_year": 118.2768,
+      "r2_holdout": 0.9865,
+      "feature_count": 19
+    },
+    "lightgbm_product_18_no_sex": {
+      "mae_kg_year": 182.364,
+      "rmse_kg_year": 228.7227,
+      "r2_holdout": 0.9497,
+      "feature_count": 18
+    }
+  },
+  "overall_holdout_winner": {
+    "name": "lightgbm_full_19",
+    "features": [
+      "Body Type",
+      "Sex",
+      "Diet",
+      "How Often Shower",
+      "Heating Energy Source",
+      "Transport",
+      "Vehicle Type",
+      "Social Activity",
+      "Monthly Grocery Bill",
+      "Frequency of Traveling by Air",
+      "Vehicle Monthly Distance Km",
+      "Waste Bag Size",
+      "Waste Bag Weekly Count",
+      "How Long TV PC Daily Hour",
+      "How Many New Clothes Monthly",
+      "How Long Internet Daily Hour",
+      "Energy efficiency",
+      "Recycling",
+      "Cooking_With"
+    ],
+    "metrics": {
+      "mae_kg_year": 87.0779,
+      "rmse_kg_year": 118.2768,
+      "r2_holdout": 0.9865,
+      "feature_count": 19
+    }
+  },
+  "product_candidate": {
+    "name": "lightgbm_product_18_no_sex",
+    "artifact": "backend\\ml\\models\\annual_carbon_champion.joblib",
+    "features": [
+      "Body Type",
+      "Diet",
+      "How Often Shower",
+      "Heating Energy Source",
+      "Transport",
+      "Vehicle Type",
+      "Social Activity",
+      "Monthly Grocery Bill",
+      "Frequency of Traveling by Air",
+      "Vehicle Monthly Distance Km",
+      "Waste Bag Size",
+      "Waste Bag Weekly Count",
+      "How Long TV PC Daily Hour",
+      "How Many New Clothes Monthly",
+      "How Long Internet Daily Hour",
+      "Energy efficiency",
+      "Recycling",
+      "Cooking_With"
+    ],
+    "metrics": {
+      "mae_kg_year": 182.364,
+      "rmse_kg_year": 228.7227,
+      "r2_holdout": 0.9497,
+      "feature_count": 18
+    }
+  },
+  "limitations": [
+    "All candidates are compared on a single random holdout, not a temporal or user-level split.",
+    "The target is annual CarbonEmission, so these metrics do not validate a partial-day projection.",
+    "The model requires the full recorded lifestyle schema; do not silently default product inputs.",
+    "The product candidate excludes the source dataset's Sex field. Its lower holdout score is the trade-off for not collecting that sensitive field in the app."
+  ]
+}
