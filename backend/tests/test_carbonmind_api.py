@@ -58,18 +58,19 @@ def test_future_simulate(client):
     payload = {
         "transport": "car",
         "diet": "meat",
-        "electricity_kwh": 4000,
-        "flights_per_year": 3,
+        "current_annual_co2": 8.0,
+        "annual_reduction_percent": 5.0,
         "horizon_years": 10
     }
     r = client.post(f"{BASE_URL}/api/future/simulate", json=payload, timeout=20)
     assert r.status_code == 200
     data = r.json()
     for k in ["current_annual_co2", "projected_co2", "future_temp_delta",
-              "earth_health", "future_summary", "yearly_breakdown", "recommendations"]:
+              "future_summary", "yearly_breakdown", "recommendations", "assumptions"]:
         assert k in data, f"missing {k}"
     assert len(data["yearly_breakdown"]) == 11  # horizon+1
-    assert 0 <= data["earth_health"] <= 100
+    assert data["current_annual_co2"] == 8.0
+    assert "entered by the user" in " ".join(data["assumptions"])
     assert isinstance(data["recommendations"], list) and len(data["recommendations"]) > 0
 
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
-import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Smartphone, Beef, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
+import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getFoodCatalog, predictDay } from "@/lib/api";
 
@@ -349,16 +349,6 @@ const Predict = () => {
             </div>
           </div>
 
-          <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary mb-3">// Real-world equivalents</div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Equiv icon={<TreePine className="h-5 w-5" />} value={result.equivalents.trees_to_offset} label="trees to offset" />
-              <Equiv icon={<Car className="h-5 w-5" />} value={result.equivalents.km_by_car} label="km by car" />
-              <Equiv icon={<Smartphone className="h-5 w-5" />} value={result.equivalents.smartphone_charges.toLocaleString()} label="phone charges" />
-              <Equiv icon={<Beef className="h-5 w-5" />} value={result.equivalents.beef_burgers} label="beef burger equiv" />
-            </div>
-          </div>
-
           <div className="glass p-4 sm:p-6 glass-hover min-w-0">
             <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// 24-hour projection</div>
             <div className="font-display text-xl mt-1">Predicted emission curve</div>
@@ -391,16 +381,6 @@ const MetricBlock = ({ label, value, color }) => (
   <div className="bg-widget border border-glass-border rounded-xl p-3">
     <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary">{label}</div>
     <div className="font-mono-data text-xl mt-1" style={{ color }}>{value}</div>
-  </div>
-);
-
-const Equiv = ({ icon, value, label }) => (
-  <div className="glass p-5 glass-hover">
-    <div className="h-9 w-9 rounded-lg bg-green/10 border border-green/20 flex items-center justify-center text-green mb-3">
-      {icon}
-    </div>
-    <div className="font-mono-data text-2xl">{value}</div>
-    <div className="text-xs text-secondary mt-1">{label}</div>
   </div>
 );
 

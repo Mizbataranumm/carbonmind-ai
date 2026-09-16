@@ -183,7 +183,6 @@ class PredictDayResponse(BaseModel):
     exceeds: bool
     over_pct: float
     hourly_curve: List[dict]
-    equivalents: dict
     breakdown_by_type: List[dict]
     ai_headline: str
 
@@ -228,7 +227,6 @@ class CertificateResponse(BaseModel):
     recorded_days: int
     verification_status: str
     grade: str
-    equivalents: dict
     issued_at: str
     signature: str
     verify_url: str
@@ -237,18 +235,19 @@ class PhoneCallRequest(BaseModel):
     phone_number: str = Field(min_length=10, max_length=20)
 
 class SimulateRequest(BaseModel):
-    transport: str  # car / public / bike / mixed
-    diet: str  # meat / mixed / vegetarian / vegan
-    electricity_kwh: float
-    flights_per_year: int
-    horizon_years: int = 10
+    current_annual_co2: float = Field(gt=0, le=100)
+    annual_reduction_percent: float = Field(ge=0, le=100)
+    horizon_years: int = Field(default=10, ge=1, le=30)
+    # These context fields shape recommendations only. They are never converted
+    # to carbon values because the repository has no sourced factors for them.
+    transport: str = Field(default="mixed", pattern=r"^(car|public|bike|mixed)$")
+    diet: str = Field(default="mixed", pattern=r"^(meat|mixed|vegetarian|vegan)$")
 
 class SimulateResponse(BaseModel):
     current_annual_co2: float
     projected_co2: float
     future_temp_delta: Optional[float] = None
     temperature_note: Optional[str] = None
-    earth_health: int
     future_summary: str
     yearly_breakdown: List[dict]
     recommendations: List[str]
@@ -661,63 +660,40 @@ async def tracker_live(user_id: str, current_user_id: str = Depends(_current_use
 
 @api_router.post("/future/simulate", response_model=SimulateResponse)
 async def simulate(req: SimulateRequest):
-    transport_factor = {"car": 4.6, "mixed": 2.8, "public": 1.4, "bike": 0.2}.get(req.transport, 2.5)
-    diet_factor = {"meat": 3.3, "mixed": 2.1, "vegetarian": 1.4, "vegan": 1.0}.get(req.diet, 2.0)
-    electric_co2 = req.electricity_kwh * 0.4 / 1000  # tons
-    flights_co2 = req.flights_per_year * 0.9
-    base = transport_factor + diet_factor + electric_co2 + flights_co2
+    base = req.current_annual_co2
+    reduction_rate = req.annual_reduction_percent / 100
     current = round(base, 2)
-
-    reduction_rate = 0.03
-    if req.transport in ["public", "bike"]:
-        reduction_rate += 0.015
-    if req.diet in ["vegetarian", "vegan"]:
-        reduction_rate += 0.015
-    if req.flights_per_year == 0:
-        reduction_rate += 0.01
     projected = round(base * ((1 - reduction_rate) ** req.horizon_years), 2)
-
-    yearly = []
-    for i in range(req.horizon_years + 1):
-        year_co2 = round(base * ((1 - reduction_rate) ** i), 2) if req.horizon_years else base
-        yearly.append({"year": datetime.now().year + i, "co2": year_co2})
-        
-    earth_health = max(0, min(100, int(100 - (projected * 8))))
-    # A personal footprint cannot predict local or global temperature change.
-    # Keep the response field for API compatibility, but make its limitation explicit.
-    temp_delta = None
-    if projected < 3.5:
-        summary = f"Under these scenario assumptions, your estimated footprint is {round((1 - projected/base)*100)}% lower by {datetime.now().year + req.horizon_years}."
-    elif projected < 6:
-        summary = "This scenario is directionally lower, but transport, food, electricity, and flight choices still leave room for reductions."
-    else:
-        summary = "This scenario remains carbon-intensive. The action list shows the largest assumed levers, not a climate forecast."
+    yearly = [
+        {"year": datetime.now().year + year, "co2": round(base * ((1 - reduction_rate) ** year), 2)}
+        for year in range(req.horizon_years + 1)
+    ]
+    summary = (
+        f"Using the annual footprint and reduction target you entered, this arithmetic scenario is "
+        f"{round((1 - projected / base) * 100, 1)}% lower by {datetime.now().year + req.horizon_years}."
+    )
     recs = []
     if req.transport == "car":
-        recs.append("Switch 2 weekly commutes to cycling or public transit (-1.2 t/yr)")
+        recs.append("Compare a routine with some car trips replaced by public transit, walking, or cycling.")
     if req.diet == "meat":
-        recs.append("Introduce 3 plant-based dinners weekly (-0.8 t/yr)")
-    if req.electricity_kwh > 4000:
-        recs.append("Audit standby power & switch to renewable plan (-0.6 t/yr)")
-    if req.flights_per_year >= 3:
-        recs.append("Replace 1 short-haul flight with rail (-0.5 t/yr)")
+        recs.append("Compare a routine with more plant-forward meals and record the observed difference.")
     if not recs:
-        recs.append("No single input crosses this scenario's action threshold; adjust transport, diet, electricity, or flights to compare alternatives.")
+        recs.append("Use your activity history to choose a realistic annual reduction target, then compare alternatives.")
     return SimulateResponse(
         current_annual_co2=current,
         projected_co2=projected,
-        future_temp_delta=temp_delta,
+        future_temp_delta=None,
         temperature_note="Personal emissions cannot be converted into an individual temperature-change prediction.",
-        earth_health=earth_health,
         future_summary=summary,
         yearly_breakdown=yearly,
         recommendations=recs,
         method="scenario_calculator",
+        model_version="scenario_calculator_v2_user_baseline",
         model_status="transparent_scenario_not_time_series_ml",
         assumptions=[
-            "Annual electricity emissions use 0.4 kg CO2e per kWh.",
-            "Flights are estimated at 0.9 t CO2e each.",
-            f"Scenario reduction rate is {round(reduction_rate * 100, 1)}% per year from selected habits.",
+            f"Starting annual footprint: {current} t CO2e, entered by the user.",
+            f"Annual reduction target: {round(req.annual_reduction_percent, 1)}%, entered by the user.",
+            "Transport and diet choices shape recommendations only; no hidden emission-factor conversion is applied.",
             "This is not an LSTM forecast; it is a transparent planning scenario.",
         ],
     )
@@ -1069,12 +1045,6 @@ async def predict_day(req: PredictDayRequest):
             {"type": key, "kg": round(value, 2)}
             for key, value in sorted(breakdown.items())
         ],
-        "equivalents": {
-            "trees_to_offset": round(predicted / 21.7, 1),
-            "km_by_car": round(predicted * 6.3, 1),
-            "smartphone_charges": round(predicted * 122),
-            "beef_burgers": round(predicted / 3.6, 1),
-        },
     }
 
 
@@ -1117,11 +1087,11 @@ async def predict_weekly(req: dict):
 @api_router.post("/voice/call-tips")
 async def voice_call_tips(req: dict):
     tips = [
-        "Switch off devices on standby — they drain up to 10% of your home energy.",
-        "Cycling for trips under 5 km saves around 1.2 kg CO₂ per trip versus driving.",
-        "A plant-based meal produces 50% less carbon than a beef-based one.",
-        "Line-drying clothes instead of tumble drying saves 2.4 kg CO₂ per load.",
-        "Reducing your shower by 2 minutes saves roughly 0.2 kg CO₂ daily.",
+        "Switch off devices that are not in use and review your household energy routine.",
+        "For practical local trips, compare walking, cycling, public transit, and driving.",
+        "Try a plant-forward meal and record its reviewed food estimate in your activity history.",
+        "Use air-drying when it fits your routine instead of relying on a tumble dryer.",
+        "Look for a small water-heating habit you can change consistently.",
     ]
     import random
     return {
@@ -1380,10 +1350,6 @@ async def generate_certificate(current_user_id: str = Depends(_current_user_id))
         "verification_status": "user_entered_activity_summary",
         "month": month,
         "issued_at": issued_at,
-        "equivalents": {
-            "trees_to_offset": round(co2_recorded_kg / 21.7, 1),
-            "km_by_car_equivalent": round(co2_recorded_kg * 6.3, 1),
-        },
         "signature": signature,
         "verify_url": "",
         "user_id": current_user_id,

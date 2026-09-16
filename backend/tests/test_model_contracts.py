@@ -101,12 +101,16 @@ class ModelContractTests(unittest.TestCase):
 
     def test_future_response_is_a_scenario_not_temperature_prediction(self):
         body = asyncio.run(simulate(SimulateRequest(
-            transport="mixed", diet="mixed", electricity_kwh=3200, flights_per_year=2, horizon_years=10,
+            current_annual_co2=7.5, annual_reduction_percent=4.0,
+            transport="mixed", diet="mixed", horizon_years=10,
         )))
 
         self.assertEqual(body.method, "scenario_calculator")
         self.assertEqual(body.model_status, "transparent_scenario_not_time_series_ml")
         self.assertIsNone(body.future_temp_delta)
+        self.assertEqual(body.current_annual_co2, 7.5)
+        self.assertEqual(body.projected_co2, 4.99)
+        self.assertIn("entered by the user", " ".join(body.assumptions))
 
     def test_food_scan_rejects_a_dish_name_without_a_photo(self):
         body = asyncio.run(food_scan(FoodScanRequest(image_base64=None, hint="biryani")))

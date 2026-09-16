@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Share2, Leaf, Award, TreePine, Car, CheckCircle2, Sparkles } from "lucide-react";
+import { Download, Share2, Leaf, Award, CheckCircle2, Sparkles } from "lucide-react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { generateCertificate } from "@/lib/api";
@@ -190,11 +190,9 @@ const Certificate = () => {
               {cert.co2_recorded_kg}<span style={{ fontSize: 20, color: "var(--text-muted)", marginLeft: 4 }}>kg</span>
             </div>
 
-            {/* Equivalents */}
-            <div className="grid grid-cols-3 gap-3 mt-5">
-              <EquivBox icon={<TreePine size={16} />} value={cert.equivalents.trees_to_offset} label="trees to offset" />
-              <EquivBox icon={<Car size={16} />} value={cert.equivalents.km_by_car_equivalent} label="car-km equivalent" />
-              <EquivBox icon={<Award size={16} />} value={cert.recorded_days} label="recorded days" />
+            <div className="mt-5 rounded-xl border border-glass-border bg-widget p-3 text-center">
+              <div className="font-mono-data text-xl text-main">{cert.recorded_days}</div>
+              <div className="mt-1 text-[10px] uppercase tracking-widest text-secondary">Recorded days</div>
             </div>
           </div>
 
@@ -227,19 +225,5 @@ const Certificate = () => {
     </div>
   );
 };
-
-const EquivBox = ({ icon, value, label }) => (
-  <div style={{
-    padding: 10,
-    background: "rgba(255,255,255,0.02)",
-    border: "1px solid rgba(255,255,255,0.06)",
-    borderRadius: 12,
-    textAlign: "center",
-  }}>
-    <div style={{ color: "var(--neon-green)", display: "flex", justifyContent: "center" }}>{icon}</div>
-    <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 16, color: "#fff", marginTop: 4, fontWeight: 700 }}>{value}</div>
-    <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, color: "var(--text-muted)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
-  </div>
-);
 
 export default Certificate;

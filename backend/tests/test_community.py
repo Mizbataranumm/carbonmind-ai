@@ -144,8 +144,8 @@ def test_certificate():
 
 def test_future_simulate():
     r = requests.post(f"{API}/future/simulate", json={
-        "transport": "mixed", "diet": "mixed", "electricity_kwh": 3000,
-        "flights_per_year": 2, "horizon_years": 5
+        "transport": "mixed", "diet": "mixed", "current_annual_co2": 6.5,
+        "annual_reduction_percent": 4.0, "horizon_years": 5
     })
     assert r.status_code == 200
     assert "projected_co2" in r.json()
