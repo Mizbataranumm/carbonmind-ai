@@ -3,22 +3,22 @@
   "last_reviewed": "2026-09-13",
   "models": {
     "food_scanner": {
-      "status": "not_product_validated",
+      "status": "candidate_runtime_wired_not_product_validated",
       "runtime_path": "backend/ml_service.py::predict_food",
       "current_runtime": [
-        "Hugging Face Inference API: nateraw/food",
-        "Gemini Vision when GEMINI_API_KEY or EMERGENT_LLM_KEY is configured",
-        "image candidate and confirmed dish-name agreement before a CSV-backed recipe emission estimate",
-        "limited portrait-looking-image rejection; no validated non-food classifier"
+        "Gemini Vision when GEMINI_API_KEY is configured, otherwise Hugging Face Inference API: nateraw/food",
+        "checked-in local ResNet18 Food-101 candidate in parallel with the primary provider",
+        "confidence-weighted decision: high-confidence primary or low-confidence agreement boost",
+        "confirmed dish-name agreement before a CSV-backed recipe emission estimate"
       ],
       "checked_in_artifacts": [
         "backend/ml/models/cnn_food_model.pt",
         "backend/ml/models/cnn_food_metadata.json"
       ],
       "known_issues": [
-        "Checked-in CNN metadata reports best_accuracy = 4.0",
-        "Local CNN artifact is not loaded by the serving code",
-        "Text-only dish names are deliberately rejected; a successful scan requires independent image candidates to agree with the dish name",
+        "Checked-in CNN metadata reports best_accuracy = 4.0 and it therefore remains a candidate, not a release-ready classifier",
+        "No committed 15-20 image primary-vs-CNN-vs-ensemble evaluation report exists",
+        "A successful scan requires the image decision and the user-entered dish to agree",
         "Food_Product_Emissions.csv provides product-level emission factors; reviewed recipes and portion assumptions are required to estimate a mixed dish",
         "No committed real-world image validation report"
       ],
@@ -33,26 +33,25 @@
       ]
     },
     "daily_carbon_predictor": {
-      "status": "candidate_reproducible_baseline_and_product_schema_candidate",
-      "runtime_path": "backend/ml_service.py::predict_gbdt",
+      "status": "candidate_reproducible_14_feature_ensemble_and_product_schema_candidate",
+      "runtime_path": "backend/ml_service.py::predict_gbdt_ensemble",
       "current_runtime": [
+        "14-feature HistGradientBoosting and LightGBM pipelines on the exact same random holdout split",
+        "R2-weighted annual lifestyle ensemble returned beside the 18-feature LightGBM profile estimate",
         "18-feature LightGBM pipeline for explicit annual profile requests; excludes the source Sex field",
-        "joblib sklearn preprocessing-plus-estimator pipeline for legacy compatibility",
-        "legacy XGBoost and LightGBM artifacts only as compatibility fallback",
         "14-feature annual lifestyle schema"
       ],
       "checked_in_artifacts": [
-        "backend/ml/models/gbdt_carbon_model.pkl",
-        "backend/ml/models/lgbm_carbon_model.pkl",
-        "backend/ml/models/daily_carbon_pipeline.joblib",
-        "backend/ml/evaluation/daily_carbon_gbdt_metrics.json",
+        "backend/ml/models/daily_hist_gradient_pipeline.joblib",
+        "backend/ml/models/daily_lightgbm_pipeline.joblib",
+        "backend/ml/evaluation/daily_gbdt_ensemble_metrics.json",
         "backend/ml/models/annual_carbon_champion.joblib",
         "backend/ml/evaluation/annual_carbon_model_benchmark.json"
       ],
       "known_issues": [
         "The held-out result is a random 80/20 split, not a production temporal, regional, or user-level validation",
         "The annual-profile form collects the product 18-feature schema without the source Sex field, but evaluation remains a single random holdout",
-        "The annual target must not be presented as an individually validated daily measurement"
+        "Carbon Emission.csv has annual targets and no within-day timestamps, so the 14-feature ensemble cannot be used as a same-day activity predictor"
       ],
       "required_release_metrics": [
         "mae_kg_year",
@@ -75,7 +74,7 @@
         "backend/ml/models/lstm_carbon_model.h5"
       ],
       "known_issues": [
-        "LSTM artifact is not used by current weekly forecast path",
+        "Legacy LSTM artifact is deliberately not served because no matching chronological validation report exists",
         "No backtest report exists for the Holt-Winters path",
         "Planning scenarios are assumption-driven and not time-series forecasts"
       ],

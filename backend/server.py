@@ -23,13 +23,6 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Optional AI integration — falls back gracefully if not installed
-try:
-    from emergentintegrations.llm.chat import LlmChat, UserMessage
-    HAS_LLM = True
-except ImportError:
-    HAS_LLM = False
-
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -52,21 +45,35 @@ except Exception as e:
 app = FastAPI(title="CarbonMind AI")
 api_router = APIRouter(prefix="/api")
 
-import sys
-import os
-sys.path.append(os.path.dirname(__file__))
-
-from ml_service import (
-    ANNUAL_CARBON_FEATURES,
-    GBDT_DEFAULTS,
-    get_model_status,
-    load_models,
-    missing_annual_carbon_features,
-    predict_annual_carbon,
-    predict_food,
-    predict_gbdt,
-    predict_weekly_arima,
-)
+try:
+    from .ml_service import (
+        ANNUAL_CARBON_FEATURES,
+        GBDT_DEFAULTS,
+        get_model_status,
+        load_models,
+        missing_annual_carbon_features,
+        predict_annual_carbon,
+        predict_food,
+        predict_gbdt,
+        predict_gbdt_ensemble,
+        predict_weekly_ensemble,
+    )
+    from .food_emissions import food_catalog
+except ImportError:
+    # Render starts ``uvicorn server:app`` from this directory.
+    from ml_service import (  # type: ignore[no-redef]
+        ANNUAL_CARBON_FEATURES,
+        GBDT_DEFAULTS,
+        get_model_status,
+        load_models,
+        missing_annual_carbon_features,
+        predict_annual_carbon,
+        predict_food,
+        predict_gbdt,
+        predict_gbdt_ensemble,
+        predict_weekly_ensemble,
+    )
+    from food_emissions import food_catalog  # type: ignore[no-redef]
 
 async def _warm_models() -> None:
     """Load optional model artifacts without delaying the web server port bind."""
@@ -86,6 +93,7 @@ async def _create_database_indexes() -> None:
         await db.community_joins.create_index([("challenge_id", 1), ("user_id", 1)], unique=True)
         await db.certificates.create_index("cert_id", unique=True)
         await db.food_scan_feedback.create_index([("user_id", 1), ("created_at", -1)])
+        await db.food_scan_predictions.create_index([("created_at", -1)])
     except Exception as exc:
         logger.warning("Database index setup skipped: %s", exc)
 
@@ -134,6 +142,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     session_id: str
+    mode: str = "rule_based_smart_tips"
 
 class MorningActivity(BaseModel):
     type: str
@@ -885,12 +894,12 @@ async def create_post(req: CreatePostRequest, current_user_id: str = Depends(_cu
     return {"ok": True, "post_id": doc["post_id"]}
 
 
-# ====== AI Coach - Smart Rule-Based Sustainability Coach ======
+# ====== Smart Tips - rule-based sustainability guidance ======
 import random
 
 COACH_RESPONSES = {
     "greetings": [
-        "Hello! 👋 I'm your CarbonMind AI Coach. How can I help you today? You can ask me how to reduce emissions, what a carbon footprint is, tips for green travel or plant-based food, or how to use this app!",
+        "Hello. I am CarbonMind Smart Tips, a rule-based guide. Ask about reducing emissions, carbon footprints, green travel, plant-based food, or how to use this app.",
         "Hey there! 🌱 Great to see you. What sustainability questions can I help you with today?",
         "Hi! Welcome back to CarbonMind. Feel free to ask me anything about your carbon habits, food scanning, or daily eco tips!",
     ],
@@ -968,10 +977,10 @@ def get_coach_reply(message: str) -> str:
 async def chat_sustainability(req: ChatRequest):
     try:
         reply = get_coach_reply(req.message)
-        return ChatResponse(reply=reply, session_id=req.session_id)
+        return ChatResponse(reply=reply, session_id=req.session_id, mode="rule_based_smart_tips")
     except Exception as e:
         logger.exception("Chat failed")
-        return ChatResponse(reply="Hello! 👋 I'm your AI Carbon Coach. Try asking about reducing your travel emissions, food footprint, or daily energy tips!", session_id=req.session_id)
+        return ChatResponse(reply="CarbonMind Smart Tips is temporarily unavailable. Try reviewing your activity record or the food-factor details.", session_id=req.session_id, mode="rule_based_smart_tips")
 
 
 
@@ -987,6 +996,7 @@ async def predict_annual(req: AnnualCarbonRequest):
     annual_kg = predict_annual_carbon(req.lifestyle_profile)
     if annual_kg is None:
         raise HTTPException(status_code=503, detail="The annual carbon candidate is unavailable.")
+    ensemble = predict_gbdt_ensemble(req.lifestyle_profile)
     return {
         "annual_kg_co2e": round(annual_kg, 2),
         "daily_equivalent_kg": round(annual_kg / 365, 2),
@@ -995,6 +1005,7 @@ async def predict_annual(req: AnnualCarbonRequest):
         "model_status": "candidate_not_product_validated",
         "feature_coverage": 1.0,
         "model_note": "This is an annual lifestyle estimate from the complete recorded profile. It is not a measured daily footprint or a validated commercial carbon-accounting result.",
+        "fourteen_feature_ensemble": ensemble,
     }
 
 
@@ -1008,21 +1019,15 @@ async def predict_day(req: PredictDayRequest):
     budget = req.daily_budget_kg
     morning_total = sum(activity["kg"] for activity in activities)
     profile = req.lifestyle_profile or {}
-    complete_profile = not missing_annual_carbon_features(profile)
-    pred_val = predict_annual_carbon(profile) if complete_profile else None
-
-    if pred_val is not None:
-        predicted = round(max(morning_total, pred_val / 365), 2)
-        model_used = "lightgbm_product_18_no_sex_candidate"
-        model_version = "annual_carbon_product_18_v1"
-        model_status = "candidate_not_product_validated"
-        model_note = "This candidate model uses a complete annual lifestyle profile. It is converted to a daily equivalent only for comparison and is not validated for a partial morning-activity log."
-    else:
-        predicted = round(morning_total * (24 / req.observation_hours), 2)
-        model_used = "activity_rate_projection"
-        model_version = "activity_rate_projection_v1"
-        model_status = "transparent_rule_based_projection"
-        model_note = f"Projection scales {req.observation_hours:g} logged hours to a 24-hour day; it is not a trained-model forecast."
+    # Carbon Emission.csv has an annual lifestyle target and no timestamped
+    # within-day activity trajectories. It cannot validate a same-day model,
+    # so this endpoint keeps the rate calculation honestly labeled.
+    predicted = round(morning_total * (24 / req.observation_hours), 2)
+    model_used = "activity_rate_projection"
+    model_version = "activity_rate_projection_v1"
+    model_status = "transparent_rule_based_projection"
+    model_note = f"Projection scales {req.observation_hours:g} logged hours to a 24-hour day; it is not a trained-model forecast."
+    annual_reference = predict_gbdt_ensemble(profile) if not missing_annual_carbon_features(profile) else None
 
     predicted = min(100.0, predicted)
     exceeds = predicted > budget
@@ -1053,6 +1058,7 @@ async def predict_day(req: PredictDayRequest):
         "model_note": model_note,
         "observation_hours": req.observation_hours,
         "profile_feature_coverage": round(sum(feature in profile and profile[feature] is not None for feature in ANNUAL_CARBON_FEATURES) / len(ANNUAL_CARBON_FEATURES), 2),
+        "annual_lifestyle_ensemble_reference": annual_reference,
         "ai_headline": (
             f"Alert: this projection reaches {predicted} kg today, {abs(over_pct)}% above your {budget} kg budget."
             if exceeds else
@@ -1072,10 +1078,10 @@ async def predict_day(req: PredictDayRequest):
     }
 
 
-# ====== Weekly Forecast (Holt-Winters Triple Exponential Smoothing) ======
+# ====== Weekly Forecast (Holt-Winters + validated LSTM when available) ======
 @api_router.post("/predict/weekly")
 async def predict_weekly(req: dict):
-    """Return an unevaluated seven-day baseline from observed daily history."""
+    """Return a seven-day forecast with transparent model availability."""
     history = req.get("daily_history", [])
     if not isinstance(history, list) or len(history) < 5:
         raise HTTPException(status_code=422, detail="At least five real daily observations are required for a weekly forecast.")
@@ -1084,7 +1090,7 @@ async def predict_weekly(req: dict):
     except (TypeError, ValueError):
         raise HTTPException(status_code=422, detail="daily_history must contain numeric emission values.")
 
-    forecast_res = predict_weekly_arima(history)
+    forecast_res = predict_weekly_ensemble(history)
     if not forecast_res:
         avg = sum(history) / len(history)
         forecast_res = {
@@ -1100,7 +1106,7 @@ async def predict_weekly(req: dict):
 
     return {
         "status": "success",
-        "model_version": "weekly_holt_winters_baseline_v1",
+        "model_version": "weekly_holt_winters_lstm_candidate_v1",
         "forecast_days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         **forecast_res
     }
@@ -1213,6 +1219,37 @@ async def voice_phone_call(req: PhoneCallRequest, current_user_id: str = Depends
 
 
 # ====== Food Carbon Scanner ======
+@api_router.get("/food/catalog")
+async def get_food_catalog():
+    """Reviewed food choices only; values are calculated from the CSV recipe catalog."""
+    return {
+        "factor_source": "Food_Product_Emissions.csv",
+        "items": food_catalog(),
+        "note": "Transport, electricity, and device values are intentionally not supplied here because this CSV contains food-product factors only.",
+    }
+
+
+async def _persist_food_prediction(prediction: dict, hint: Optional[str]) -> Optional[str]:
+    """Persist model-output audit fields, never raw photo bytes."""
+    if db is None or not prediction.get("prediction_audit"):
+        return None
+    scan_id = str(uuid.uuid4())
+    payload = {
+        "scan_id": scan_id,
+        "status": prediction.get("status"),
+        "confirmed_dish": (hint or "").strip()[:120],
+        "prediction_audit": prediction["prediction_audit"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "image_retained": False,
+    }
+    try:
+        await db.food_scan_predictions.insert_one(payload)
+        return scan_id
+    except Exception as exc:
+        logger.warning("Food prediction audit logging skipped: %s", exc)
+        return None
+
+
 @api_router.post("/food/scan")
 async def food_scan(req: FoodScanRequest):
     base64_img = req.image_base64
@@ -1244,6 +1281,7 @@ async def food_scan(req: FoodScanRequest):
         }
 
     pred = predict_food(base64_img or "", hint=hint)
+    scan_id = await _persist_food_prediction(pred, hint)
     
     if pred["status"] == "error":
         return {
@@ -1253,13 +1291,16 @@ async def food_scan(req: FoodScanRequest):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
-    if pred["status"] == "rejected":
+    if pred["status"] in {"rejected", "low_confidence"}:
         return {
-            "status": "error",
+            "status": "review",
             "message": pred["message"],
             "suggestion": pred.get("suggestion", "Try another clear photo of the meal."),
             "confidence": pred.get("confidence"),
             "image_candidate": pred.get("image_candidate"),
+            "prediction_audit": pred.get("prediction_audit"),
+            "scan_id": scan_id,
+            "requires_user_confirmation": True,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
@@ -1292,6 +1333,8 @@ async def food_scan(req: FoodScanRequest):
             "serving_size_g": pred.get("serving_size_g"),
             "factor_source": pred.get("factor_source"),
             "recipe_components": pred.get("components", []),
+            "prediction_audit": pred.get("prediction_audit"),
+            "scan_id": scan_id,
         },
         "message": f"Successfully analyzed {pred['food_category']}",
         "timestamp": datetime.now(timezone.utc).isoformat()

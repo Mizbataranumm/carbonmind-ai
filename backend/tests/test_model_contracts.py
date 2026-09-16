@@ -17,8 +17,10 @@ from backend.ml_service import (
     predict_annual_carbon,
     predict_food,
     predict_gbdt,
+    predict_gbdt_ensemble,
+    predict_weekly_ensemble,
 )
-from backend.food_emissions import estimate_food_emissions, load_food_product_factors
+from backend.food_emissions import estimate_food_emissions, food_catalog, load_food_product_factors
 import backend.ml_service as ml_service
 from backend.server import (
     FoodScanRequest,
@@ -43,6 +45,7 @@ from backend.server import (
 
 
 class ModelContractTests(unittest.TestCase):
+    VALID_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGOsCNBgYGBgYgADAAu6APRmkuoXAAAAAElFTkSuQmCC"
     def test_daily_activity_projection_is_not_labeled_as_a_model(self):
         body = asyncio.run(predict_day(PredictDayRequest(
             morning_activities=[MorningActivity(type="transport", kg=1.0), MorningActivity(type="food", kg=0.5)],
@@ -124,6 +127,7 @@ class ModelContractTests(unittest.TestCase):
 
         self.assertEqual(factors["potatoes"], 0.46)
         self.assertEqual(factors["rice"], 4.45)
+        self.assertEqual(next(item for item in food_catalog() if item["value"] == "rice")["co2_kg"], 0.289)
 
     def test_french_fries_are_calculated_from_csv_factors_and_portion(self):
         estimate = estimate_food_emissions("french fries", serving_g=180)
@@ -135,30 +139,41 @@ class ModelContractTests(unittest.TestCase):
         self.assertEqual({item["ingredient"] for item in estimate["components"]}, {"Potatoes", "Sunflower Oil"})
 
     def test_food_scan_requires_image_candidate_and_dish_name_to_agree(self):
-        image_data = base64.b64encode(b"test-image-bytes").decode("ascii")
-        vit_result = {"food": "french fries", "score": 0.99}
+        image_data = self.VALID_IMAGE
+        primary_result = {"food": "french fries", "confidence": 0.91, "model": "test_primary"}
+        cnn_result = {"food": "french fries", "confidence": 0.72, "model": "test_cnn"}
 
-        with patch.object(ml_service, "_predict_food_vit", return_value=vit_result), \
-             patch.object(ml_service, "_predict_food_gemini", return_value={"food": "french fries", "confidence": 90, "serving_g": 200}):
+        with patch.object(ml_service, "_predict_primary_food", return_value=primary_result), \
+             patch.object(ml_service, "_predict_food_cnn", return_value=cnn_result):
             mismatch = ml_service.predict_food(image_data, hint="biryani")
             match = ml_service.predict_food(image_data, hint="french fries")
 
         self.assertEqual(mismatch["status"], "rejected")
         self.assertIn("does not match", mismatch["message"])
         self.assertEqual(match["status"], "success")
-        self.assertEqual(match["method"], "vision_dish_agreement")
-        self.assertEqual(match["co2_kg"], 0.162)
+        self.assertEqual(match["method"], "primary_vision_local_resnet18_ensemble")
+        self.assertEqual(match["co2_kg"], 0.146)
         self.assertEqual(match["factor_source"], "Food_Product_Emissions.csv")
+        self.assertEqual(match["prediction_audit"]["final_decision"], "primary_high_confidence")
 
-    def test_food_scan_rejects_when_independent_image_checks_disagree(self):
-        image_data = base64.b64encode(b"test-image-bytes").decode("ascii")
+    def test_food_scan_uses_low_confidence_model_agreement_to_boost_candidate(self):
+        image_data = self.VALID_IMAGE
 
-        with patch.object(ml_service, "_predict_food_vit", return_value={"food": "french fries", "score": 0.99}), \
-             patch.object(ml_service, "_predict_food_gemini", return_value={"food": "chicken biryani", "confidence": 95, "serving_g": 300}):
+        with patch.object(ml_service, "_predict_primary_food", return_value={"food": "french fries", "confidence": 0.60, "model": "test_primary"}), \
+             patch.object(ml_service, "_predict_food_cnn", return_value={"food": "french fries", "confidence": 0.70, "model": "test_cnn"}):
             result = ml_service.predict_food(image_data, hint="french fries")
 
-        self.assertEqual(result["status"], "rejected")
-        self.assertIn("disagreed", result["message"])
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["prediction_audit"]["final_decision"], "models_agree_boosted")
+        self.assertEqual(result["confidence"], 0.95)
+
+    def test_food_scan_marks_disagreeing_low_scores_for_manual_review(self):
+        with patch.object(ml_service, "_predict_primary_food", return_value={"food": "french fries", "confidence": 0.60, "model": "test_primary"}), \
+             patch.object(ml_service, "_predict_food_cnn", return_value={"food": "chicken curry", "confidence": 0.70, "model": "test_cnn"}):
+            result = ml_service.predict_food(self.VALID_IMAGE, hint="french fries")
+
+        self.assertEqual(result["status"], "low_confidence")
+        self.assertEqual(result["prediction_audit"]["final_decision"], "low_confidence")
 
     def test_reproducible_daily_pipeline_and_metrics_are_loadable(self):
         project_root = Path(__file__).resolve().parents[2]
@@ -166,11 +181,34 @@ class ModelContractTests(unittest.TestCase):
         load_models(str(models_dir))
 
         prediction = predict_gbdt(GBDT_DEFAULTS)
+        ensemble = predict_gbdt_ensemble(GBDT_DEFAULTS)
         status = get_model_status(str(models_dir))
 
         self.assertIsNotNone(prediction)
+        self.assertIsNotNone(ensemble)
+        self.assertEqual(ensemble["target"], "annual_kg_co2e")
+        self.assertAlmostEqual(sum(ensemble["weights"].values()), 1.0, places=5)
         self.assertTrue(status["runtime"]["daily_carbon_predictor"]["pipeline_loaded"])
-        self.assertEqual(status["evaluation"]["daily_carbon"]["metrics"]["r2_holdout"], 0.8935)
+        self.assertEqual(status["evaluation"]["daily_carbon"]["metrics"]["ensemble"]["r2_holdout"], 0.8938)
+
+    def test_weekly_ensemble_does_not_fake_a_legacy_lstm_output(self):
+        result = predict_weekly_ensemble([1.0, 1.2, 0.9, 1.1, 1.0])
+
+        self.assertIsNotNone(result)
+        self.assertIsNone(result["lstm_forecast"])
+        self.assertEqual(result["model_weights"]["lstm"], 0.0)
+
+    def test_weekly_ensemble_blend_policy_changes_after_fourteen_days(self):
+        sparse_history = [1.0, 1.2, 0.9, 1.1, 1.0, 1.3, 1.1, 1.0, 1.2, 1.1]
+        long_history = [1.0 + (index % 7) * 0.1 for index in range(30)]
+        with patch.object(ml_service, "_predict_validated_lstm", return_value=[2.0] * 7):
+            sparse = predict_weekly_ensemble(sparse_history)
+            long = predict_weekly_ensemble(long_history)
+
+        self.assertEqual(sparse["model_weights"], {"holt_winters": 0.8, "lstm": 0.2})
+        self.assertEqual(long["model_weights"], {"holt_winters": 0.35, "lstm": 0.65})
+        self.assertEqual(len(sparse["ensemble_forecast"]), 7)
+        self.assertEqual(len(long["ensemble_forecast"]), 7)
 
     def test_annual_champion_requires_the_complete_schema(self):
         project_root = Path(__file__).resolve().parents[2]

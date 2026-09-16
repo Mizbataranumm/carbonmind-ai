@@ -1,66 +1,40 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
 import { AlertTriangle, TreePine, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Smartphone, Beef, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { predictDay } from "@/lib/api";
+import { getFoodCatalog, predictDay } from "@/lib/api";
 
 const iconMap = { transport: Car, electricity: Zap, food: Utensils, devices: Monitor };
 const typeColors = { transport: "var(--neon-green)", electricity: "var(--neon-cyan)", food: "#FFD166", devices: "#FF66E1" };
 
-/* ── Sub-options per category ─────────────────────────────────── */
-const CATEGORY_OPTIONS = {
+/* Only labels live here. CO2e values are never fabricated in the client. */
+const MANUAL_CATEGORY_OPTIONS = {
   transport: [
-    { label: "🚗 Car",         value: "car",      co2: 2.1 },
-    { label: "🚌 Bus",         value: "bus",      co2: 0.8 },
-    { label: "🚲 Bike / Cycle",value: "cycling",  co2: 0.0 },
-    { label: "🚆 Train",       value: "train",    co2: 0.5 },
-    { label: "🏍 Motorcycle",  value: "moto",     co2: 1.2 },
-    { label: "🚶 Walk",        value: "walking",  co2: 0.0 },
+    { label: "Car", value: "car" }, { label: "Bus", value: "bus" },
+    { label: "Bike / Cycle", value: "cycling" }, { label: "Train", value: "train" },
+    { label: "Motorcycle", value: "moto" }, { label: "Walk", value: "walking" },
   ],
   electricity: [
-    { label: "💡 0.1 kWh – phone charge",    value: "0.1kWh", co2: 0.1 },
-    { label: "🌀 0.5 kWh – fan 5 hrs",       value: "0.5kWh", co2: 0.2 },
-    { label: "❄️ 1.0 kWh – AC 1 hr",         value: "1.0kWh", co2: 0.4 },
-    { label: "🏠 2.0 kWh – full appliances", value: "2.0kWh", co2: 0.8 },
-  ],
-  food: [
-    { label: "🍚 Rice meal",     value: "rice",    co2: 0.8 },
-    { label: "🍗 Chicken meal",  value: "chicken", co2: 1.9 },
-    { label: "🥗 Veg / Salad",  value: "salad",   co2: 0.3 },
-    { label: "🥩 Beef meal",     value: "beef",    co2: 4.2 },
-    { label: "🍞 Bread / Snack", value: "bread",   co2: 0.5 },
-    { label: "🥛 Milk / Dairy",  value: "dairy",   co2: 0.6 },
-    { label: "🍎 Fruit",         value: "fruit",   co2: 0.2 },
+    { label: "Phone charge", value: "phone_charge" }, { label: "Fan", value: "fan" },
+    { label: "Air conditioner", value: "ac" }, { label: "Home appliances", value: "appliances" },
   ],
   devices: [
-    { label: "📱 Phone (1 hr)",   value: "phone",  co2: 0.05 },
-    { label: "💻 Laptop (4 hrs)", value: "laptop", co2: 0.2  },
-    { label: "📺 TV (2 hrs)",     value: "tv",     co2: 0.15 },
-    { label: "❄️ AC (1 hr)",      value: "ac",     co2: 0.5  },
+    { label: "Phone", value: "phone" }, { label: "Laptop", value: "laptop" },
+    { label: "TV", value: "tv" }, { label: "Air conditioner", value: "ac" },
   ],
-};
-
-const defaultSubItem = (type) => {
-  const opts = CATEGORY_OPTIONS[type];
-  return opts ? opts[0] : { label: "Other", value: "other", co2: 0.5 };
 };
 
 /* ── Presets ──────────────────────────────────────────────────── */
 const presets = [
   { id: "commute", label: "Typical commute", icon: Coffee, items: [
-    { type: "transport",   sub: "car",     kg: 2.1 },
-    { type: "electricity", sub: "0.5kWh",  kg: 0.2 },
-    { type: "food",        sub: "rice",    kg: 0.8 },
+    { type: "transport", sub: "car" }, { type: "electricity", sub: "fan" }, { type: "food", sub: "rice" },
   ]},
   { id: "wfh", label: "Work from home", icon: Home, items: [
-    { type: "electricity", sub: "1.0kWh",  kg: 0.4 },
-    { type: "devices",     sub: "laptop",  kg: 0.2 },
-    { type: "food",        sub: "salad",   kg: 0.3 },
+    { type: "electricity", sub: "ac" }, { type: "devices", sub: "laptop" }, { type: "food", sub: "garden_salad" },
   ]},
   { id: "errands", label: "Weekend errands", icon: ShoppingCart, items: [
-    { type: "transport",   sub: "car",     kg: 2.1 },
-    { type: "food",        sub: "chicken", kg: 1.9 },
+    { type: "transport", sub: "car" }, { type: "food", sub: "chicken_biryani" },
   ]},
 ];
 
@@ -71,18 +45,44 @@ const selectStyle = {
 };
 
 const Predict = () => {
-  const [activities, setActivities] = useState(presets[0].items);
+  const [foodOptions, setFoodOptions] = useState([]);
+  const [activities, setActivities] = useState(() => presets[0].items.map((item) => ({ ...item, kg: 0 })));
   const [budget, setBudget] = useState(6.5);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const categoryOptions = useMemo(() => ({ ...MANUAL_CATEGORY_OPTIONS, food: foodOptions }), [foodOptions]);
+
+  useEffect(() => {
+    let active = true;
+    getFoodCatalog()
+      .then((response) => {
+        if (!active) return;
+        const options = (response.items || []).map((item) => ({
+          label: `${item.label} (${item.co2_kg} kg CO2e)`, value: item.value, co2: item.co2_kg,
+        }));
+        setFoodOptions(options);
+        setActivities((current) => current.map((activity) => {
+          if (activity.type !== "food") return activity;
+          const option = options.find((item) => item.value === activity.sub);
+          return option ? { ...activity, kg: option.co2 } : activity;
+        }));
+      })
+      .catch(() => toast.error("Reviewed food factors could not be loaded"));
+    return () => { active = false; };
+  }, []);
 
   const morningTotal = useMemo(() => activities.reduce((s, a) => s + (parseFloat(a.kg) || 0), 0), [activities]);
 
-  const applyPreset = (p) => { setActivities(p.items); setResult(null); };
+  const activityForOption = (type, sub) => {
+    const option = (categoryOptions[type] || []).find((item) => item.value === sub) || categoryOptions[type]?.[0];
+    return { type, sub: option?.value || sub || "other", kg: option?.co2 ?? 0 };
+  };
+  const defaultSubItem = (type) => categoryOptions[type]?.[0] || { label: "Other", value: "other" };
+  const applyPreset = (p) => { setActivities(p.items.map((item) => activityForOption(item.type, item.sub))); setResult(null); };
 
   const add = (type) => {
     const first = defaultSubItem(type);
-    setActivities([...activities, { type, sub: first.value, kg: first.co2 }]);
+    setActivities([...activities, { type, sub: first.value, kg: first.co2 ?? 0 }]);
   };
 
   const remove = (i) => setActivities(activities.filter((_, idx) => idx !== i));
@@ -90,15 +90,15 @@ const Predict = () => {
   const updateType = (i, type) => {
     const first = defaultSubItem(type);
     setActivities(activities.map((a, idx) =>
-      idx === i ? { ...a, type, sub: first.value, kg: first.co2 } : a
+      idx === i ? { ...a, type, sub: first.value, kg: first.co2 ?? 0 } : a
     ));
   };
 
   const updateSub = (i, subValue) => {
-    const opts = CATEGORY_OPTIONS[activities[i].type] || [];
+    const opts = categoryOptions[activities[i].type] || [];
     const opt = opts.find((o) => o.value === subValue);
     setActivities(activities.map((a, idx) =>
-      idx === i ? { ...a, sub: subValue, kg: opt ? opt.co2 : a.kg } : a
+      idx === i ? { ...a, sub: subValue, kg: opt?.co2 ?? 0 } : a
     ));
   };
 
@@ -151,7 +151,7 @@ const Predict = () => {
                   <div className="font-medium text-sm">{p.label}</div>
                 </div>
                 <div className="font-mono-data text-[10px] text-secondary mt-1.5">
-                  {p.items.reduce((s, i) => s + i.kg, 0).toFixed(1)} kg · {p.items.length} activities
+                  {p.items.length} activities · review amounts before projection
                 </div>
               </button>
             ))}
@@ -182,7 +182,7 @@ const Predict = () => {
             {activities.map((a, i) => {
               const Icon = iconMap[a.type] || Car;
               const color = typeColors[a.type];
-              const subOpts = CATEGORY_OPTIONS[a.type] || [];
+              const subOpts = categoryOptions[a.type] || [];
               return (
                 <motion.div
                   key={i}
@@ -237,9 +237,9 @@ const Predict = () => {
                         </select>
                       </div>
 
-                      {/* CO₂ (auto-filled, editable) */}
-                      <div>
-                        <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">CO₂ (kg)</div>
+                          {/* Food uses the backend CSV catalog; all other categories are manual. */}
+                          <div>
+                            <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">CO₂e (kg)</div>
                         <input
                           type="number" step="0.01" min="0"
                           value={a.kg}
@@ -279,7 +279,7 @@ const Predict = () => {
               );
             })}
             <div className="font-mono-data text-[9px] text-secondary w-full mt-1 opacity-60">
-              This planning view never saves activities. Add completed activities from the dashboard when they happen.
+               Food values come from the reviewed CSV recipe catalog. Transport, electricity, and device amounts must be entered manually until sourced factors are added.
             </div>
           </div>
         </div>

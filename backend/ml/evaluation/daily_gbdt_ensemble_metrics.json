@@ -1,0 +1,59 @@
+{
+  "model_name": "annual_lifestyle_hist_gradient_lightgbm_14_feature_ensemble",
+  "status": "candidate_not_yet_product_approved",
+  "dataset": "Carbon Emission.csv",
+  "dataset_sha256": "69a5afab2716d70dfab934075f4dbc62938c7200c86d7e840a10ee50dad95ad0",
+  "generated_at": "2026-09-16T14:51:07.025384+00:00",
+  "training_library": {
+    "scikit_learn": "1.9.0",
+    "lightgbm": "4.7.0"
+  },
+  "target": "CarbonEmission",
+  "features": [
+    "Body Type",
+    "Diet",
+    "How Often Shower",
+    "Heating Energy Source",
+    "Transport",
+    "Vehicle Type",
+    "Monthly Grocery Bill",
+    "Frequency of Traveling by Air",
+    "Vehicle Monthly Distance Km",
+    "Waste Bag Size",
+    "Waste Bag Weekly Count",
+    "How Long TV PC Daily Hour",
+    "How Long Internet Daily Hour",
+    "Energy efficiency"
+  ],
+  "row_count": 10000,
+  "train_rows": 8000,
+  "test_rows": 2000,
+  "split": "random_80_20_random_state_42",
+  "metrics": {
+    "hist_gradient": {
+      "mae_kg_year": 265.2936,
+      "rmse_kg_year": 332.7291,
+      "r2_holdout": 0.8935
+    },
+    "lightgbm": {
+      "mae_kg_year": 267.0649,
+      "rmse_kg_year": 334.5654,
+      "r2_holdout": 0.8923
+    },
+    "ensemble": {
+      "mae_kg_year": 265.0308,
+      "rmse_kg_year": 332.2446,
+      "r2_holdout": 0.8938
+    },
+    "baseline_median_mae_kg_year": 763.716
+  },
+  "weights": {
+    "hist_gradient": 0.50033598,
+    "lightgbm": 0.49966402
+  },
+  "warnings": [
+    "This is a reproducible baseline, not a release approval.",
+    "A stronger split should be used if user IDs, collection batches, regions, or dates are available.",
+    "Frontend inputs must cover the same feature schema before this model can be considered product-grade."
+  ]
+}

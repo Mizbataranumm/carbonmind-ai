@@ -163,9 +163,27 @@ def food_catalog_status() -> dict:
     }
 
 
+def food_catalog() -> list[dict]:
+    """Return only reviewed food options with CSV-derived default portions."""
+    options = []
+    for recipe_key, recipe in RECIPES.items():
+        estimate = estimate_food_emissions(recipe_key, recipe.default_serving_g)
+        if estimate is None:
+            continue
+        options.append({
+            "value": recipe_key,
+            "label": recipe.display_name,
+            "default_serving_g": recipe.default_serving_g,
+            "co2_kg": estimate["co2_kg"],
+            "factor_source": estimate["factor_source"],
+        })
+    return sorted(options, key=lambda option: option["label"].lower())
+
+
 def estimate_food_emissions(food_name: str, serving_g: Optional[int] = None) -> Optional[dict]:
     """Calculate an ingredient-level emissions estimate for one supported recipe."""
-    recipe_key = RECIPE_ALIASES.get(normalise_food_key(food_name))
+    normalized_name = normalise_food_key(food_name)
+    recipe_key = RECIPE_ALIASES.get(normalized_name, normalized_name if normalized_name in RECIPES else None)
     recipe = RECIPES.get(recipe_key or "")
     factors = load_food_product_factors()
     if recipe is None or not factors:

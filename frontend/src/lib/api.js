@@ -35,6 +35,7 @@ export const getLifestyleProfile = (userId) => api.get("/profile/lifestyle", { p
 export const saveLifestyleProfile = (payload) => api.put("/profile/lifestyle", payload).then(r => r.data);
 export const getVoiceTips = (payload) => api.post("/voice/call-tips", payload).then(r => r.data);
 export const scanFood = (payload) => api.post("/food/scan", payload).then(r => r.data);
+export const getFoodCatalog = () => api.get("/food/catalog").then(r => r.data);
 export const submitFoodFeedback = (payload) => api.post("/food/feedback", payload).then(r => r.data);
 export const generateCertificate = (payload) => api.post("/certificate/generate", payload).then(r => r.data);
 export const triggerPhoneCall = (payload) => api.post("/voice/phone-call", payload).then(r => r.data);

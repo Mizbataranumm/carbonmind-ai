@@ -444,6 +444,21 @@ const Profile = () => {
           />
         </div>
 
+        {annualResult?.fourteen_feature_ensemble && (
+          <div className="mt-5 grid sm:grid-cols-3 gap-3" aria-label="14-feature annual model comparison">
+            {[
+              ["HistGradientBoosting", annualResult.fourteen_feature_ensemble.hist_gradient_prediction_kg_year],
+              ["LightGBM", annualResult.fourteen_feature_ensemble.lightgbm_prediction_kg_year],
+              ["R2-weighted ensemble", annualResult.fourteen_feature_ensemble.ensemble_prediction_kg_year],
+            ].map(([label, value]) => (
+              <div key={label} className="border border-glass-border bg-widget rounded-lg p-3">
+                <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary">{label}</div>
+                <div className="font-mono-data text-lg text-cyan mt-1">{value} <span className="text-xs text-secondary">kg CO2e / yr</span></div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-6 pt-5 border-t border-glass-border">
           <div className="text-xs text-secondary leading-relaxed max-w-xl">
             {annualResult?.model_note || (lifestyleProfileComplete
