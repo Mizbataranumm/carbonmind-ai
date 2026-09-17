@@ -16,6 +16,7 @@ const Auth = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const demoRequested = useRef(false);
 
@@ -45,7 +46,7 @@ const Auth = () => {
     try {
       let u;
       if (mode === "register") {
-        u = await registerUser(name, email, password);
+        u = await registerUser(name, email, password, privacyConsent);
       } else {
         u = await loginUser(email, password);
       }
@@ -141,10 +142,22 @@ const Auth = () => {
               </div>
             </div>
 
+            {mode === "register" && (
+              <label className="flex items-start gap-3 rounded-lg border border-glass-border bg-widget px-3 py-3 text-xs leading-relaxed text-secondary">
+                <input
+                  type="checkbox"
+                  checked={privacyConsent}
+                  onChange={(event) => setPrivacyConsent(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#00FFB2]"
+                />
+                <span>I agree that CarbonMind stores my account, activity record, and lifestyle profile. Food photos are sent to the selected vision provider for analysis and are not retained by CarbonMind.</span>
+              </label>
+            )}
+
             <button
               data-testid="auth-submit-btn"
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === "register" && !privacyConsent)}
               className="btn-primary w-full mt-3 inline-flex items-center justify-center gap-2"
             >
               {loading ? "Loading..." : (<>Continue <ArrowRight className="h-4 w-4" /></>)}
@@ -165,7 +178,7 @@ const Auth = () => {
             <Sparkles className="h-4 w-4 text-green" /> Continue as demo eco-explorer
           </button>
 
-          <p className="text-center text-xs text-[#5C6B7A] mt-7">
+          <p className="text-center text-xs text-secondary mt-7">
             {mode === "login" ? "New here? " : "Already onboard? "}{" "}
             <button
               onClick={() => setMode(mode === "login" ? "register" : "login")}

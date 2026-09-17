@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const demoLogin = (name) => api.post("/auth/demo-login", { name }).then(r => r.data);
-export const registerUser = (name, email, password) => api.post("/auth/register", { name, email, password }).then(r => r.data);
+export const registerUser = (name, email, password, privacyConsent) => api.post("/auth/register", { name, email, password, privacy_consent: privacyConsent }).then(r => r.data);
 export const loginUser = (email, password) => api.post("/auth/login", { email, password }).then(r => r.data);
 export const getCarbonStats = (userId) => api.get("/carbon/stats", { params: { user_id: userId } }).then(r => r.data);
 export const getCarbonIntelligence = (userId) => api.get("/carbon/intelligence", { params: { user_id: userId } }).then(r => r.data);
@@ -41,3 +41,4 @@ export const getFoodCatalog = () => api.get("/food/catalog").then(r => r.data);
 export const submitFoodFeedback = (payload) => api.post("/food/feedback", payload).then(r => r.data);
 export const generateCertificate = (payload) => api.post("/certificate/generate", payload).then(r => r.data);
 export const triggerPhoneCall = (payload) => api.post("/voice/phone-call", payload).then(r => r.data);
+export const deleteCurrentAccount = () => api.delete("/account").then(r => r.data);

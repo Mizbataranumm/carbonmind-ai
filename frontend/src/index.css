@@ -29,6 +29,13 @@
   --divider-color: rgba(255, 255, 255, 0.12);
   --widget-bg: rgba(255, 255, 255, 0.03);
   --widget-hover-bg: rgba(255, 255, 255, 0.06);
+  --text-on-accent: #071014;
+  --chart-axis: #9EABBC;
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-bg: #0d1f27;
+  --chart-tooltip-border: rgba(0, 255, 178, 0.28);
+  --select-option-bg: #0d1f27;
+  --toast-bg: #0d1f27;
 }
 
 html[data-theme='light'] {
@@ -49,6 +56,13 @@ html[data-theme='light'] {
   --divider-color: rgba(0, 0, 0, 0.1);
   --widget-bg: rgba(0, 0, 0, 0.03);
   --widget-hover-bg: rgba(0, 0, 0, 0.06);
+  --text-on-accent: #FFFFFF;
+  --chart-axis: #4B5563;
+  --chart-grid: rgba(17, 24, 39, 0.14);
+  --chart-tooltip-bg: #FFFFFF;
+  --chart-tooltip-border: rgba(5, 150, 105, 0.30);
+  --select-option-bg: #FFFFFF;
+  --toast-bg: #FFFFFF;
 }
 
 html, body {
@@ -60,6 +74,11 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
+input, select, textarea { color-scheme: dark; }
+html[data-theme='light'] input,
+html[data-theme='light'] select,
+html[data-theme='light'] textarea { color-scheme: light; }
 
 ::selection { background: rgba(0,255,178,0.25); color: var(--text-primary); }
 
@@ -260,6 +279,7 @@ html, body {
 }
 .input-glass:focus { border-color: rgba(0,255,178,0.5); box-shadow: 0 0 0 4px rgba(0,255,178,0.08); }
 .input-glass::placeholder { color: var(--text-muted); }
+.input-glass option { background: var(--select-option-bg); color: var(--text-primary); }
 
 .divider {
   height: 1px;

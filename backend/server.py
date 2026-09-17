@@ -115,6 +115,7 @@ class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
+    privacy_consent: bool = False
 
 class LoginRequest(BaseModel):
     email: str
@@ -318,7 +319,10 @@ async def _current_user_id(credentials: Optional[HTTPAuthorizationCredentials] =
     payload = _read_access_token(credentials.credentials)
     if not payload:
         raise HTTPException(status_code=401, detail="Session is invalid or expired.")
-    return payload["sub"]
+    user_id = payload["sub"]
+    if not _is_demo_user(user_id) and not await _database_or_503().users.find_one({"id": user_id}, {"_id": 1}):
+        raise HTTPException(status_code=401, detail="Session is no longer active.")
+    return user_id
 
 
 async def _optional_current_user_id(credentials: Optional[HTTPAuthorizationCredentials] = Depends(auth_scheme)) -> Optional[str]:
@@ -429,6 +433,8 @@ async def register(req: RegisterRequest):
         raise HTTPException(status_code=422, detail="Enter a valid email address.")
     if len(req.password) < 8:
         raise HTTPException(status_code=422, detail="Password must contain at least 8 characters.")
+    if not req.privacy_consent:
+        raise HTTPException(status_code=422, detail="Consent to the activity-data notice is required to create an account.")
     users_col = _database_or_503().users
     existing = await users_col.find_one({"email": req.email.lower()})
     if existing:
@@ -446,6 +452,7 @@ async def register(req: RegisterRequest):
         "is_demo": False,
         "onboarding_completed": False,
         "onboarding_step": 1,
+        "privacy_consent_at": datetime.now(timezone.utc).isoformat(),
     }
     await users_col.insert_one(user_doc.copy())
     return _public_user(user_doc, include_token=True)
@@ -463,6 +470,34 @@ async def login(req: LoginRequest):
     if not user_doc["password"].startswith("scrypt$"):
         await users_col.update_one({"_id": user_doc["_id"]}, {"$set": {"password": _hash_password(req.password)}})
     return _public_user(user_doc, include_token=True)
+
+
+@api_router.delete("/account")
+async def delete_account(current_user_id: str = Depends(_current_user_id)):
+    """Permanently delete the signed-in personal account and its private records."""
+    if _is_demo_user(current_user_id):
+        raise HTTPException(status_code=400, detail="Demo sessions do not have a stored personal account to delete.")
+    database = _database_or_503()
+    deletion_counts = {}
+    for collection_name in (
+        "daily_activity_logs",
+        "food_scan_feedback",
+        "certificates",
+        "community_likes",
+        "community_joins",
+        "community_posts",
+    ):
+        result = await database[collection_name].delete_many({"user_id": current_user_id})
+        deletion_counts[collection_name] = result.deleted_count
+    # Comments created after this privacy control include their author ID.
+    await database.community_posts.update_many(
+        {"comments.user_id": current_user_id},
+        {"$pull": {"comments": {"user_id": current_user_id}}},
+    )
+    account_result = await database.users.delete_one({"id": current_user_id})
+    if account_result.deleted_count != 1:
+        raise HTTPException(status_code=404, detail="Account was not found.")
+    return {"status": "deleted", "deleted_collections": deletion_counts}
 
 
 ACTIVITY_META = {
@@ -958,7 +993,13 @@ async def add_comment(req: CommentRequest, current_user_id: str = Depends(_curre
     posts_col = database.community_posts
     user_doc = await database.users.find_one({"id": current_user_id})
     display_name = (user_doc or {}).get("name", "Eco Explorer")
-    comment = {"id": str(uuid.uuid4()), "user": display_name, "text": req.text.strip(), "at": datetime.now(timezone.utc).isoformat()}
+    comment = {
+        "id": str(uuid.uuid4()),
+        "user": display_name,
+        "user_id": current_user_id,
+        "text": req.text.strip(),
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
     r = await posts_col.update_one({"post_id": req.post_id}, {"$push": {"comments": comment}})
     if r.matched_count == 0:
         raise HTTPException(status_code=404, detail="Post not found")

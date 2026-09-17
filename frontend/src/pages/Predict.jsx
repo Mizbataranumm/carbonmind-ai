@@ -296,9 +296,9 @@ const Predict = () => {
               data-testid="budget-slider"
             />
             <div className="flex items-baseline justify-between mt-2">
-              <div className="font-mono-data text-[10px] text-[#5C6B7A]">3 kg</div>
+              <div className="font-mono-data text-[10px] text-secondary">3 kg</div>
               <div className="font-mono-data text-3xl neon-text-green">{budget}<span className="text-sm text-secondary ml-1">kg</span></div>
-              <div className="font-mono-data text-[10px] text-[#5C6B7A]">12 kg</div>
+              <div className="font-mono-data text-[10px] text-secondary">12 kg</div>
             </div>
           </div>
 
@@ -307,7 +307,7 @@ const Predict = () => {
             <div className="font-mono-data text-lg mt-1 text-main">
               ≈ {(morningTotal * 12).toFixed(2)} <span className="text-xs text-secondary">kg by end of day</span>
             </div>
-            <div className="text-[11px] text-[#5C6B7A] mt-1">Scales two logged hours to 24 hours</div>
+            <div className="text-[11px] text-secondary mt-1">Scales the observed activity rate to the remaining day.</div>
           </div>
 
           <button
@@ -342,7 +342,7 @@ const Predict = () => {
                 <div className="text-xs text-green mt-2">This projection has not changed your saved activity record.</div>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-xl">
                   <MetricBlock label="Predicted" value={`${result.predicted_full_day_kg} kg`} color="var(--neon-green)" />
-                  <MetricBlock label="Budget" value={`${result.budget_kg} kg`} color="#FFFFFF" />
+                  <MetricBlock label="Budget" value={`${result.budget_kg} kg`} color="var(--text-primary)" />
                   <MetricBlock label="Delta" value={`${result.over_pct > 0 ? "+" : ""}${result.over_pct}%`} color={result.exceeds ? "#FFD166" : "var(--neon-green)"} />
                 </div>
               </div>
@@ -361,10 +361,10 @@ const Predict = () => {
                       <stop offset="100%" stopColor="var(--neon-cyan)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" stroke="#5C6B7A" fontSize={10} tickLine={false} axisLine={false} interval={2} />
-                  <YAxis stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.2)", borderRadius: 12, color: "#fff" }} />
+                  <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" stroke="var(--chart-axis)" fontSize={10} tickLine={false} axisLine={false} interval={2} />
+                  <YAxis stroke="var(--chart-axis)" fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip contentStyle={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)", borderRadius: 12, color: "var(--text-primary)" }} />
                   <ReferenceLine y={result.budget_kg} stroke="#FFD166" strokeDasharray="4 4" label={{ value: "Budget", fill: "#FFD166", fontSize: 10, position: "insideTopRight" }} />
                   <Area type="monotone" dataKey="kg" stroke="var(--neon-green)" strokeWidth={2.5} fill="url(#predGrad)" />
                 </AreaChart>

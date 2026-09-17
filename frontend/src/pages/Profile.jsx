@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, CalendarDays, BarChart3, Leaf, Camera, X, Check, Calculator } from "lucide-react";
+import { LogOut, CalendarDays, BarChart3, Leaf, Camera, X, Check, Calculator, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/lib/UserContext";
-import { getCarbonStats, getLifestyleProfile, predictAnnualCarbon, saveLifestyleProfile } from "@/lib/api";
+import { deleteCurrentAccount, getCarbonStats, getLifestyleProfile, predictAnnualCarbon, saveLifestyleProfile } from "@/lib/api";
 
 // ── 10 preset avatars from user profile photos ─────────────
 const PRESET_AVATARS = [
@@ -166,6 +166,7 @@ const Profile = () => {
   const [annualResult, setAnnualResult] = useState(null);
   const [estimating, setEstimating] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const isDemo = Boolean(user?.is_demo);
 
   useEffect(() => {
@@ -228,6 +229,20 @@ const Profile = () => {
       toast.error(error?.response?.data?.detail?.message || "Could not save the lifestyle profile");
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (isDemo || deletingAccount) return;
+    if (!window.confirm("Permanently delete your CarbonMind account and its stored activity records? This cannot be undone.")) return;
+    setDeletingAccount(true);
+    try {
+      await deleteCurrentAccount();
+      setUser(null);
+      window.location.href = "/";
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Could not delete the account");
+      setDeletingAccount(false);
     }
   };
 
@@ -521,6 +536,19 @@ const Profile = () => {
               Signed in as{" "}
               <strong className="text-main break-all">{user.email || user.name}</strong>.
             </p>
+            <div className="rounded-lg border border-glass-border bg-widget p-3 text-left text-xs leading-relaxed text-secondary">
+              CarbonMind stores the profile and activity records you save. Food photos are sent only for the selected provider&apos;s analysis and are not retained by CarbonMind. You can permanently remove your account data below.
+            </div>
+            {!isDemo && (
+              <button
+                type="button"
+                onClick={deleteAccount}
+                disabled={deletingAccount}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-red-400/40 bg-red-400/10 px-4 py-3 text-sm font-semibold text-red-400 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" /> {deletingAccount ? "Deleting account..." : "Delete account and saved data"}
+              </button>
+            )}
             <button
               onClick={() => { setUser(null); window.location.href = "/"; }}
               className="btn-ghost w-full flex items-center justify-center gap-2 !text-red-400 hover:!bg-red-400/10 hover:!border-red-400/30"

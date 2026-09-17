@@ -318,10 +318,12 @@ def load_models(models_dir: str = "ml/models"):
             try:
                 genai.configure(api_key=api_key)
                 _gemini_model = genai.GenerativeModel(
-                    model_name="gemini-1.5-flash",
+                    # Gemini 1.5 Flash is no longer served for this API key.
+                    # Use a current multimodal model verified via ListModels.
+                    model_name="gemini-2.5-flash",
                     generation_config={"temperature": 0.1, "max_output_tokens": 300},
                 )
-                logger.info("Gemini 1.5 Flash Vision configured")
+                logger.info("Gemini 2.5 Flash Vision configured")
             except Exception as e:
                 logger.warning(f"Gemini config failed: {e}")
 
@@ -393,11 +395,11 @@ def _predict_food_vit(image_bytes: bytes) -> Optional[dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# MODEL 1B: Gemini 1.5 Flash Vision
+# MODEL 1B: Gemini 2.5 Flash Vision
 # ─────────────────────────────────────────────────────────────────────────────
 def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
     """
-    Use Gemini 1.5 Flash Vision to identify food + estimate portion.
+    Use Gemini 2.5 Flash Vision to identify food + estimate portion.
     Returns dict with food name and confidence, or None on failure.
     """
     if not _gemini_model:
@@ -407,7 +409,6 @@ def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
         img.thumbnail((640, 640))
         buf = BytesIO()
         img.save(buf, format="JPEG", quality=85)
-        img_b64 = base64.b64encode(buf.getvalue()).decode()
 
         prompt = (
             "Identify the food in this image. Reply ONLY in this JSON format:\n"
@@ -419,10 +420,7 @@ def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
             "- serving_g is realistic portion (150-500g typically)"
         )
 
-        response = _gemini_model.generate_content([
-            prompt,
-            {"mime_type": "image/jpeg", "data": img_b64}
-        ])
+        response = _gemini_model.generate_content([prompt, img])
 
         text = response.text.strip()
         if "`" in text:
@@ -462,17 +460,21 @@ def _predict_food_cnn(image_bytes: bytes) -> Optional[dict]:
 
 
 def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
-    """Use Gemini when explicitly configured, otherwise the configured HF ViT."""
+    """Prefer Gemini Vision and fall back to HF ViT when Gemini is unavailable."""
     if _gemini_model is not None:
         result = _predict_food_gemini(image_bytes)
-        if result and str(result.get("food", "")).lower() != "none":
+        if result is not None:
+            # A deliberate "none" from the vision model is a non-food rejection,
+            # not an outage for the classifier fallback to override.
+            if str(result.get("food", "")).lower() == "none":
+                return None
             return {
                 "food": result.get("food", ""),
                 "confidence": min(1.0, max(0.0, float(result.get("confidence", 0)) / 100)),
                 "serving_g": result.get("serving_g"),
                 "model": "gemini_vision",
             }
-        return None
+        logger.warning("Gemini Vision was unavailable; trying HF ViT fallback")
 
     result = _predict_food_vit(image_bytes)
     if result and result.get("food"):

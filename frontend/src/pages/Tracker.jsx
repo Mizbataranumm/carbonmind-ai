@@ -42,10 +42,10 @@ const Tracker = () => {
                   <stop offset="100%" stopColor="var(--neon-cyan)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="3 3" />
-              <XAxis dataKey="t" stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke="#5C6B7A" fontSize={11} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: "rgba(13,31,39,0.95)", border: "1px solid rgba(0,255,178,0.2)", borderRadius: 12, color: "#fff" }} />
+              <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
+              <XAxis dataKey="t" stroke="var(--chart-axis)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--chart-axis)" fontSize={11} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={{ background: "var(--chart-tooltip-bg)", border: "1px solid var(--chart-tooltip-border)", borderRadius: 12, color: "var(--text-primary)" }} />
               <Area type="monotone" dataKey="kg" stroke="var(--neon-green)" strokeWidth={2.5} fill="url(#rtg)" />
             </AreaChart>
           </ResponsiveContainer>
