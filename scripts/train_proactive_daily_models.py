@@ -33,6 +33,7 @@ def main() -> None:
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--models-dir", type=Path, default=Path("backend/ml/models"))
     parser.add_argument("--metrics-dir", type=Path, default=Path("backend/ml/evaluation"))
+    parser.add_argument("--pilot", action="store_true", help="Allow an explicitly exploratory small-sample evaluation")
     args = parser.parse_args()
 
     frame = pd.read_csv(args.data, parse_dates=["date"])
@@ -40,8 +41,12 @@ def main() -> None:
     missing = sorted(required - set(frame.columns))
     if missing:
         raise SystemExit(f"Rejected {args.data}: missing required columns {missing}.")
-    if len(frame) < 60:
-        raise SystemExit("Rejected training: need at least 60 dated examples after feature construction; collect more real participant history.")
+    minimum_rows = 12 if args.pilot else 60
+    if len(frame) < minimum_rows:
+        raise SystemExit(
+            f"Rejected training: need at least {minimum_rows} dated examples after feature construction; "
+            "collect more real participant history."
+        )
     frame = frame.sort_values(["date", "user_id"]).reset_index(drop=True)
     split = int(len(frame) * 0.8)
     train, test = frame.iloc[:split], frame.iloc[split:]
@@ -50,7 +55,8 @@ def main() -> None:
         # boundary date into test prevents a future timestamp entering train.
         boundary = test["date"].min()
         train, test = frame[frame["date"] < boundary], frame[frame["date"] >= boundary]
-    if len(train) < 40 or len(test) < 12:
+    minimum_train, minimum_test = (8, 3) if args.pilot else (40, 12)
+    if len(train) < minimum_train or len(test) < minimum_test:
         raise SystemExit("Rejected training: chronological split left too few train or test examples.")
 
     hist = HistGradientBoostingRegressor(max_iter=300, learning_rate=0.05, l2_regularization=0.05, random_state=42).fit(train[FEATURES], train[TARGET])
@@ -63,13 +69,13 @@ def main() -> None:
     rate_prediction = (test["early_transport_kg"] + test["early_electricity_kg"] + test["early_food_kg"] + test["early_devices_kg"] + test["early_other_kg"]) * (24 / test["cutoff_hour"])
     report = {
         "model_name": "proactive_partial_day_hist_gradient_lightgbm_ensemble",
-        "status": "candidate_not_served_until_locked_test_review",
+        "status": "exploratory_pilot_not_generalizable" if args.pilot else "candidate_not_served_until_locked_test_review",
         "features": FEATURES,
         "target": TARGET,
         "split": {"type": "chronological", "train_rows": len(train), "test_rows": len(test), "train_end": str(train["date"].max().date()), "test_start": str(test["date"].min().date())},
         "metrics": {"hist_gradient": hist_metrics, "lightgbm": lgb_metrics, "ensemble": metrics(test[TARGET], ensemble_prediction), "rate_baseline": metrics(test[TARGET], rate_prediction)},
         "weights": {"hist_gradient": round(hist_weight, 6), "lightgbm": round(1 - hist_weight, 6)},
-        "release_gate": "Serve only after independent review confirms the ensemble beats the rate baseline on the locked chronological test set.",
+        "release_gate": "This pilot must never be served. Train a release candidate only after independent review confirms the ensemble beats the rate baseline on a sufficiently sized locked chronological test set.",
     }
     args.models_dir.mkdir(parents=True, exist_ok=True)
     args.metrics_dir.mkdir(parents=True, exist_ok=True)

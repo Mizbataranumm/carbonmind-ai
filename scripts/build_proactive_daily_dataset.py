@@ -39,7 +39,7 @@ def _parse_time(value: object) -> datetime | None:
         return None
 
 
-def build_examples(logs: list[dict], cutoff_hour: int) -> pd.DataFrame:
+def build_examples(logs: list[dict], cutoff_hour: int, history_days: int) -> pd.DataFrame:
     rows: list[dict] = []
     histories: dict[str, list[tuple[datetime.date, float]]] = {}
     prepared: list[tuple[str, datetime.date, dict]] = []
@@ -69,9 +69,10 @@ def build_examples(logs: list[dict], cutoff_hour: int) -> pd.DataFrame:
         if final_total < 0:
             raise ValueError("Activity impacts cannot be negative.")
 
-        # We require seven preceding observed days. This makes the historical
-        # aggregates honest and prevents a gap from being disguised as zero.
-        if len(history) >= 7:
+        # Consecutive observed days are required. A pilot may use three prior
+        # days, while the full protocol uses seven; neither case fills gaps
+        # with zero-emission days.
+        if len(history) >= history_days:
             totals = {category: 0.0 for category in CATEGORIES}
             early_events = []
             for activity in activities:
@@ -82,7 +83,7 @@ def build_examples(logs: list[dict], cutoff_hour: int) -> pd.DataFrame:
                     category = activity.get("type") if activity.get("type") in totals else "other"
                     totals[category] += float(activity.get("kg", 0))
                     early_events.append(activity)
-            prior = [total for _, total in history[-7:]]
+            prior = [total for _, total in history[-history_days:]]
             early_hours = [event_time.hour + event_time.minute / 60 for event_time in (_parse_time(a.get("occurred_at")) for a in early_events) if event_time]
             rows.append({
                 "user_id": user_id,
@@ -108,17 +109,18 @@ def main() -> None:
     parser.add_argument("--input", type=Path, required=True, help="JSON export of daily activity logs")
     parser.add_argument("--output", type=Path, required=True, help="CSV file for chronological model training")
     parser.add_argument("--cutoff-hour", type=int, default=14, choices=range(1, 24))
+    parser.add_argument("--history-days", type=int, default=7, choices=range(3, 31), help="Consecutive prior days used for historical features")
     args = parser.parse_args()
 
     payload = json.loads(args.input.read_text(encoding="utf-8"))
     if not isinstance(payload, list):
         raise SystemExit("Input must be a JSON array of daily activity logs.")
-    examples = build_examples(payload, args.cutoff_hour)
+    examples = build_examples(payload, args.cutoff_hour, args.history_days)
     if examples.empty:
-        raise SystemExit("No examples produced. Each user needs eight consecutive observed daily logs for the first 14:00 example.")
+        raise SystemExit(f"No examples produced. Each user needs {args.history_days + 1} consecutive observed daily logs for the first example.")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     examples.to_csv(args.output, index=False)
-    print(json.dumps({"rows": len(examples), "features": FEATURES, "target": TARGET, "output": str(args.output)}, indent=2))
+    print(json.dumps({"rows": len(examples), "features": FEATURES, "target": TARGET, "history_days": args.history_days, "output": str(args.output)}, indent=2))
 
 
 if __name__ == "__main__":
