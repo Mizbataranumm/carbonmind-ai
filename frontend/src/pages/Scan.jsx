@@ -28,6 +28,7 @@ const Scan = () => {
   const [previewImg, setPreviewImg] = useState(null);
   const [hint, setHint] = useState("");
   const [error, setError] = useState("");
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
 
   useEffect(() => () => stopCamera(), []);
 
@@ -88,6 +89,7 @@ const Scan = () => {
     setPreviewImg(dataUrl);
     setResult(null);
     setError("");
+    setServiceUnavailable(false);
     setRecordSaved(false);
     setMealEventId(null);
     setCorrection("");
@@ -103,6 +105,7 @@ const Scan = () => {
     }
     setScanning(true);
     setError("");
+    setServiceUnavailable(false);
     setResult(null);
 
     try {
@@ -111,8 +114,9 @@ const Scan = () => {
         new Promise(res => setTimeout(res, 900)),
       ]);
       if (!response || response.status !== "success" || !response.data) {
+        setServiceUnavailable(response?.status === "provider_unavailable");
         setError(response?.message || "We could not verify that this photo matches the dish name.");
-        toast.error("Photo and dish name were not verified");
+        toast.error(response?.status === "provider_unavailable" ? "Food recognition is temporarily unavailable" : "Photo and dish name were not verified");
         return;
       }
 
@@ -121,6 +125,7 @@ const Scan = () => {
     } catch (e) {
       console.error("Scan error:", e);
       setError("Photo verification is unavailable right now. No estimate was created.");
+      setServiceUnavailable(true);
       toast.error("Photo verification unavailable");
     } finally {
       setScanning(false);
@@ -130,6 +135,7 @@ const Scan = () => {
   const handleTagClick = (tagLabel) => {
     setHint(tagLabel);
     setError("");
+    setServiceUnavailable(false);
   };
 
   const reset = () => {
@@ -350,12 +356,12 @@ const Scan = () => {
           <div className="font-display text-xl mt-1">Meal breakdown</div>
 
           {error && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`mt-6 p-4 rounded-xl ${serviceUnavailable ? "bg-amber-400/10 border border-amber-400/30 text-amber-300" : "bg-red-500/10 border border-red-500/30 text-red-400"}`}>
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${serviceUnavailable ? "text-amber-300" : "text-red-400"}`} />
                 <div>
-                  <div className="font-semibold text-sm">Scan needs review</div>
-                  <div className="text-xs mt-1 text-red-300/80 leading-relaxed">{error}</div>
+                  <div className="font-semibold text-sm">{serviceUnavailable ? "Food recognition temporarily unavailable" : "Scan needs review"}</div>
+                  <div className={`text-xs mt-1 leading-relaxed ${serviceUnavailable ? "text-amber-200/80" : "text-red-300/80"}`}>{error}</div>
                 </div>
               </div>
             </motion.div>

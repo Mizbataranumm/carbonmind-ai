@@ -467,7 +467,12 @@ def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
             # A deliberate "none" from the vision model is a non-food rejection,
             # not an outage for the classifier fallback to override.
             if str(result.get("food", "")).lower() == "none":
-                return None
+                return {
+                    "food": None,
+                    "confidence": 0.0,
+                    "model": "gemini_vision",
+                    "non_food_rejection": True,
+                }
             return {
                 "food": result.get("food", ""),
                 "confidence": min(1.0, max(0.0, float(result.get("confidence", 0)) / 100)),
@@ -483,7 +488,12 @@ def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
             "confidence": min(1.0, max(0.0, float(result.get("score", 0)))),
             "model": "huggingface_nateraw_food_vit",
         }
-    return None
+    return {
+        "food": None,
+        "confidence": 0.0,
+        "model": "primary_vision_unavailable",
+        "provider_unavailable": True,
+    }
 
 
 def _food_prediction_audit(primary: Optional[dict], cnn: Optional[dict], decision: str, reason: str) -> dict:
@@ -543,7 +553,13 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
     final_food: Optional[str] = None
     final_confidence = 0.0
     decision = "low_confidence"
+    provider_unavailable = bool(primary and primary.get("provider_unavailable"))
+    non_food_rejection = bool(primary and primary.get("non_food_rejection"))
     reason = "No primary vision result was available; a local CNN candidate alone cannot verify a meal."
+    if provider_unavailable:
+        reason = "The configured primary vision providers were unavailable, so no image estimate was created."
+    elif non_food_rejection:
+        reason = "The primary vision model identified no food in the image."
 
     if primary_food and primary_confidence > 0.85:
         final_food = primary_food
@@ -564,6 +580,16 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
 
     audit = _food_prediction_audit(primary, cnn, decision, reason)
     if final_food is None:
+        if provider_unavailable:
+            return {
+                "status": "provider_unavailable",
+                "message": "Food recognition is temporarily unavailable. No estimate was created.",
+                "suggestion": "Try again shortly. Your photo and activity record were not saved.",
+                "confidence": None,
+                "image_candidate": None,
+                "prediction_audit": audit,
+                "requires_user_confirmation": False,
+            }
         return {
             "status": "low_confidence",
             "message": "The image models could not verify this meal. Confirm it manually instead of using a guessed estimate.",
