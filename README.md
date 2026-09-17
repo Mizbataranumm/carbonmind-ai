@@ -2,15 +2,13 @@
 
 # 🌱 CarbonMind AI
 
-### *Your Intelligent Carbon Footprint Companion*
+### *A personal carbon tracking and scenario-planning application*
 
-**A futuristic, ML-powered sustainability operating system.**  
-Track your carbon DNA. Predict your daily emissions. Meet your future self. Change the timeline.
+Track user-entered activities, estimate meal footprints, and explore transparent lifestyle scenarios.
 
-![Status](https://img.shields.io/badge/status-production--ready-00FFB2?style=flat-square)
-![Stack](https://img.shields.io/badge/stack-React%2019%20%2B%20FastAPI%20%2B%20PyTorch%20%2B%20MongoDB-00D9FF?style=flat-square)
-![AI/ML](https://img.shields.io/badge/ML-ResNet18%20CNN%20%7C%20GBDT%20%7C%20PyTorch%20LSTM-9B7EDF?style=flat-square)
-![LLM](https://img.shields.io/badge/AI-Gemini%203%20Flash%20%2F%20Rule%20Engine-FFD166?style=flat-square)
+![Status](https://img.shields.io/badge/status-candidate%20build-FFD166?style=flat-square)
+![Stack](https://img.shields.io/badge/stack-React%20%2B%20FastAPI%20%2B%20MongoDB-00D9FF?style=flat-square)
+![ML](https://img.shields.io/badge/ML-evaluation%20required-FFD166?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-white?style=flat-square)
 
 </div>
@@ -19,36 +17,34 @@ Track your carbon DNA. Predict your daily emissions. Meet your future self. Chan
 
 ## ✨ Overview
 
-**CarbonMind AI** is an advanced sustainability engineering platform that transforms personal environmental accounting into an intelligent, AI-guided experience. By blending real Machine Learning models (Computer Vision, Gradient Boosted Decision Trees, and LSTM Time-Series sequence forecasting) with a responsive user interface, CarbonMind AI empowers users to track, predict, and systematically reduce their daily carbon footprint.
+**CarbonMind AI** is a candidate product build, not yet a validated B2B/B2C carbon-accounting service. The current application stores user-entered activity records in MongoDB, derives dashboard totals from those records, and clearly distinguishes transparent calculations from candidate ML inference.
 
----
+## Model Status
 
-## 🎬 Machine Learning & AI Core (Verified Architecture)
+The checked-in ResNet-18 metadata reports **4.0% accuracy** and the artifact is not used by the running food-scanner endpoint. The scan endpoint requires external vision candidates (Hugging Face and Gemini when configured) to agree with the user-confirmed dish name before it returns an estimate; text-only dish names are rejected. The carbon calculation reads the committed `Food_Product_Emissions.csv` per-kilogram factors and scales a reviewed recipe to the estimated portion. That CSV is an emissions-factor source, not an image-labelled training dataset. Provider scores are not calibrated and must not be treated as product accuracy.
 
-CarbonMind AI operates on a multi-model ML architecture running on FastAPI & PyTorch:
+The reproducible benchmark compares annual-emissions regressors on the same 2,000-row holdout. The app uses the 18-field LightGBM candidate that intentionally excludes the source dataset's `Sex` field; its recorded holdout MAE is 182.3640 kg/year in [the benchmark report](backend/ml/evaluation/annual_carbon_model_benchmark.json). This remains a candidate result from one random split, not a commercial performance claim. It is only available through a complete lifestyle profile. The activity screen uses a transparent time-scaled calculation instead. The `Carbon Emission.csv` target is annual kg CO2e, so it cannot validate a partial-day activity forecast.
 
-| Model | Architecture / Technology | Purpose & Specs |
-|---|---|---|
-| 📷 **Food Scanner (CNN)** | PyTorch **ResNet-18** (`cnn_food_model.pt`, 44.9 MB) | Fine-tuned on Food-101 (101 classes). Classifies meal photos into CO₂ intensity categories. Enforces a **70% confidence threshold** to reject non-food images. |
-| 📊 **Daily Forecaster (GBDT)** | Scikit-Learn / XGBoost **GBDT Regressor** (`gbdt_carbon_model.pkl`, 277 KB) | Trained on `Carbon Emission.csv` (10,000 records). Predicts full-day emissions (`kg CO₂/day`) based on user lifestyle features (Transport, Diet, TV/PC Hours, Vehicle Distance). |
-| 🔮 **Future Simulator (LSTM)** | PyTorch **2-Layer LSTM** (`lstm_carbon_model.pt`, 0.21 MB) | 2 LSTM layers (64 hidden units, dropout 0.2) + FC Head (64 $\rightarrow$ 32 $\rightarrow$ 7). Window: **30-day historical sequence $\rightarrow$ 7-day future forecast** (Validation MAE: **0.79 kg/day**). |
-| 🤖 **AI Coach** | Contextual **Conversational AI** + Gemini | Real-time guidance answering greetings, carbon footprint definitions, emission breakdowns, and custom reduction strategies. |
-| 🎙️ **Voice Agent & Telephony** | Web Speech API + **Twilio Voice** | Features a 2-way interactive voice coach (mic speech recognition + spoken audio output) plus automated phone briefings. |
+The future screen is an assumption-based scenario calculator. It is not an LSTM forecast and it does not predict an individual temperature impact. Weekly forecasting requires at least five real daily observations and does not fabricate history.
+
+See [the model registry](backend/ml/model_registry.json), [the evaluation report guidance](backend/ml/evaluation/README.md), and [the hardening plan](docs/ML_HARDENING_PLAN.md) before publishing model-quality claims.
+
+For the Phase 1 demonstration and research-paper evidence pack, see the
+[system specification](docs/research/PHASE1_SYSTEM_SPECIFICATION.md),
+[data collection and evaluation protocol](docs/research/DATA_COLLECTION_AND_EVALUATION_PROTOCOL.md),
+and [IEEE paper draft](docs/research/IEEE_PAPER_DRAFT.md). These documents
+separate implemented behaviour from experiments that still require dated,
+consented participant data.
 
 ---
 
 ## 🚀 Key App Features & Pages
 
-- 🏠 **Landing Page (`/`)**: Hero animation, interactive earth visual, live stats counter, and dark/light theme toggle.
-- 🚀 **Onboarding Flow**: 3-step setup collecting user transport and dietary baselines to seed personalized ML inference.
-- 📊 **Live Dashboard (`/dashboard`)**: Dynamic budget tracker, streak monitor, daily emission statistics, Recharts weekly trend, and category breakdown.
-- 📷 **Food Scanner (`/scan`)**: Image upload or camera capture processed via PyTorch ResNet-18 CNN for instant meal carbon intensity.
-- 📡 **Live Tracker (`/tracker`)**: Log granular daily activities across Transport, Electricity, Food, and Devices.
-- 📈 **Daily Forecaster (`/predict`)**: Real-time GBDT prediction curve showing 24-hour accumulation and tree/car/burger equivalence offsets.
-- 🔮 **10-Year Simulator (`/future`)**: Multi-year forecast projecting environmental conditions and personal footprint using PyTorch LSTM.
-- 👥 **Community & Challenges (`/community`, `/challenges`)**: Sustainability social feed, post creation, likes, comments, and community eco-challenges.
-- 🏆 **Certificates & Mini-Game (`/certificate`, `/game`)**: Earn XP, level up badges, unlock Carbon Auras, generate verified Eco-Certificates, and play the interactive DOM Eco-Game.
-- 👤 **Profile Page (`/profile`)**: Avatar gallery picker, personal stats overview, and in-app user guide.
+- **Activity dashboard and tracker:** reads saved user activity records from MongoDB.
+- **Food scan:** returns an estimate only when a candidate from the uploaded image agrees with the user-confirmed dish name; users must still confirm dish and portion before logging.
+- **Daily projection:** scales the entered observation window to a day; candidate GBDT inference requires its complete lifestyle schema.
+- **Future planner:** compares explicitly stated emissions assumptions across a selected horizon.
+- **Community, voice, certificates, and game:** experience features that require their own moderation, security, and verification work before commercial release.
 
 ---
 
@@ -62,36 +58,44 @@ CarbonMind AI operates on a multi-model ML architecture running on FastAPI & PyT
 
 ### **Backend**
 - **Framework:** FastAPI · Pydantic v2 · Python 3.11+
-- **Machine Learning:** PyTorch (`torch`, `torchvision`) · Scikit-Learn · NumPy · Pandas
+- **Machine Learning:** Scikit-Learn · XGBoost · LightGBM · NumPy · Pandas (candidate models)
 - **Database:** MongoDB (Motor async driver)
 - **Audio & Telephony:** Web Speech API · Twilio Voice API
 
 ---
 
-## 📡 API Endpoints (20 Total)
+## 📡 API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/api/` | Health check & API status |
-| `GET` | `/api/onboarding/status` | User onboarding progress status |
-| `POST` | `/api/onboarding/save` | Persist user onboarding preferences |
+| `GET` | `/api/ml/status` | Candidate model wiring and readiness status |
+| `GET` | `/api/onboarding/status` | Authenticated user onboarding progress |
+| `POST` | `/api/onboarding/save` | Persist authenticated onboarding preferences |
 | `POST` | `/api/auth/demo-login` | Instant demo account session |
 | `POST` | `/api/auth/register` | Create new user account |
 | `POST` | `/api/auth/login` | Authenticate user |
-| `GET` | `/api/carbon/stats` | Dashboard statistics & metrics |
-| `GET` | `/api/tracker/live` | Real-time activities & categories |
-| `POST` | `/api/future/simulate` | LSTM 10-year climate trajectory |
+| `POST` | `/api/activities/daily` | Save or append to an authenticated user's activity record |
+| `GET` | `/api/carbon/stats` | Dashboard metrics derived from saved activities |
+| `GET` | `/api/carbon/intelligence` | Evidence, forecast readiness, budget status, and next action from saved activities |
+| `GET` | `/api/tracker/live` | Recorded activity timeline and history grid |
+| `POST` | `/api/future/simulate` | Assumption-based personal footprint scenario |
 | `GET` | `/api/community/feed` | Community posts & challenges |
 | `POST` | `/api/community/like` | Toggle post likes |
 | `POST` | `/api/community/comment` | Add comment to post |
 | `POST` | `/api/community/join` | Join community challenge |
 | `POST` | `/api/community/post` | Publish new community post |
 | `POST` | `/api/chat/sustainability` | AI Coach conversational queries |
-| `POST` | `/api/predict/day` | GBDT full-day footprint forecast |
+| `POST` | `/api/predict/day` | Activity projection or full-schema candidate GBDT estimate |
+| `POST` | `/api/predict/annual` | Full 18-field annual-emissions candidate estimate |
+| `GET`/`PUT` | `/api/profile/lifestyle` | Read or save an authenticated complete annual-profile schema |
+| `POST` | `/api/predict/weekly` | Observed-history weekly baseline forecast |
 | `POST` | `/api/voice/call-tips` | Generate daily voice tips script |
 | `POST` | `/api/voice/phone-call` | Trigger Twilio phone call briefing |
-| `POST` | `/api/food/scan` | PyTorch ResNet-18 meal photo analysis |
-| `POST` | `/api/certificate/generate` | Generate verified carbon certificate |
+| `POST` | `/api/food/scan` | Candidate food scan with image/dish-name agreement |
+| `POST` | `/api/food/feedback` | Save an authenticated user dish correction without retaining the image |
+| `POST` | `/api/certificate/generate` | Persist a monthly user-entered activity summary |
+| `GET` | `/api/certificate/{cert_id}` | Retrieve a persisted activity-summary certificate |
 
 ---
 
@@ -123,6 +127,17 @@ cd ../frontend
 npm install
 npm start
 ```
+
+## Deployment Requirements
+
+Set these backend environment variables before deploying:
+
+- `MONGO_URL`: a private MongoDB connection string.
+- `CORS_ORIGINS`: the exact deployed frontend URL, for example `https://app.example.com`; do not use `*` with authenticated requests.
+- `AUTH_SECRET`: a persistent, randomly generated secret. Render generates one for the supplied service definition.
+- `HF_API_KEY` and/or `GEMINI_API_KEY`: optional candidate food-vision providers. Do not enable model-quality claims until the required evaluation reports exist.
+
+Use a separate MongoDB database for development and production. The first successful backend start creates uniqueness indexes for emails, per-user daily records, community toggles, and summary IDs.
 
 ---
 

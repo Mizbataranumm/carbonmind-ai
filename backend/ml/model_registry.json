@@ -1,0 +1,90 @@
+{
+  "registry_version": 1,
+  "last_reviewed": "2026-09-13",
+  "models": {
+    "food_scanner": {
+      "status": "candidate_runtime_wired_not_product_validated",
+      "runtime_path": "backend/ml_service.py::predict_food",
+      "current_runtime": [
+        "Gemini Vision when GEMINI_API_KEY is configured, otherwise Hugging Face Inference API: nateraw/food",
+        "checked-in local ResNet18 Food-101 candidate in parallel with the primary provider",
+        "confidence-weighted decision: high-confidence primary or low-confidence agreement boost",
+        "confirmed dish-name agreement before a CSV-backed recipe emission estimate"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/cnn_food_model.pt",
+        "backend/ml/models/cnn_food_metadata.json"
+      ],
+      "known_issues": [
+        "Checked-in CNN metadata reports best_accuracy = 4.0 and it therefore remains a candidate, not a release-ready classifier",
+        "No committed 15-20 image primary-vs-CNN-vs-ensemble evaluation report exists",
+        "A successful scan requires the image decision and the user-entered dish to agree",
+        "Food_Product_Emissions.csv provides product-level emission factors; reviewed recipes and portion assumptions are required to estimate a mixed dish",
+        "No committed real-world image validation report"
+      ],
+      "required_release_metrics": [
+        "top1_accuracy",
+        "top3_accuracy",
+        "macro_f1",
+        "non_food_false_accept_rate",
+        "food_false_reject_rate",
+        "expected_calibration_error",
+        "latency_p95_ms"
+      ]
+    },
+    "daily_carbon_predictor": {
+      "status": "candidate_reproducible_14_feature_ensemble_and_product_schema_candidate",
+      "runtime_path": "backend/ml_service.py::predict_gbdt_ensemble",
+      "current_runtime": [
+        "14-feature HistGradientBoosting and LightGBM pipelines on the exact same random holdout split",
+        "R2-weighted annual lifestyle ensemble returned beside the 18-feature LightGBM profile estimate",
+        "18-feature LightGBM pipeline for explicit annual profile requests; excludes the source Sex field",
+        "14-feature annual lifestyle schema"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/daily_hist_gradient_pipeline.joblib",
+        "backend/ml/models/daily_lightgbm_pipeline.joblib",
+        "backend/ml/evaluation/daily_gbdt_ensemble_metrics.json",
+        "backend/ml/models/annual_carbon_champion.joblib",
+        "backend/ml/evaluation/annual_carbon_model_benchmark.json"
+      ],
+      "known_issues": [
+        "The held-out result is a random 80/20 split, not a production temporal, regional, or user-level validation",
+        "The annual-profile form collects the product 18-feature schema without the source Sex field, but evaluation remains a single random holdout",
+        "Carbon Emission.csv has annual targets and no within-day timestamps, so the 14-feature ensemble cannot be used as a same-day activity predictor"
+      ],
+      "required_release_metrics": [
+        "mae_kg_year",
+        "rmse_kg_year",
+        "r2_holdout",
+        "baseline_mae_kg_year",
+        "feature_coverage_rate",
+        "prediction_interval_coverage"
+      ]
+    },
+    "future_simulator": {
+      "status": "scenario_calculator_until_real_history_exists",
+      "runtime_path": "backend/server.py::simulate and backend/ml_service.py::predict_weekly_arima",
+      "current_runtime": [
+        "Holt-Winters weekly smoothing only when five observed daily values are supplied",
+        "transparent, deterministic planning scenario inside /future/simulate"
+      ],
+      "checked_in_artifacts": [
+        "backend/ml/models/lstm_carbon_model.pt",
+        "backend/ml/models/lstm_carbon_model.h5"
+      ],
+      "known_issues": [
+        "Legacy LSTM artifact is deliberately not served because no matching chronological validation report exists",
+        "No backtest report exists for the Holt-Winters path",
+        "Planning scenarios are assumption-driven and not time-series forecasts"
+      ],
+      "required_release_metrics": [
+        "mae_kg_day",
+        "mape",
+        "coverage_by_horizon",
+        "backtest_window_count",
+        "scenario_assumption_error_bounds"
+      ]
+    }
+  }
+}

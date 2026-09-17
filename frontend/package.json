@@ -61,7 +61,7 @@
     "zod": "^3.24.4"
   },
   "scripts": {
-    "start": "craco start",
+    "start": "cross-env DISABLE_ESLINT_PLUGIN=true craco start",
     "build": "cross-env DISABLE_ESLINT_PLUGIN=true craco build",
     "test": "craco test"
   },

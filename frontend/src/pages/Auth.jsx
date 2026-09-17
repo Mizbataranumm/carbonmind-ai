@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Leaf, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/lib/UserContext";
@@ -10,19 +10,21 @@ import ParticleField from "@/components/ParticleField";
 
 const Auth = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setUser } = useUser();
-    const [mode, setMode] = useState("register"); // login | register
+  const [mode, setMode] = useState(() => searchParams.get("mode") === "login" ? "login" : "register");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const demoRequested = useRef(false);
 
   const handleDemo = async () => {
     setLoading(true);
     try {
-      const u = await demoLogin(name || "Eco Explorer");
+      const u = await demoLogin("Eco Explorer");
       setUser(u);
-      toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
+      toast.success("Demo workspace ready", { description: "This is separate from a personal account." });
       navigate("/dashboard");
     } catch (e) {
       toast.error("Could not start session");
@@ -30,6 +32,12 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (searchParams.get("demo") !== "1" || demoRequested.current) return;
+    demoRequested.current = true;
+    handleDemo();
+  }, [searchParams, handleDemo]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,7 +51,7 @@ const Auth = () => {
       }
       setUser(u);
       toast.success("Welcome to CarbonMind", { description: `${u.name} · Aura ${u.grade}` });
-      navigate("/dashboard");
+      navigate(mode === "register" && !u.onboarding_completed ? "/onboarding" : "/dashboard");
     } catch (e) {
       toast.error(e.response?.data?.detail || "Invalid credentials");
     } finally {
@@ -63,7 +71,7 @@ const Auth = () => {
             <div className="font-mono-data text-[11px] uppercase tracking-widest text-green mb-3">// CarbonMind AI</div>
             <h2 className="font-display text-3xl leading-tight">The future is built one habit at a time.</h2>
             <p className="text-secondary mt-4 text-sm leading-relaxed">
-              Sign in to unlock your Carbon DNA, sustainability streak, and personal AI coach.
+              Sign in to access your saved activity record, annual assessment, and planning tools.
             </p>
           </div>
         </div>
@@ -71,30 +79,22 @@ const Auth = () => {
 
       {/* RIGHT form panel */}
       <div className="flex-1 flex items-center justify-center px-6 py-10 relative">
-        <button
-          data-testid="back-home-btn"
-          onClick={() => navigate("/")}
-          className="absolute top-6 left-6 text-xs font-mono-data text-secondary hover:text-main"
-        >← Back home</button>
-
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          <div className="flex items-center mb-8 justify-center lg:justify-start">
-                      <div className="flex items-center gap-2.5 mb-8 justify-center lg:justify-start">
+          <div className="flex items-center gap-2.5 mb-8 justify-center lg:justify-start">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green to-cyan flex items-center justify-center">
               <Leaf className="h-4 w-4 text-[#071014]" strokeWidth={2.5} />
             </div>
             <div className="font-display font-bold text-lg">CarbonMind</div>
           </div>
-          </div>
 
           <h1 className="font-display text-3xl">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
           <p className="text-sm text-secondary mt-2">
-            {mode === "login" ? "Step into your sustainability OS." : "Begin your carbon journey."}
+            {mode === "login" ? "Return to your saved activity record." : "Create a private activity record and lifestyle profile."}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-3">

@@ -1,73 +1,100 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, Activity, Sparkles, Users, LogOut, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle, Menu, Sun, Moon, Gamepad2, BrainCircuit } from "lucide-react";
+import { LayoutDashboard, Activity, Sparkles, Users, Leaf, Bell, TrendingUp, ScanLine, Award, X, Circle, Menu, Sun, Moon, Gamepad2 } from "lucide-react";
 import { useUser } from "@/lib/UserContext";
-import VoiceCallModal from "./VoiceCallModal";
-import FloatingAICoach from "./FloatingAICoach";
 import { Plus } from "lucide-react";
+import { getCarbonStats } from "@/lib/api";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/predict", label: "Daily Forecaster", icon: TrendingUp, testid: "nav-predict" },
-  { to: "/scan", label: "Food Scanner", icon: ScanLine, testid: "nav-scan" },
-  { to: "/tracker", label: "Live Tracker", icon: Activity, testid: "nav-tracker" },
-  { to: "/future", label: "10-Year Simulator", icon: Sparkles, testid: "nav-future" },
+  { to: "/tracker", label: "Activity record", icon: Activity, testid: "nav-tracker" },
+  { to: "/scan", label: "Food estimate", icon: ScanLine, testid: "nav-scan" },
+  { to: "/predict", label: "Daily scenario", icon: TrendingUp, testid: "nav-predict" },
+  { to: "/future", label: "Future plan", icon: Sparkles, testid: "nav-future" },
   { to: "/community", label: "Community", icon: Users, testid: "nav-community" },
   { to: "/challenges", label: "Challenges", icon: Award, testid: "nav-challenges" },
   { to: "/certificate", label: "Certificate", icon: Award, testid: "nav-certificate" },
   { to: "/game", label: "Eco Mini-Game", icon: Gamepad2, testid: "nav-game" },
 ];
 
-const demoNotifications = [
-  { id: 1, title: "Weekly briefing ready", body: "Your AI coach is waiting on the dashboard.", tag: "AI", time: "just now", unread: true },
-  { id: 2, title: "New challenge: No-AC Week", body: "421 eco-citizens have joined - 3 days left.", tag: "Community", time: "1h", unread: true },
-  { id: 3, title: "Streak milestone!", body: "14 days below your daily target. Legendary.", tag: "Reward", time: "5h", unread: false },
-  { id: 4, title: "Prediction alert", body: "Morning transport was above baseline. Consider cycling.", tag: "Predict", time: "1d", unread: false },
-];
-
 const AppLayout = () => {
-  const { user, setUser } = useUser();
+  const { user, setUser, theme, toggleTheme } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const isDemo = Boolean(user?.is_demo);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved;
-    // Default to light theme
-    document.documentElement.setAttribute("data-theme", "light");
-    return "light";
-  });
-  
-  const isNew = user?.xp === 0;
-  
-  const [notifs, setNotifs] = useState(() => {
-    if (isNew) {
-      return [
-        { id: 1, title: "Welcome to CarbonMind!", body: "We're thrilled to have you here. Start tracking your footprint.", tag: "System", time: "just now", unread: true },
-        { id: 2, title: "Action Required", body: "Scan your first meal to initialize your Carbon DNA.", tag: "Onboarding", time: "1m", unread: true }
-      ];
+  const [stats, setStats] = useState(null);
+  const [notificationPermission, setNotificationPermission] = useState(() => (
+    typeof window !== "undefined" && "Notification" in window ? window.Notification.permission : "unsupported"
+  ));
+
+  useEffect(() => {
+    if (!user?.id) {
+      setStats(null);
+      return;
     }
-    return demoNotifications;
-  });
-  
-  const unreadCount = notifs.filter(n => n.unread).length;
+    getCarbonStats(user.id).then(setStats).catch(() => setStats(null));
+  }, [user?.id]);
+
+  const notifications = useMemo(() => {
+    if (!stats) return [];
+    const todayKg = Number(stats.today_kg || 0);
+    if (todayKg <= 0) {
+      return [{
+        id: "activity-needed",
+        title: "No activities saved today",
+        body: "Add a completed activity or confirm a scanned meal to begin today’s record.",
+        tag: "record",
+        time: "Today",
+        unread: true,
+      }];
+    }
+    if (todayKg > 6.5) {
+      return [{
+        id: "budget-crossed",
+        title: "Daily budget crossed",
+        body: `${todayKg.toFixed(1)} kg CO2e is saved today, above your 6.5 kg budget.`,
+        tag: "budget",
+        time: "Today",
+        unread: true,
+      }];
+    }
+    return [{
+      id: "record-updated",
+      title: "Today’s record is up to date",
+      body: `${todayKg.toFixed(1)} kg CO2e is saved today. ${Math.max(0, 6.5 - todayKg).toFixed(1)} kg remains within your daily budget.`,
+      tag: "record",
+      time: "Today",
+      unread: false,
+    }];
+  }, [stats]);
+
+  useEffect(() => {
+    if (notificationPermission !== "granted" || !user?.id || !notifications.length) return;
+    const key = `cm_browser_alert_${user.id}_${new Date().toISOString().slice(0, 10)}`;
+    const current = notifications[0];
+    const signature = `${current.id}:${current.body}`;
+    if (localStorage.getItem(key) === signature) return;
+    new window.Notification(current.title, { body: current.body });
+    localStorage.setItem(key, signature);
+  }, [notificationPermission, notifications, user?.id]);
+
+  const enableBrowserAlerts = async () => {
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await window.Notification.requestPermission();
+    setNotificationPermission(permission);
+  };
 
   useEffect(() => {
     if (!user) navigate("/auth");
   }, [user, navigate]);
 
-  
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
   if (!user) return null;
-
-  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
-  const markAllRead = () => setNotifs(notifs.map(n => ({ ...n, unread: false })));
 
   return (
     <div className="min-h-screen flex bg-app text-main overflow-x-hidden">
@@ -83,10 +110,18 @@ const AppLayout = () => {
             </div>
             <div>
               <div className="font-display font-bold text-xl leading-none" style={{ color: 'var(--text-primary)' }}>CarbonMind</div>
-              <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] mt-1" style={{ color: 'var(--neon-green)' }}>AI · v1.0 · Live</div>
+              <div className="font-mono-data text-[9px] uppercase tracking-[0.15em] mt-1" style={{ color: 'var(--neon-green)' }}>
+                {isDemo ? "Demo workspace" : "Personal carbon record"}
+              </div>
             </div>
           </div>
           <div className="mt-3 h-px" style={{ background: 'linear-gradient(90deg,rgba(0,255,178,0.3),transparent)' }} />
+          {isDemo && (
+            <div className="mt-3 px-3 py-2 rounded-xl border border-cyan/25 bg-cyan/5">
+              <p className="font-mono-data text-[9px] uppercase tracking-widest text-cyan">Demo account</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-secondary">Explore the sample data, then create an account for your own record.</p>
+            </div>
+          )}
         </div>
 
         <nav className="flex flex-col gap-1">
@@ -137,8 +172,9 @@ const AppLayout = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm truncate text-main group-hover:text-green transition-colors">{user.name}</p>
-              <p className="text-[10px] text-secondary truncate font-mono-data">Grade {user.grade} · {user.xp} XP</p>
+              <p className="text-[10px] text-secondary truncate font-mono-data">{isDemo ? "Demo sample account" : "Private activity profile"}</p>
             </div>
+            {isDemo && <span className="rounded-full border border-green/25 bg-green/10 px-2 py-1 text-[9px] font-mono-data uppercase tracking-widest text-green">Demo</span>}
           </div>
         </div>
       </aside>
@@ -146,7 +182,7 @@ const AppLayout = () => {
       {/* Main */}
       <div className="flex-1 lg:ml-[260px] min-h-screen overflow-x-hidden">
         {/* Top bar */}
-        <header className="sticky top-0 z-20 px-6 lg:px-10 py-4 flex items-center justify-between bg-app/70 backdrop-blur-xl border-b border-glass-border">
+        <header className="sticky top-0 z-20 px-4 sm:px-6 lg:px-10 py-3 sm:py-4 flex items-center justify-between bg-app/70 backdrop-blur-xl border-b border-glass-border">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -161,11 +197,16 @@ const AppLayout = () => {
             </div>
             </div>
             <div>
-              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Live Dashboard</div>
+              <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">CarbonMind</div>
               <div className="font-display text-lg sm:text-xl">{getTitle(location.pathname)}</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isDemo && (
+              <span className="hidden sm:inline-flex items-center rounded-full border border-cyan/30 bg-cyan/10 px-2.5 py-1 font-mono-data text-[10px] uppercase tracking-widest text-cyan">
+                Demo mode
+              </span>
+            )}
             <button
               onClick={toggleTheme}
               className="h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
@@ -177,20 +218,11 @@ const AppLayout = () => {
               onClick={() => setNotifOpen(v => !v)}
               className="relative h-9 w-9 rounded-full bg-widget border border-glass-border flex items-center justify-center hover:bg-widget-hover transition"
               data-testid="notifications-btn"
+              aria-label="Open notifications"
             >
               <Bell className="h-4 w-4 text-secondary" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full bg-green text-app text-[9px] font-mono-data font-bold flex items-center justify-center" style={{ boxShadow: "0 0 8px var(--neon-green)" }}>
-                  {unreadCount}
-                </span>
-              )}
+              {notifications.some((notification) => notification.unread) && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-green" />}
             </button>
-            <div className="hidden md:flex items-center gap-2 pl-3 ml-1 border-l border-glass-border">
-              <div className="text-right">
-                <div className="font-mono-data text-[10px] text-secondary">Streak</div>
-                <div className="font-mono-data text-sm text-green">{user?.streak ?? 0} days</div>
-              </div>
-            </div>
           </div>
         </header>
 
@@ -218,11 +250,10 @@ const AppLayout = () => {
                     </div>
                     <div>
                       <div className="font-display font-bold text-lg leading-none">CarbonMind</div>
-                      <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mt-0.5">AI · v1.0</div>
+                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-green mt-0.5">Personal carbon tracker</div>
                     </div>
                   </div>
                     </div>
-                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-green ml-2 font-bold">AI · v1.0</div>
                   </div>
                   <button onClick={() => setMobileMenuOpen(false)} className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-widget">
                     <X className="h-5 w-5 text-secondary" />
@@ -291,7 +322,7 @@ const AppLayout = () => {
                 initial={{ opacity: 0, x: 20, y: -8 }}
                 animate={{ opacity: 1, x: 0, y: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="fixed right-6 top-16 z-40 w-[360px] glass p-4 max-h-[70vh] overflow-y-auto"
+                className="fixed right-4 sm:right-6 top-16 z-40 w-[calc(100vw-2rem)] sm:w-[360px] glass p-4 max-h-[70vh] overflow-y-auto"
                 data-testid="notifications-panel"
               >
                 <div className="flex items-center justify-between mb-3">
@@ -299,15 +330,12 @@ const AppLayout = () => {
                     <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Alerts</div>
                     <div className="font-display text-base">Notifications</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={markAllRead} className="font-mono-data text-[10px] text-green hover:underline" data-testid="mark-read-btn">Mark all read</button>
-                    <button onClick={() => setNotifOpen(false)} className="h-6 w-6 rounded-md bg-widget hover:bg-widget-hover flex items-center justify-center">
-                      <X className="h-3 w-3 text-secondary" />
-                    </button>
-                  </div>
+                  <button onClick={() => setNotifOpen(false)} className="h-6 w-6 rounded-md bg-widget hover:bg-widget-hover flex items-center justify-center">
+                    <X className="h-3 w-3 text-secondary" />
+                  </button>
                 </div>
                 <div className="space-y-2">
-                  {notifs.map(n => (
+                  {notifications.length ? notifications.map(n => (
                     <div key={n.id} className={`p-3 rounded-xl border ${n.unread ? "bg-green/5 border-green/20" : "bg-widget border-glass-border"}`} data-testid={`notif-${n.id}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
@@ -323,14 +351,25 @@ const AppLayout = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )) : <p className="py-8 text-center text-sm text-secondary">Your saved record will create relevant alerts here.</p>}
+                </div>
+                <div className="mt-4 border-t border-glass-border pt-4">
+                  {notificationPermission === "granted" ? (
+                    <p className="text-xs leading-relaxed text-secondary">Browser alerts are enabled while this site is open. Background push alerts require an installed app and a server-side notification service.</p>
+                  ) : notificationPermission === "unsupported" ? (
+                    <p className="text-xs leading-relaxed text-secondary">This browser does not support system notifications.</p>
+                  ) : notificationPermission === "denied" ? (
+                    <p className="text-xs leading-relaxed text-secondary">Browser alerts are blocked. You can allow them in your browser site settings.</p>
+                  ) : (
+                    <button type="button" onClick={enableBrowserAlerts} className="w-full rounded-xl border border-green/30 bg-green/10 px-3 py-2.5 text-sm font-semibold text-green transition hover:bg-green/15">Enable browser alerts</button>
+                  )}
                 </div>
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
-        <main className="px-6 lg:px-10 py-8">
+        <main className="px-4 sm:px-6 lg:px-10 py-5 sm:py-8 pb-24 lg:pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
@@ -340,7 +379,6 @@ const AppLayout = () => {
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             >
               <Outlet />
-              <FloatingAICoach />
             </motion.div>
           </AnimatePresence>
         </main>
@@ -352,9 +390,9 @@ const AppLayout = () => {
 const getTitle = (path) => {
   const map = {
     "/dashboard": "Carbon Overview",
-    "/tracker": "Live Activity Tracker",
-    "/predict": "Predictive Budget Alert",
-    "/future": "AI Future Simulator",
+    "/tracker": "Activity History",
+    "/predict": "Plan Today",
+    "/future": "Future Scenarios",
     "/scan": "Food Carbon Scanner",
     "/certificate": "Verified Certificate",
     "/community": "Eco Community",

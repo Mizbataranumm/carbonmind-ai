@@ -1,0 +1,21 @@
+{
+  "dataset": "Food-101 official archive",
+  "archive": "archive (8).zip",
+  "archive_bytes": 10067059132,
+  "generated_at": "2026-09-14T04:32:37.722950+00:00",
+  "image_member_list_sha256": "e07fcbd1becae11886f8981c46e2340136bae668e12cb3fbfb4d515c32db9d39",
+  "image_count": 101000,
+  "class_count": 101,
+  "images_per_class": {
+    "min": 1000,
+    "max": 1000
+  },
+  "official_split": {
+    "train_count": 75750,
+    "test_count": 25250,
+    "overlap_count": 0,
+    "missing_train_images": 0,
+    "missing_test_images": 0
+  },
+  "release_note": "Dataset integrity only. This report does not measure a classifier. Use train_food101_transfer.py to generate held-out model metrics."
+}

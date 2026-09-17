@@ -10,7 +10,12 @@ services:
       - key: DB_NAME
         value: carbonmind
       - key: CORS_ORIGINS
-        value: "*"
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
       - key: EMERGENT_LLM_KEY
         sync: false
-
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: HF_API_KEY
+        sync: false
