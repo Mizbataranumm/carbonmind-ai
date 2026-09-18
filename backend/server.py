@@ -60,6 +60,7 @@ try:
         predict_weekly_ensemble,
     )
     from .food_emissions import food_catalog
+    from .transport_emissions import estimate_transport_emissions, transport_catalog
 except ImportError:
     # Render starts ``uvicorn server:app`` from this directory.
     from ml_service import (  # type: ignore[no-redef]
@@ -75,6 +76,7 @@ except ImportError:
         predict_weekly_ensemble,
     )
     from food_emissions import food_catalog  # type: ignore[no-redef]
+    from transport_emissions import estimate_transport_emissions, transport_catalog  # type: ignore[no-redef]
 
 async def _warm_models() -> None:
     """Load optional model artifacts without delaying the web server port bind."""
@@ -188,6 +190,12 @@ class SaveLifestyleProfileRequest(BaseModel):
 class SaveMonthlyGoalRequest(BaseModel):
     user_id: str = Field(min_length=1, max_length=128)
     monthly_target_kg: float = Field(gt=0, le=100_000)
+
+
+class TransportEstimateRequest(BaseModel):
+    factor_id: str = Field(min_length=1, max_length=80)
+    distance_km: float = Field(gt=0, le=100_000)
+    passengers: int = Field(default=1, ge=1, le=100)
 
 class PredictDayResponse(BaseModel):
     predicted_full_day_kg: float
@@ -728,6 +736,20 @@ def _merge_daily_activities(existing: List[dict], incoming: List[dict], *, appen
         if event_id:
             known_event_ids.add(event_id)
     return existing + accepted, duplicate_count
+
+
+@api_router.get("/transport/catalog")
+async def get_transport_catalog():
+    """Expose only the committed, source-labelled transport factor subset."""
+    return {"factors": transport_catalog(), "source": "DESNZ 2026 GHG Conversion Factors"}
+
+
+@api_router.post("/transport/estimate")
+async def estimate_transport(req: TransportEstimateRequest, current_user_id: str = Depends(_current_user_id)):
+    try:
+        return estimate_transport_emissions(req.factor_id, req.distance_km, req.passengers)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @api_router.post("/activities/daily")

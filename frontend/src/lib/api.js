@@ -25,6 +25,8 @@ export const getTrackerLive = (userId) => api.get("/tracker/live", { params: { u
 export const getMonthlyGoal = (userId) => api.get("/goals/monthly", { params: { user_id: userId } }).then(r => r.data);
 export const saveMonthlyGoal = (payload) => api.put("/goals/monthly", payload).then(r => r.data);
 export const saveDailyActivities = (payload) => api.post("/activities/daily", payload).then(r => r.data);
+export const getTransportCatalog = () => api.get("/transport/catalog").then(r => r.data);
+export const estimateTransport = (payload) => api.post("/transport/estimate", payload).then(r => r.data);
 export const simulateFuture = (payload) => api.post("/future/simulate", payload).then(r => r.data);
 export const getCommunityFeed = () => api.get("/community/feed").then(r => r.data);
 export const likePost = (payload) => api.post("/community/like", payload).then(r => r.data);

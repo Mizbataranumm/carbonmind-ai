@@ -21,6 +21,7 @@ from backend.ml_service import (
     predict_weekly_ensemble,
 )
 from backend.food_emissions import estimate_food_emissions, food_catalog, load_food_product_factors
+from backend.transport_emissions import estimate_transport_emissions, load_transport_factors
 import backend.ml_service as ml_service
 from backend.server import (
     FoodScanRequest,
@@ -48,6 +49,14 @@ from backend.server import (
 
 class ModelContractTests(unittest.TestCase):
     VALID_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGOsCNBgYGBgYgADAAu6APRmkuoXAAAAAElFTkSuQmCC"
+
+    def test_transport_estimate_uses_committed_desnz_factor_and_occupancy(self):
+        factors = load_transport_factors()
+        self.assertEqual(factors["car_petrol_average"]["kg_co2e_per_km"], 0.16152)
+        result = estimate_transport_emissions("car_petrol_average", 20, passengers=2)
+        self.assertEqual(result["co2_kg"], 1.6152)
+        self.assertEqual(result["formula"], "20 km x 0.16152 kg CO2e/km / 2 occupants")
+        self.assertIn("DESNZ", result["factor"]["source_document"])
 
     def test_monthly_goal_uses_saved_logs_and_a_transparent_calendar_run_rate(self):
         logs = [

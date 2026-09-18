@@ -4,11 +4,22 @@
 
 \*\*Subject Area:\*\* Environmental Informatics, Applied Machine Learning, Sustainable Computing, and Behavioral Systems Engineering  
 
-\*\*Version:\*\* 1.0 (Production Release)  
+\*\*Version:\*\* 1.1 (Theoretical background; not an implementation specification)
 
 \*\*Author:\*\* CarbonMind Research Team  
 
 
+
+\---
+
+## Implementation Boundary
+
+This document records theoretical background and candidate formulations. It is
+not evidence that every equation is deployed in CarbonMind Phase 1. The
+implementation audit in `IEEE_PAPER_IMPLEMENTATION_AUDIT.md` is controlling:
+only a formulation explicitly marked **Implemented in Phase 1** and linked to
+reproducible code/results may be described as methodology or evaluated work.
+All other sections below are theoretical background or future work.
 
 \---
 
@@ -68,7 +79,7 @@ where:
 
 
 
-\### 1.3 Behavioral Economics, Cybernetic Feedback, and Nudge Theory
+\### 1.3 Behavioral Economics, Cybernetic Feedback, and Nudge Theory (Theoretical Background)
 
 Traditional carbon accounting tools are predominantly \*\*retrospective\*\* (static annual calculators). From Norbert Wiener’s cybernetics framework, a control system characterized by large sensory delay time $\\tau\_{delay} \\gg \\tau\_{action}$ is prone to high oscillation and control divergence:
 
@@ -78,7 +89,9 @@ When an individual only discovers their carbon footprint at the conclusion of a 
 
 
 
-CarbonMind implements a \*\*proactive intra-day closed-loop controller\*\*:
+CarbonMind's product direction is informed by the following proposed proactive
+loop. Phase 1 currently provides a transparent activity-rate projection rather
+than a trained intra-day controller:
 
 1\. \*\*Intra-Day Sensory Ingestion\*\*: Immediate capture of morning/afternoon events $a\_t$.
 
@@ -120,7 +133,7 @@ $$\\text{CO}\_2\\text{e} = 1.0 \\times m\_{\\text{CO}\_2} + 28.0 \\times m\_{\\t
 
 
 
-\### 2.2 Granular 7-Stage Food Lifecycle Model (Poore \& Nemecek, 2018)
+\### 2.2 Granular 7-Stage Food Lifecycle Model (Implemented in Phase 1)
 
 Derived from the meta-analysis of \*\*Poore \& Nemecek (Science 2018, 38,700 farms, 119 countries)\*\*:
 
@@ -170,9 +183,9 @@ The stage-disaggregated lifecycle impact $E\_{D, s}$ for stage $s \\in \\mathcal
 
 $$E\_{D, s} = \\sum\_{j \\in \\mathcal{I}\_D} \\left( \\frac{\\kappa \\cdot m\_{D, j}^{(0)}}{1000} \\right) \\varepsilon\_{j, s}$$
 
-with conservation property:
-
-$$\\sum\_{s \\in \\mathcal{S}} E\_{D, s} \\equiv E\_D$$
+The repository uses the separately supplied CSV global-average factor for the
+dish total and reports the seven-stage subtotal alongside it. It does **not**
+assert that the two totals are equal; any CSV difference is preserved.
 
 
 
@@ -194,7 +207,7 @@ $$P(Y = c \\mid \\mathbf{X}) = \\frac{\\exp(z\_c / T)}{\\sum\_{k=1}^C \\exp(z\_k
 
 
 
-\### 3.2 Bayesian Evidence Fusion with Optional Semantic Hints
+\### 3.2 Bayesian Evidence Fusion with Optional Semantic Hints (Theoretical; Not Implemented)
 
 Let $I$ be visual evidence, $H$ be an optional semantic hint:
 
@@ -206,7 +219,11 @@ $$P(c \\mid I, \\emptyset) = P(c \\mid I)$$
 
 
 
-\### 3.3 Uncertainty Gating and Out-of-Distribution Rejection
+\### 3.3 Uncertainty Gating and Out-of-Distribution Rejection (Theoretical; Not Implemented)
+
+**Phase 1 boundary:** the deployed scanner does not calculate entropy or a
+top-two margin. It uses a score threshold and dish-name agreement as a review
+gate, then requires explicit confirmation before an activity is saved.
 
 \* \*\*Shannon Predictive Entropy:\*\*
 
@@ -242,7 +259,11 @@ $$\\mathcal{G}\_{\\text{split}} = \\frac{1}{2} \\left\[ \\frac{(\\sum\_{I\_L} g\
 
 
 
-\### 4.2 Intra-Day Carbon Velocity and Burn-Rate Dynamics
+\### 4.2 Intra-Day Carbon Velocity and Burn-Rate Dynamics (Theoretical; Not Implemented as GBDT)
+
+**Phase 1 boundary:** `/api/predict/day` is an activity-rate projection. The
+served HistGradientBoosting/LightGBM ensemble is an annual 14-feature profile
+candidate, not the daily GBDT formulation below.
 
 For current time $t\_{\\text{current}}$, observed morning emissions $C\_{\\text{obs}}(t\_{\\text{current}})$, daily budget $\\mathcal{B}\_{\\text{daily}}$, and cumulative diurnal curve $\\Phi(t)$:
 
@@ -260,7 +281,7 @@ $$C\_{\\text{pred}}(24) = C\_{\\text{obs}}(t\_{\\text{current}}) + f\_{\\text{GB
 
 
 
-\## 5. Multi-Objective Constrained Optimization (MOMILP)
+\## 5. Proposed Future Work: Multi-Objective Constrained Optimization (MOMILP)
 
 
 
@@ -286,19 +307,19 @@ $$\\rho\_k = \\frac{\\Delta e\_k}{u\_k + \\epsilon}$$
 
 
 
-\### 6.1 Epistemic Provenance Hierarchy (W3C PROV-DM)
+\### 6.1 Epistemic Provenance Hierarchy (W3C PROV-DM; Proposed Schema)
 
-\* \*\*Tier 1: Measured ($S\_M$)\*\*: IoT smart meters, GPS OBD-II telemetry.
+\* \*\*Tier 1: Measured ($S\_M$)\*\*: IoT smart meters, GPS OBD-II telemetry (future integration; not live in Phase 1).
 
 \* \*\*Tier 2: Confirmed ($S\_C$)\*\*: Food photo classified + user confirmed recipe and portion.
 
-\* \*\*Tier 3: Estimated ($S\_E$)\*\*: Inferred via GBDT regression or verified CSV factors.
+\* \*\*Tier 3: Estimated ($S\_E$)\*\*: Verified CSV factors; annual GBDT candidate only where the 14-feature profile is complete.
 
 \* \*\*Tier 4: Assumed ($S\_A$)\*\*: National per capita statistical defaults.
 
 
 
-\### 6.2 Gaussian Error Propagation
+\### 6.2 Gaussian Error Propagation (Theoretical Future Work; Not Implemented)
 
 $$\\sigma\_{E\_{\\text{day}}} = \\sqrt{ \\sum\_{i=1}^n \\left( EF\_i^2 \\sigma\_{Q\_i}^2 + Q\_i^2 \\sigma\_{EF\_i}^2 \\right) }$$
 
@@ -312,7 +333,11 @@ $$\\text{CI}\_{95\\%} = \\left\[ E\_{\\text{day}} - 1.96 \\cdot \\sigma\_{E\_{\\
 
 
 
-\## 7. Model Evaluation Metrics
+\## 7. Model Evaluation Metrics (Definitions Only)
+
+No CNN accuracy/F1 result, LSTM result, or pilot generalization claim may be
+reported until its committed evaluation artifact identifies the dataset, split,
+date, and metric definition. LSTM is not part of the deployed Phase 1 stack.
 
 \* \*\*MAE\*\*: $\\frac{1}{N} \\sum\_{i=1}^N |y\_i - \\hat{y}\_i|$
 

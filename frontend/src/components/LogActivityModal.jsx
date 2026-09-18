@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Car, CheckCircle, Loader2, Monitor, Utensils, X, Zap } from "lucide-react";
-import { saveDailyActivities } from "@/lib/api";
+import { estimateTransport, getTransportCatalog, saveDailyActivities } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
 
 const categories = [
@@ -11,14 +11,15 @@ const categories = [
   { id: "devices", label: "Devices", icon: Monitor },
 ];
 
-const transportModes = ["Car", "Motorcycle", "Bus", "Train / Metro", "Bicycle", "Walk", "Flight", "Other"];
-const freshForm = () => ({ type: "transport", label: "", kg: "", transportMode: "Car", distanceKm: "", passengers: "1" });
+const freshForm = () => ({ type: "transport", label: "", kg: "", transportFactorId: "", distanceKm: "", passengers: "1" });
 
 export default function LogActivityModal({ open, onClose, onSaved }) {
   const { user } = useUser();
   const [form, setForm] = useState(freshForm);
   const [status, setStatus] = useState("editing");
   const [error, setError] = useState("");
+  const [transportFactors, setTransportFactors] = useState([]);
+  const [transportEstimate, setTransportEstimate] = useState(null);
 
   const category = useMemo(
     () => categories.find((item) => item.id === form.type) || categories[0],
@@ -32,6 +33,30 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
       setError("");
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    getTransportCatalog().then(({ factors }) => {
+      setTransportFactors(factors);
+      setForm((current) => current.transportFactorId ? current : { ...current, transportFactorId: factors[0]?.factor_id || "" });
+    }).catch(() => setError("Transport factors could not be loaded. Please retry before logging a transport trip."));
+  }, [open]);
+
+  useEffect(() => {
+    if (form.type !== "transport" || !form.transportFactorId || !Number(form.distanceKm)) {
+      setTransportEstimate(null);
+      return;
+    }
+    let active = true;
+    estimateTransport({ factor_id: form.transportFactorId, distance_km: Number(form.distanceKm), passengers: Math.max(1, Number(form.passengers) || 1) })
+      .then((result) => {
+        if (!active) return;
+        setTransportEstimate(result);
+        setForm((current) => ({ ...current, kg: String(result.co2_kg) }));
+      })
+      .catch((requestError) => active && setError(requestError?.response?.data?.detail || "Could not calculate this trip."));
+    return () => { active = false; };
+  }, [form.type, form.transportFactorId, form.distanceKm, form.passengers]);
 
   const close = () => {
     if (status !== "saving") onClose();
@@ -52,7 +77,12 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
         return;
       }
       const passengers = Math.max(1, Number(form.passengers) || 1);
-      label = `${label} · ${form.transportMode}, ${distance} km${passengers > 1 ? `, ${passengers} people` : ""}`;
+      const factor = transportFactors.find((item) => item.factor_id === form.transportFactorId);
+      if (!transportEstimate || !factor) {
+        setError("Wait for the cited transport estimate before saving this trip.");
+        return;
+      }
+      label = `${label} · ${factor.display_name}, ${distance} km${passengers > 1 ? `, ${passengers} people` : ""}`;
     }
     if (!user?.id) {
       setError("Please sign in again before saving an activity.");
@@ -164,8 +194,8 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                   <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <label className="sm:col-span-1">
                       <span className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Travel mode</span>
-                      <select value={form.transportMode} onChange={(event) => setForm((current) => ({ ...current, transportMode: event.target.value }))} className="input-glass mt-2 w-full">
-                        {transportModes.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                      <select value={form.transportFactorId} onChange={(event) => setForm((current) => ({ ...current, transportFactorId: event.target.value }))} className="input-glass mt-2 w-full">
+                        {transportFactors.map((factor) => <option key={factor.factor_id} value={factor.factor_id}>{factor.display_name}</option>)}
                       </select>
                     </label>
                     <label>
@@ -176,7 +206,9 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                       <span className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">People sharing</span>
                       <input type="number" min="1" step="1" inputMode="numeric" value={form.passengers} onChange={(event) => setForm((current) => ({ ...current, passengers: event.target.value }))} className="input-glass mt-2 w-full font-mono-data" />
                     </label>
-                    <p className="sm:col-span-3 text-xs leading-relaxed text-secondary">Trip details are saved in the activity label. CarbonMind does not calculate transport CO2e from distance until a cited transport-factor dataset is added; enter your reviewed estimate below.</p>
+                    <p className="sm:col-span-3 text-xs leading-relaxed text-secondary">
+                      {transportEstimate ? `${transportEstimate.formula} = ${transportEstimate.co2_kg} kg CO2e. ${transportEstimate.factor.boundary}` : "Enter distance to calculate with the cited DESNZ 2026 factor."}
+                    </p>
                   </fieldset>
                 )}
 
@@ -193,8 +225,9 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                     onChange={(event) => setForm((current) => ({ ...current, kg: event.target.value }))}
                     placeholder="e.g. 1.20"
                     className="input-glass mt-2 font-mono-data"
+                    readOnly={form.type === "transport" && Boolean(transportEstimate)}
                   />
-                  <p className="mt-2 text-xs leading-relaxed text-secondary">Use Food Scanner for photo-verified meals, or Plan today to explore a projection without changing this record.</p>
+                  <p className="mt-2 text-xs leading-relaxed text-secondary">{form.type === "transport" ? "Distance-based value from the committed DESNZ 2026 subset." : "Use Food Scanner for photo-verified meals, or Plan today to explore a projection without changing this record."}</p>
                 </div>
 
                 {error && <p className="rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
