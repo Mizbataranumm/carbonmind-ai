@@ -1,0 +1,235 @@
+{
+  "model_name": "production_primary_local_resnet18_ensemble",
+  "status": "candidate_not_product_validated",
+  "manifest": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\food_vision_convenience_manifest.csv",
+  "image_count": 20,
+  "metrics": {
+    "primary_alone": {
+      "evaluated_images": 1,
+      "correct_images": 1,
+      "top1_accuracy": 1.0,
+      "macro_f1": 1.0
+    },
+    "cnn_alone": {
+      "evaluated_images": 20,
+      "correct_images": 0,
+      "top1_accuracy": 0.0,
+      "macro_f1": 0.0
+    },
+    "ensemble": {
+      "evaluated_images": 1,
+      "correct_images": 1,
+      "top1_accuracy": 1.0,
+      "macro_f1": 1.0
+    }
+  },
+  "provider_unavailable_images": 19,
+  "rows": [
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\apple_pie\\1011328.jpg",
+      "label": "apple_pie",
+      "primary_result": "Apple Pie",
+      "primary_confidence": 0.95,
+      "cnn_result": "baby back ribs",
+      "cnn_confidence": 0.22574006021022797,
+      "ensemble_result": "Apple Pie",
+      "decision_reason": "primary_high_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\beef_carpaccio\\100853.jpg",
+      "label": "beef_carpaccio",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "paella",
+      "cnn_confidence": 0.037507764995098114,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\caesar_salad\\1033867.jpg",
+      "label": "caesar_salad",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "steak",
+      "cnn_confidence": 0.03625264763832092,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\chicken_curry\\101833.jpg",
+      "label": "chicken_curry",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "chocolate mousse",
+      "cnn_confidence": 0.18601742386817932,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\chicken_wings\\1010547.jpg",
+      "label": "chicken_wings",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "baby back ribs",
+      "cnn_confidence": 0.4039289653301239,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\fish_and_chips\\100703.jpg",
+      "label": "fish_and_chips",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "baby back ribs",
+      "cnn_confidence": 0.13188166916370392,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\french_fries\\1008163.jpg",
+      "label": "french_fries",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "donuts",
+      "cnn_confidence": 0.07138615101575851,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\fried_rice\\1023430.jpg",
+      "label": "fried_rice",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "beef tartare",
+      "cnn_confidence": 0.10213608294725418,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\hamburger\\1010136.jpg",
+      "label": "hamburger",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "peking duck",
+      "cnn_confidence": 0.10740073025226593,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\ice_cream\\1004744.jpg",
+      "label": "ice_cream",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "baby back ribs",
+      "cnn_confidence": 0.1992740035057068,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\pad_thai\\1081901.jpg",
+      "label": "pad_thai",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "steak",
+      "cnn_confidence": 0.03847242891788483,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\pizza\\1001116.jpg",
+      "label": "pizza",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "beef tartare",
+      "cnn_confidence": 0.11712517589330673,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\ramen\\1000325.jpg",
+      "label": "ramen",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "beef tartare",
+      "cnn_confidence": 0.03794004023075104,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\samosa\\1009326.jpg",
+      "label": "samosa",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "steak",
+      "cnn_confidence": 0.04079313948750496,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\spaghetti_bolognese\\1027299.jpg",
+      "label": "spaghetti_bolognese",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "beef tartare",
+      "cnn_confidence": 0.0408007986843586,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\sushi\\101625.jpg",
+      "label": "sushi",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "baby back ribs",
+      "cnn_confidence": 0.33956068754196167,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\food101-eval-run-20260917\\eval-images\\food-101\\images\\tacos\\1023947.jpg",
+      "label": "tacos",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "steak",
+      "cnn_confidence": 0.03878684714436531,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\AppData\\Local\\Temp\\carbonmind-biryani-provider-test.jpg",
+      "label": "chicken_biryani",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "chocolate mousse",
+      "cnn_confidence": 0.05169424042105675,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\frontend\\public\\clean-emblem.png",
+      "label": "__non_food__",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "miso soup",
+      "cnn_confidence": 0.0708802118897438,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\frontend\\public\\avatars\\avatar_ava.png",
+      "label": "__non_food__",
+      "primary_result": null,
+      "primary_confidence": null,
+      "cnn_result": "peking duck",
+      "cnn_confidence": 0.46178051829338074,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    }
+  ],
+  "limitations": [
+    "Only labels supplied by the manifest are evaluated; this is not a representative field study.",
+    "Provider score and local-CNN score are not calibrated probabilities.",
+    "Macro-F1 is label-level F1 on this small supplied set and is unstable when classes have one example.",
+    "Do not make general accuracy claims until this is run on a representative, held-out phone-camera and non-food set."
+  ]
+}
