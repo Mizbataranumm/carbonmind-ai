@@ -29,6 +29,7 @@ from backend.server import (
     SimulateRequest,
     DemoLoginRequest,
     _demo_activity_logs,
+    build_monthly_goal_progress,
     build_carbon_intelligence,
     _merge_daily_activities,
     _hash_password,
@@ -47,6 +48,18 @@ from backend.server import (
 
 class ModelContractTests(unittest.TestCase):
     VALID_IMAGE = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGOsCNBgYGBgYgADAAu6APRmkuoXAAAAAElFTkSuQmCC"
+
+    def test_monthly_goal_uses_saved_logs_and_a_transparent_calendar_run_rate(self):
+        logs = [
+            {"day": "2026-09-01", "total_kg": 3.0},
+            {"day": "2026-09-02", "total_kg": 5.0},
+        ]
+        progress = build_monthly_goal_progress(logs, 120.0, date(2026, 9, 2))
+
+        self.assertEqual(progress["current_month_kg"], 8.0)
+        self.assertEqual(progress["projected_month_end_kg"], 120.0)
+        self.assertEqual(progress["daily_allowance_kg"], 4.0)
+        self.assertEqual(progress["method"], "saved_activity_calendar_run_rate")
     def test_daily_activity_projection_is_not_labeled_as_a_model(self):
         body = asyncio.run(predict_day(PredictDayRequest(
             morning_activities=[MorningActivity(type="transport", kg=1.0), MorningActivity(type="food", kg=0.5)],
@@ -174,6 +187,16 @@ class ModelContractTests(unittest.TestCase):
         self.assertEqual(estimate["serving_size_g"], 180)
         self.assertEqual(estimate["co2_kg"], 0.146)
         self.assertEqual({item["ingredient"] for item in estimate["components"]}, {"Potatoes", "Sunflower Oil"})
+        self.assertEqual(
+            [stage["key"] for stage in estimate["lifecycle_stages"]],
+            ["land_use_change", "feed", "farm", "processing", "transport", "packaging", "retail"],
+        )
+        self.assertAlmostEqual(
+            estimate["reported_lifecycle_stage_total_co2_kg"],
+            round(sum(stage["co2_kg"] for stage in estimate["lifecycle_stages"]), 4),
+            places=3,
+        )
+        self.assertGreater(estimate["unallocated_csv_difference_co2_kg"], 0)
 
     def test_food_scan_requires_image_candidate_and_dish_name_to_agree(self):
         image_data = self.VALID_IMAGE
@@ -192,6 +215,18 @@ class ModelContractTests(unittest.TestCase):
         self.assertEqual(match["co2_kg"], 0.146)
         self.assertEqual(match["factor_source"], "Food_Product_Emissions.csv")
         self.assertEqual(match["prediction_audit"]["final_decision"], "primary_high_confidence")
+
+    def test_food_scan_can_use_a_verified_image_candidate_without_a_hint(self):
+        primary_result = {"food": "french fries", "confidence": 0.91, "model": "test_primary"}
+        cnn_result = {"food": "french fries", "confidence": 0.72, "model": "test_cnn"}
+
+        with patch.object(ml_service, "_predict_primary_food", return_value=primary_result), \
+             patch.object(ml_service, "_predict_food_cnn", return_value=cnn_result):
+            result = ml_service.predict_food(self.VALID_IMAGE, hint=None)
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["food_category"], "French fries")
+        self.assertTrue(result["requires_user_confirmation"])
 
     def test_food_scan_uses_low_confidence_model_agreement_to_boost_candidate(self):
         image_data = self.VALID_IMAGE

@@ -19,6 +19,15 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FOOD_EMISSIONS_DATASET = PROJECT_ROOT / "Food_Product_Emissions.csv"
 FACTOR_COLUMN = "Total Global Average GHG Emissions per kg"
+LIFECYCLE_STAGE_COLUMNS = {
+    "land_use_change": "Land Use Change",
+    "feed": "Feed",
+    "farm": "Farm",
+    "processing": "Processing",
+    "transport": "Transport",
+    "packaging": "Packaging",
+    "retail": "Retail",
+}
 
 
 def normalise_food_key(value: str) -> str:
@@ -152,6 +161,32 @@ def load_food_product_factors() -> dict[str, float]:
         return factors
 
 
+@lru_cache(maxsize=1)
+def load_food_lifecycle_factors() -> dict[str, dict[str, float]]:
+    """Read the seven CSV lifecycle factors in kg CO2e per kg food produced."""
+    if not FOOD_EMISSIONS_DATASET.exists():
+        return {}
+
+    with FOOD_EMISSIONS_DATASET.open("r", encoding="utf-8-sig", newline="") as source:
+        reader = csv.DictReader(source)
+        required = {"Food product", *LIFECYCLE_STAGE_COLUMNS.values()}
+        if not reader.fieldnames or not required.issubset(reader.fieldnames):
+            return {}
+
+        factors: dict[str, dict[str, float]] = {}
+        for row in reader:
+            name = (row.get("Food product") or "").strip()
+            if not name:
+                continue
+            try:
+                factors[normalise_food_key(name)] = {
+                    stage: float(row[column]) for stage, column in LIFECYCLE_STAGE_COLUMNS.items()
+                }
+            except (TypeError, ValueError):
+                continue
+        return factors
+
+
 def food_catalog_status() -> dict:
     """Expose factor-source readiness without presenting it as an ML metric."""
     factors = load_food_product_factors()
@@ -186,7 +221,8 @@ def estimate_food_emissions(food_name: str, serving_g: Optional[int] = None) -> 
     recipe_key = RECIPE_ALIASES.get(normalized_name, normalized_name if normalized_name in RECIPES else None)
     recipe = RECIPES.get(recipe_key or "")
     factors = load_food_product_factors()
-    if recipe is None or not factors:
+    lifecycle_factors = load_food_lifecycle_factors()
+    if recipe is None or not factors or not lifecycle_factors:
         return None
 
     try:
@@ -197,26 +233,41 @@ def estimate_food_emissions(food_name: str, serving_g: Optional[int] = None) -> 
     scale = requested_serving / recipe.default_serving_g
 
     components = []
+    lifecycle_stages = {stage: 0.0 for stage in LIFECYCLE_STAGE_COLUMNS}
     for ingredient, base_mass_g in recipe.ingredient_g.items():
         factor = factors.get(normalise_food_key(ingredient))
-        if factor is None:
+        stage_factors = lifecycle_factors.get(normalise_food_key(ingredient))
+        if factor is None or stage_factors is None:
             # Never silently replace a missing CSV factor with a hard-coded one.
             return None
         mass_g = base_mass_g * scale
+        mass_kg = mass_g / 1_000
+        for stage, stage_factor in stage_factors.items():
+            lifecycle_stages[stage] += mass_kg * stage_factor
         components.append({
             "ingredient": ingredient,
             "ingredient_g": round(mass_g, 1),
             "factor_kg_co2e_per_kg": factor,
-            "co2_kg": round((mass_g / 1_000) * factor, 4),
+            "co2_kg": round(mass_kg * factor, 4),
         })
 
     total = round(sum(component["co2_kg"] for component in components), 3)
+    reported_stage_total = round(sum(lifecycle_stages.values()), 4)
     return {
         "food_category": recipe.display_name,
         "serving_size_g": requested_serving,
         "default_serving_g": recipe.default_serving_g,
         "co2_kg": total,
         "components": components,
+        "lifecycle_stages": [
+            {"key": stage, "label": column, "co2_kg": round(lifecycle_stages[stage], 4)}
+            for stage, column in LIFECYCLE_STAGE_COLUMNS.items()
+        ],
+        # The source CSV's seven explicit lifecycle columns do not always sum
+        # exactly to its published global-average total. Keep that difference
+        # visible rather than assigning it to an invented lifecycle stage.
+        "reported_lifecycle_stage_total_co2_kg": reported_stage_total,
+        "unallocated_csv_difference_co2_kg": round(total - reported_stage_total, 4),
         "method": "recipe_lca_from_food_product_emissions_csv_v1",
         "factor_source": "Food_Product_Emissions.csv",
         "portion_note": "Recipe ingredients are scaled to the displayed portion; confirm the dish and portion before logging.",

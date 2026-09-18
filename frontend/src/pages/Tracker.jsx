@@ -4,6 +4,7 @@ import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { Car, Zap, Utensils, Monitor, Bike, TrendingDown, TrendingUp, Activity } from "lucide-react";
 import { getTrackerLive } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
+import MonthlyGoalCard from "@/components/MonthlyGoalCard";
 
 const iconMap = { car: Car, zap: Zap, utensils: Utensils, monitor: Monitor, bike: Bike };
 
@@ -51,6 +52,8 @@ const Tracker = () => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      <MonthlyGoalCard />
 
       {/* Category cards */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5" data-testid="category-grid">

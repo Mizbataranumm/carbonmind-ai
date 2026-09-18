@@ -511,7 +511,7 @@ def _food_prediction_audit(primary: Optional[dict], cnn: Optional[dict], decisio
 
 
 def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
-    """Verify a user-named meal with a primary vision model and local CNN.
+    """Produce a food candidate, optionally checking a user-provided dish name.
 
     Provider and CNN scores are model scores, not calibrated probabilities or
     accuracy claims. A carbon estimate remains blocked unless the final image
@@ -519,13 +519,6 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
     reviewed recipe in the CSV-backed catalog.
     """
     confirmed_name = " ".join(re.findall(r"[A-Za-z0-9]+", hint or "")).strip()
-    if not confirmed_name:
-        return {
-            "status": "rejected",
-            "message": "Enter the dish name before analyzing the photo.",
-            "suggestion": "Type or select the dish shown in the photo.",
-            "confidence": None,
-        }
 
     try:
         raw_bytes = base64.b64decode(base64_image_str.split(",")[-1]) if base64_image_str else b""
@@ -600,7 +593,7 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
             "requires_user_confirmation": True,
         }
 
-    if not _dish_names_agree(confirmed_name, final_food):
+    if confirmed_name and not _dish_names_agree(confirmed_name, final_food):
         audit["final_decision"] = "dish_name_mismatch"
         audit["decision_reason"] = "The verified image candidate did not match the dish name supplied by the user."
         return {
@@ -614,14 +607,15 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
         }
 
     serving_g = primary.get("serving_g") if primary else None
-    emission_estimate = estimate_food_emissions(confirmed_name, serving_g)
+    selected_name = confirmed_name or final_food
+    emission_estimate = estimate_food_emissions(selected_name, serving_g)
     if emission_estimate is None:
         audit["final_decision"] = "reviewed_recipe_missing"
         audit["decision_reason"] = "Image verification succeeded, but the dish is not in the reviewed CSV recipe catalog."
         return {
             "status": "rejected",
-            "message": f"'{confirmed_name}' does not yet have a reviewed recipe in the Food Product Emissions catalog.",
-            "suggestion": "Record it manually until a reviewed recipe is added.",
+            "message": f"'{selected_name.title()}' does not yet have a reviewed recipe in the Food Product Emissions catalog.",
+            "suggestion": "Choose a reviewed dish or record it manually until a reviewed recipe is added.",
             "confidence": None,
             "image_candidate": final_food.title(),
             "prediction_audit": audit,
@@ -640,6 +634,9 @@ def predict_food(base64_image_str: str, hint: Optional[str] = None) -> dict:
         "emissions_method": emission_estimate["method"],
         "factor_source": emission_estimate["factor_source"],
         "components": emission_estimate["components"],
+        "lifecycle_stages": emission_estimate["lifecycle_stages"],
+        "reported_lifecycle_stage_total_co2_kg": emission_estimate["reported_lifecycle_stage_total_co2_kg"],
+        "unallocated_csv_difference_co2_kg": emission_estimate["unallocated_csv_difference_co2_kg"],
         "portion_note": emission_estimate["portion_note"],
         "image_candidate": final_food.title(),
         "prediction_audit": audit,

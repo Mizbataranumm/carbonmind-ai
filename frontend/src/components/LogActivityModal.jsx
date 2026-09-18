@@ -11,7 +11,8 @@ const categories = [
   { id: "devices", label: "Devices", icon: Monitor },
 ];
 
-const freshForm = () => ({ type: "transport", label: "", kg: "" });
+const transportModes = ["Car", "Motorcycle", "Bus", "Train / Metro", "Bicycle", "Walk", "Flight", "Other"];
+const freshForm = () => ({ type: "transport", label: "", kg: "", transportMode: "Car", distanceKm: "", passengers: "1" });
 
 export default function LogActivityModal({ open, onClose, onSaved }) {
   const { user } = useUser();
@@ -39,10 +40,19 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
   const save = async (event) => {
     event.preventDefault();
     const kg = Number(form.kg);
-    const label = form.label.trim();
+    let label = form.label.trim();
     if (!label || !Number.isFinite(kg) || kg <= 0) {
       setError("Add a description and an impact greater than 0 kg CO2e.");
       return;
+    }
+    if (form.type === "transport" && form.distanceKm) {
+      const distance = Number(form.distanceKm);
+      if (!Number.isFinite(distance) || distance <= 0) {
+        setError("Distance must be greater than 0 km when provided.");
+        return;
+      }
+      const passengers = Math.max(1, Number(form.passengers) || 1);
+      label = `${label} · ${form.transportMode}, ${distance} km${passengers > 1 ? `, ${passengers} people` : ""}`;
     }
     if (!user?.id) {
       setError("Please sign in again before saving an activity.");
@@ -149,6 +159,26 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                     autoFocus
                   />
                 </div>
+
+                {form.type === "transport" && (
+                  <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <label className="sm:col-span-1">
+                      <span className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Travel mode</span>
+                      <select value={form.transportMode} onChange={(event) => setForm((current) => ({ ...current, transportMode: event.target.value }))} className="input-glass mt-2 w-full">
+                        {transportModes.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Distance (km)</span>
+                      <input type="number" min="0.1" step="0.1" inputMode="decimal" value={form.distanceKm} onChange={(event) => setForm((current) => ({ ...current, distanceKm: event.target.value }))} placeholder="Optional" className="input-glass mt-2 w-full font-mono-data" />
+                    </label>
+                    <label>
+                      <span className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">People sharing</span>
+                      <input type="number" min="1" step="1" inputMode="numeric" value={form.passengers} onChange={(event) => setForm((current) => ({ ...current, passengers: event.target.value }))} className="input-glass mt-2 w-full font-mono-data" />
+                    </label>
+                    <p className="sm:col-span-3 text-xs leading-relaxed text-secondary">Trip details are saved in the activity label. CarbonMind does not calculate transport CO2e from distance until a cited transport-factor dataset is added; enter your reviewed estimate below.</p>
+                  </fieldset>
+                )}
 
                 <div>
                   <label htmlFor="activity-kg" className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Estimated impact (kg CO2e)</label>

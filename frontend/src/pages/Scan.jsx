@@ -98,11 +98,6 @@ const Scan = () => {
 
   const runScan = async (dataUrl, explicitHint) => {
     const currentHint = (explicitHint !== undefined ? explicitHint : hint).trim();
-    if (!currentHint) {
-      setError("Enter or select the dish name before verifying this photo.");
-      toast.error("Dish name required before verification");
-      return;
-    }
     setScanning(true);
     setError("");
     setServiceUnavailable(false);
@@ -284,10 +279,10 @@ const Scan = () => {
             {previewImg && (
               <button
                 onClick={() => runScan(previewImg)}
-                disabled={scanning || !hint.trim()}
+                disabled={scanning}
                 className="btn-primary text-sm inline-flex items-center gap-2"
                 data-testid="analyze-meal-btn"
-                title={!hint.trim() ? "Enter or select a dish name first" : "Verify this meal"}
+                title="Analyze this meal photo"
               >
                 <Sparkles className="h-4 w-4" /> {scanning ? "Verifying..." : "Verify meal"}
               </button>
@@ -308,7 +303,7 @@ const Scan = () => {
           {/* Hint input & quick select pills */}
           <div className="mt-4">
             <label htmlFor="scan-hint" className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">
-              Dish name to verify <span className="text-green">(required)</span>
+              Dish name <span className="text-green">(optional hint)</span>
             </label>
             <input
               id="scan-hint"
@@ -321,7 +316,7 @@ const Scan = () => {
               className="input-glass !py-2 !px-3 text-sm mt-1"
               data-testid="scan-hint"
             />
-            <p className="mt-1.5 text-xs text-secondary">The photo and selected dish must agree before an estimate can be shown.</p>
+            <p className="mt-1.5 text-xs text-secondary">Leave blank to use the photo candidate. A supplied dish name is checked against the image before an estimate is shown.</p>
 
             {/* Quick 1-click preset badges */}
             <div className="mt-2.5 flex flex-wrap gap-1.5 items-center">
@@ -371,7 +366,7 @@ const Scan = () => {
             <div className="text-sm text-secondary mt-6 text-center py-16">
               <Sparkles className="h-8 w-8 text-green/40 mx-auto mb-2" />
               {previewImg
-                ? "Add or select the dish name, then verify that it matches this photo."
+                ? "Optionally add the dish name, then analyze the photo. You confirm before anything is saved."
                 : "Upload a meal photo or start the camera to begin."}
             </div>
           )}
@@ -452,6 +447,26 @@ const Scan = () => {
                     </motion.div>
                   ))}
                 </div>
+                {result.lifecycle_stages?.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">CSV lifecycle stages</div>
+                    {result.lifecycle_stages.map((stage) => {
+                      const share = result.total_co2_kg > 0 ? Math.max(0, (stage.co2_kg / result.total_co2_kg) * 100) : 0;
+                      return (
+                        <div key={stage.key} className="rounded-lg border border-glass-border bg-widget p-3">
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-main">{stage.label}</span>
+                            <span className="font-mono-data text-green">{stage.co2_kg} kg</span>
+                          </div>
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-app">
+                            <div className="h-full rounded-full bg-green" style={{ width: `${Math.min(100, share)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <p className="text-[11px] leading-relaxed text-secondary">Seven reported product-level lifecycle columns from Food_Product_Emissions.csv, scaled by the reviewed recipe ingredients and serving size. Reported stage total: {result.reported_lifecycle_stage_total_co2_kg} kg; CSV-total difference: {result.unallocated_csv_difference_co2_kg} kg.</p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

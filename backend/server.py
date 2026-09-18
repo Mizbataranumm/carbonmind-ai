@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from calendar import monthrange
 import base64
 import hashlib
 import hmac
@@ -182,6 +183,11 @@ class AnnualCarbonRequest(BaseModel):
 class SaveLifestyleProfileRequest(BaseModel):
     user_id: str = Field(min_length=1, max_length=128)
     lifestyle_profile: dict
+
+
+class SaveMonthlyGoalRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=128)
+    monthly_target_kg: float = Field(gt=0, le=100_000)
 
 class PredictDayResponse(BaseModel):
     predicted_full_day_kg: float
@@ -664,6 +670,41 @@ async def _daily_logs(user_id: str, start: date, end: date) -> List[dict]:
     return [log for log in _demo_activity_logs(end, user_id) if start.isoformat() <= log["day"] <= end.isoformat()]
 
 
+def build_monthly_goal_progress(logs: List[dict], target_kg: Optional[float], today: date) -> dict:
+    """Calculate a transparent calendar-day run rate from saved activity logs."""
+    current_kg = round(sum(float(log.get("total_kg", 0)) for log in logs), 2)
+    days_in_month = monthrange(today.year, today.month)[1]
+    days_elapsed = max(1, today.day)
+    days_remaining = max(0, days_in_month - today.day)
+    projected_kg = round((current_kg / days_elapsed) * days_in_month, 2)
+    if target_kg is None:
+        return {
+            "goal_set": False,
+            "current_month_kg": current_kg,
+            "days_elapsed": days_elapsed,
+            "days_in_month": days_in_month,
+            "days_remaining": days_remaining,
+            "projected_month_end_kg": projected_kg,
+            "method": "saved_activity_calendar_run_rate",
+        }
+
+    remaining_kg = round(target_kg - current_kg, 2)
+    allowance_kg = round(max(0.0, remaining_kg) / max(1, days_remaining), 2)
+    return {
+        "goal_set": True,
+        "monthly_target_kg": round(target_kg, 2),
+        "current_month_kg": current_kg,
+        "days_elapsed": days_elapsed,
+        "days_in_month": days_in_month,
+        "days_remaining": days_remaining,
+        "projected_month_end_kg": projected_kg,
+        "remaining_kg": remaining_kg,
+        "daily_allowance_kg": allowance_kg,
+        "status": "over_target" if current_kg > target_kg else "projected_over_target" if projected_kg > target_kg else "on_track",
+        "method": "saved_activity_calendar_run_rate",
+    }
+
+
 def _merge_daily_activities(existing: List[dict], incoming: List[dict], *, append: bool, source: Optional[str]) -> tuple[List[dict], int]:
     """Merge one daily update without treating a network retry as a second activity."""
     if source:
@@ -836,6 +877,36 @@ async def tracker_live(user_id: str, current_user_id: str = Depends(_current_use
         "realtime": [{"t": hour, "kg": round(value, 2)} for hour, value in timeline.items()],
         "heatmap": [{"day": (today - timedelta(days=offset)).isoformat(), "kg": round(float(logs_by_day.get((today - timedelta(days=offset)).isoformat(), {}).get("total_kg", 0)), 2)} for offset in range(55, -1, -1)],
     }
+
+
+@api_router.get("/goals/monthly")
+async def get_monthly_goal(user_id: str, current_user_id: str = Depends(_current_user_id)):
+    if user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only access your own monthly goal.")
+    today = datetime.now(timezone.utc).date()
+    month_start = today.replace(day=1)
+    logs = await _daily_logs(user_id, month_start, today)
+    user_doc = await _database_or_503().users.find_one({"id": user_id}, {"monthly_goal": 1})
+    raw_target = ((user_doc or {}).get("monthly_goal") or {}).get("target_kg")
+    try:
+        target_kg = float(raw_target) if raw_target is not None else None
+    except (TypeError, ValueError):
+        target_kg = None
+    return build_monthly_goal_progress(logs, target_kg, today)
+
+
+@api_router.put("/goals/monthly")
+async def save_monthly_goal(req: SaveMonthlyGoalRequest, current_user_id: str = Depends(_current_user_id)):
+    if req.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="You can only update your own monthly goal.")
+    now = datetime.now(timezone.utc).isoformat()
+    result = await _database_or_503().users.update_one(
+        {"id": req.user_id},
+        {"$set": {"monthly_goal": {"target_kg": req.monthly_target_kg, "updated_at": now}}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Account not found.")
+    return {"status": "saved", "monthly_target_kg": round(req.monthly_target_kg, 2), "updated_at": now}
 
 
 @api_router.post("/future/simulate", response_model=SimulateResponse)
@@ -1419,14 +1490,6 @@ async def food_scan(req: FoodScanRequest):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-    if not hint or not hint.strip():
-        return {
-            "status": "error",
-            "message": "Enter the dish name before analyzing the photo.",
-            "suggestion": "Type or select the dish shown in the photo.",
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        
     # Check size (rough base64 estimation)
     if base64_img and len(base64_img) * 0.75 > 10 * 1024 * 1024:
         return {
@@ -1447,7 +1510,7 @@ async def food_scan(req: FoodScanRequest):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
-    if pred["status"] in {"rejected", "low_confidence"}:
+    if pred["status"] in {"rejected", "low_confidence", "provider_unavailable"}:
         return {
             "status": "review",
             "message": pred["message"],
@@ -1489,6 +1552,9 @@ async def food_scan(req: FoodScanRequest):
             "serving_size_g": pred.get("serving_size_g"),
             "factor_source": pred.get("factor_source"),
             "recipe_components": pred.get("components", []),
+            "lifecycle_stages": pred.get("lifecycle_stages", []),
+            "reported_lifecycle_stage_total_co2_kg": pred.get("reported_lifecycle_stage_total_co2_kg"),
+            "unallocated_csv_difference_co2_kg": pred.get("unallocated_csv_difference_co2_kg"),
             "prediction_audit": pred.get("prediction_audit"),
             "scan_id": scan_id,
         },
