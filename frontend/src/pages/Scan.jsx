@@ -119,7 +119,9 @@ const Scan = () => {
       toast.success("Meal estimate ready for your review");
     } catch (e) {
       console.error("Scan error:", e);
-      setError("Photo verification is unavailable right now. No estimate was created.");
+      setError(e?.code === "ECONNABORTED"
+        ? "Photo verification timed out after 50 seconds. No estimate was created; please try a clearer photo later."
+        : "Photo verification is unavailable right now. No estimate was created.");
       setServiceUnavailable(true);
       toast.error("Photo verification unavailable");
     } finally {

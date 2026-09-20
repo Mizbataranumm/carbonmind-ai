@@ -396,6 +396,8 @@ const getTitle = (path) => {
     "/scan": "Food Carbon Scanner",
     "/certificate": "Verified Certificate",
     "/community": "Eco Community",
+    "/challenges": "Eco Challenges",
+    "/game": "Eco Mini-Game",
     "/profile": "My Profile",
   };
   return map[path] || "CarbonMind";

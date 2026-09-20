@@ -11,13 +11,37 @@ const iconMap = { car: Car, zap: Zap, utensils: Utensils, monitor: Monitor, bike
 const Tracker = () => {
   const { user } = useUser();
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!user?.id) return;
-    getTrackerLive(user.id).then(setData).catch(() => setData(null));
+    if (!user?.id) {
+      setLoading(false);
+      setError("Sign in to view your saved activity record.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    getTrackerLive(user.id)
+      .then(setData)
+      .catch((requestError) => {
+        console.error("Activity history error:", requestError);
+        setError(requestError?.response?.data?.detail || "Activity history is temporarily unavailable. Please try again.");
+      })
+      .finally(() => setLoading(false));
   }, [user?.id]);
 
-  if (!data) return <div className="font-mono-data text-secondary">Loading your saved activity record...</div>;
+  if (loading) return <div className="font-mono-data text-secondary">Loading your saved activity record...</div>;
+  if (error) return (
+    <div className="glass p-6 max-w-xl">
+      <div className="font-display text-xl">Activity history unavailable</div>
+      <p className="text-sm text-secondary mt-2">{error}</p>
+      <button type="button" onClick={() => window.location.reload()} className="mt-4 px-4 py-2 rounded-lg border border-green/30 text-green hover:bg-green/10 transition">
+        Retry
+      </button>
+    </div>
+  );
+  if (!data) return <div className="font-mono-data text-secondary">No activity record is available yet.</div>;
 
   return (
     <div className="space-y-6" data-testid="tracker-root">

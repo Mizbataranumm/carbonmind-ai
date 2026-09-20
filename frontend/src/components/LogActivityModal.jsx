@@ -120,14 +120,14 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[110] flex items-start justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm sm:items-center"
           onMouseDown={close}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            className="relative w-full max-w-md rounded-2xl border border-glass-border bg-panel p-5 shadow-2xl sm:p-6"
+            className="relative my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-glass-border bg-panel p-5 shadow-2xl overscroll-contain sm:p-6"
             onMouseDown={(event) => event.stopPropagation()}
           >
             <button

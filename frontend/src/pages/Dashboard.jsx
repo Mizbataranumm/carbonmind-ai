@@ -120,12 +120,20 @@ export default function Dashboard() {
       </div>
 
       {/* ── STAT CARDS ROW ──────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub={isNew ? "No activity recorded" : "From saved activities"} trend="down" />
-        <StatCard label="Weekly Total" value={weeklyTotal} unit="kg" icon={TrendingDown} color="#00D9FF" sub={isNew ? "Record your first day" : "Last 7 calendar days"} trend="down" />
-        <StatCard label="Monthly Total" value={monthTotal} unit="kg" icon={Leaf} color="#A78BFA" sub="Current calendar month" trend="down" />
-        <StatCard label="Carbon Grade" value={grade} unit="" icon={Award} color="#FFD166" sub="Based on today’s record" trend="down" />
-      </div>
+      {(() => {
+        const trendDir = stats?.trend_pct > 0 ? "up" : "down";
+        const trendSub = stats?.trend_pct != null
+          ? `${stats.trend_pct > 0 ? "+" : ""}${stats.trend_pct.toFixed(1)}% vs last week`
+          : null;
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard label="Today's CO₂" value={todayKg} unit="kg" icon={BarChart2} color="#00FFB2" sub={isNew ? "No activity recorded" : (trendSub || "From saved activities")} trend={trendDir} />
+            <StatCard label="Weekly Total" value={weeklyTotal} unit="kg" icon={TrendingDown} color="#00D9FF" sub={isNew ? "Record your first day" : "Last 7 calendar days"} trend={trendDir} />
+            <StatCard label="Monthly Total" value={monthTotal} unit="kg" icon={Leaf} color="#A78BFA" sub="Current calendar month" trend={trendDir} />
+            <StatCard label="Carbon Grade" value={grade} unit="" icon={Award} color="#FFD166" sub="Based on today's record" trend={trendDir} />
+          </div>
+        );
+      })()}
 
       {intelligence && (
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">

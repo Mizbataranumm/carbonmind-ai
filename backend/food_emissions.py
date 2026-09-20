@@ -16,8 +16,9 @@ from pathlib import Path
 from typing import Optional
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-FOOD_EMISSIONS_DATASET = PROJECT_ROOT / "Food_Product_Emissions.csv"
+_LOCAL_DATASET = Path(__file__).resolve().parent / "Food_Product_Emissions.csv"
+_PARENT_DATASET = Path(__file__).resolve().parents[1] / "Food_Product_Emissions.csv"
+FOOD_EMISSIONS_DATASET = _LOCAL_DATASET if _LOCAL_DATASET.exists() else _PARENT_DATASET
 FACTOR_COLUMN = "Total Global Average GHG Emissions per kg"
 LIFECYCLE_STAGE_COLUMNS = {
     "land_use_change": "Land Use Change",

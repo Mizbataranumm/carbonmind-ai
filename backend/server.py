@@ -90,6 +90,7 @@ async def _create_database_indexes() -> None:
     if db is None:
         return
     try:
+        await db.users.create_index("id", unique=True)
         await db.users.create_index("email", unique=True)
         await db.daily_activity_logs.create_index([("user_id", 1), ("day", 1)], unique=True)
         await db.community_likes.create_index([("post_id", 1), ("user_id", 1)], unique=True)
@@ -1521,7 +1522,9 @@ async def food_scan(req: FoodScanRequest):
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-    pred = predict_food(base64_img or "", hint=hint)
+    # Vision inference performs remote HTTP calls. Keep it off the event loop
+    # so a slow provider cannot make tracker/history requests appear frozen.
+    pred = await asyncio.to_thread(predict_food, base64_img or "", hint=hint)
     scan_id = await _persist_food_prediction(pred, hint)
     
     if pred["status"] == "error":

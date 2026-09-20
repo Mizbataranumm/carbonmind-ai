@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Leaf, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
@@ -20,7 +20,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const demoRequested = useRef(false);
 
-  const handleDemo = async () => {
+  const handleDemo = useCallback(async () => {
     setLoading(true);
     try {
       const u = await demoLogin("Eco Explorer");
@@ -32,7 +32,7 @@ const Auth = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setUser, navigate]);
 
   useEffect(() => {
     if (searchParams.get("demo") !== "1" || demoRequested.current) return;

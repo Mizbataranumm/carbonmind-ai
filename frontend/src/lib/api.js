@@ -3,7 +3,9 @@ import axios from "axios";
 const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || "http://localhost:8000").replace(/\/$/, "");
 export const API = `${BACKEND_URL}/api`;
 
-export const api = axios.create({ baseURL: API });
+// Remote model calls can be slow, but no page should remain in an infinite
+// loading state. The scanner renders a recoverable timeout message at 50s.
+export const api = axios.create({ baseURL: API, timeout: 50000 });
 api.interceptors.request.use((config) => {
   try {
     const user = JSON.parse(localStorage.getItem("cm_user") || "null");

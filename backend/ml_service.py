@@ -1,4 +1,4 @@
-﻿"""
+"""
 CarbonMind AI ML Service
 ========================
 Runtime inference helpers for food scanning, daily carbon prediction, and
@@ -54,12 +54,10 @@ logger = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # Optional heavy deps — all fail gracefully
 # ─────────────────────────────────────────────────────────────────────────────
-try:
-    import google.generativeai as genai
-    HAS_GEMINI = True
-except ImportError:
-    HAS_GEMINI = False
-    logger.warning("google-generativeai not installed")
+# Gemini Vision is invoked through the documented HTTPS API below. Keeping it
+# independent of the deprecated ``google.generativeai`` SDK makes the runtime
+# behavior and HTTP error handling explicit.
+HAS_GEMINI = True
 
 try:
     import pandas as pd
@@ -281,7 +279,10 @@ def load_models(models_dir: str = "ml/models"):
                 raise ValueError("Expected 101 Food-101 class names in metadata")
             model = resnet18(weights=None)
             model.fc = nn.Linear(model.fc.in_features, len(classes))
-            state = torch.load(cnn_path, map_location="cpu")
+            try:
+                state = torch.load(cnn_path, map_location="cpu", weights_only=True)
+            except TypeError:
+                state = torch.load(cnn_path, map_location="cpu")
             model.load_state_dict(state["model_state_dict"] if isinstance(state, dict) and "model_state_dict" in state else state)
             model.eval()
             food_cnn_model = model
@@ -302,7 +303,10 @@ def load_models(models_dir: str = "ml/models"):
     if HAS_TORCH and validated_lstm_path.exists() and lstm_metrics_path.exists():
         try:
             report = json.loads(lstm_metrics_path.read_text(encoding="utf-8"))
-            checkpoint = torch.load(validated_lstm_path, map_location="cpu")
+            try:
+                checkpoint = torch.load(validated_lstm_path, map_location="cpu", weights_only=True)
+            except TypeError:
+                checkpoint = torch.load(validated_lstm_path, map_location="cpu")
             required = {"model_state_dict", "val_min", "val_max", "seq_in", "seq_out"}
             if not required.issubset(checkpoint) or report.get("artifact") is None:
                 raise ValueError("candidate LSTM is missing its model or validation contract")
@@ -312,20 +316,12 @@ def load_models(models_dir: str = "ml/models"):
             logger.warning("Validated future LSTM load failed: %s", exc)
 
     # 2. Gemini Vision
-    if HAS_GEMINI:
-        api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('EMERGENT_LLM_KEY')
-        if api_key:
-            try:
-                genai.configure(api_key=api_key)
-                _gemini_model = genai.GenerativeModel(
-                    # Gemini 1.5 Flash is no longer served for this API key.
-                    # Use a current multimodal model verified via ListModels.
-                    model_name="gemini-2.5-flash",
-                    generation_config={"temperature": 0.1, "max_output_tokens": 300},
-                )
-                logger.info("Gemini 2.5 Flash Vision configured")
-            except Exception as e:
-                logger.warning(f"Gemini config failed: {e}")
+    api_key = os.environ.get('GEMINI_API_KEY') or os.environ.get('EMERGENT_LLM_KEY')
+    if api_key:
+        # This sentinel means credentials are present. The actual request and
+        # its bounded timeout occur in _predict_food_gemini.
+        _gemini_model = {"model_name": "gemini-2.5-flash"}
+        logger.info("Gemini 2.5 Flash Vision configured")
 
     # 3. HF API key (optional)
     HF_API_KEY = os.environ.get('HF_API_KEY', '')
@@ -371,7 +367,9 @@ def _predict_food_vit(image_bytes: bytes) -> Optional[dict]:
         headers = {}
         if HF_API_KEY:
             headers["Authorization"] = f"Bearer {HF_API_KEY}"
-        response = requests.post(
+        session = requests.Session()
+        session.trust_env = False
+        response = session.post(
             HF_API_URL,
             headers=headers,
             data=image_bytes,
@@ -389,8 +387,21 @@ def _predict_food_vit(image_bytes: bytes) -> Optional[dict]:
         elif response.status_code == 503:
             # Model loading (cold start) — HF free tier
             logger.warning("HF model cold start (503) — skipping ViT this request")
+            return {"provider_error": "hf_cold_start"}
+        else:
+            logger.warning("HF ViT API returned HTTP %s", response.status_code)
+            if response.status_code in {401, 403}:
+                return {"provider_error": f"hf_auth_http_{response.status_code}"}
+            if response.status_code == 429:
+                return {"provider_error": "hf_rate_limited"}
+            return {"provider_error": f"hf_http_{response.status_code}"}
     except Exception as e:
         logger.warning(f"HF ViT API error: {e}")
+        if isinstance(e, requests.exceptions.Timeout):
+            return {"provider_error": "hf_timeout"}
+        if isinstance(e, requests.exceptions.ConnectionError):
+            return {"provider_error": "hf_network_error"}
+        return {"provider_error": "hf_request_error"}
     return None
 
 
@@ -402,7 +413,8 @@ def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
     Use Gemini 2.5 Flash Vision to identify food + estimate portion.
     Returns dict with food name and confidence, or None on failure.
     """
-    if not _gemini_model:
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
+    if not _gemini_model or not api_key:
         return None
     try:
         img = Image.open(BytesIO(image_bytes)).convert("RGB")
@@ -411,25 +423,73 @@ def _predict_food_gemini(image_bytes: bytes) -> Optional[dict]:
         img.save(buf, format="JPEG", quality=85)
 
         prompt = (
-            "Identify the food in this image. Reply ONLY in this JSON format:\n"
-            "{\"food\": \"<specific dish name>\", \"confidence\": <0-100>, \"serving_g\": <grams>}\n\n"
-            "Rules:\n"
-            "- Be specific: 'Chicken Biryani' not 'rice', 'Masala Dosa' not 'pancake'\n"
-            "- If no food is visible, return: {\"food\": \"none\", \"confidence\": 0, \"serving_g\": 0}\n"
-            "- For Indian dishes, name them correctly\n"
-            "- serving_g is realistic portion (150-500g typically)"
+            "Identify the visible food. Return one JSON object only, with exactly "
+            "these keys: food (string), confidence (number 0 to 100), serving_g "
+            "(number). Use food='none', confidence=0, serving_g=0 when no food "
+            "is visible. Name a specific dish when possible."
         )
 
-        response = _gemini_model.generate_content([prompt, img])
+        # A stalled remote provider must not freeze a scan or a reproducible
+        # evaluation run indefinitely. The caller receives a classified error.
+        payload = {
+            "contents": [{"parts": [
+                {"text": prompt},
+                {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(buf.getvalue()).decode("ascii")}},
+            ]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "maxOutputTokens": 1024,
+                "responseMimeType": "application/json",
+                # Gemini 2.5 Flash otherwise spends the small output budget
+                # on internal reasoning and can stop before its JSON object.
+                "thinkingConfig": {"thinkingBudget": 0},
+            },
+        }
+        # Some desktop environments expose a stale localhost proxy to Python.
+        # Google is reachable directly; bypass proxy environment settings for
+        # this explicit first-party API call rather than hanging the scanner.
+        session = requests.Session()
+        session.trust_env = False
+        response = session.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            params={"key": api_key},
+            json=payload,
+            timeout=45,
+        )
+        if response.status_code != 200:
+            logger.warning("Gemini Vision returned HTTP %s", response.status_code)
+            if response.status_code == 429:
+                return {"provider_error": "gemini_rate_limited"}
+            if response.status_code in {401, 403}:
+                return {"provider_error": "gemini_auth_error"}
+            return {"provider_error": f"gemini_http_{response.status_code}"}
 
-        text = response.text.strip()
+        parts = response.json()["candidates"][0]["content"]["parts"]
+        text = "".join(part.get("text", "") for part in parts).strip()
         if "`" in text:
             text = text.split("`")[1].replace("json", "").strip()
         parsed = json.loads(text)
         return parsed
     except Exception as e:
-        logger.warning(f"Gemini Vision error: {e}")
-    return None
+        # Requests includes its URL in exception text. Never write the API-key
+        # query string to a server log.
+        safe_error = re.sub(r"([?&]key=)[^&\s)]+", r"\1[redacted]", str(e))
+        logger.warning("Gemini Vision error: %s", safe_error)
+        error_name = type(e).__name__.lower()
+        error_text = str(e).lower()
+        if "429" in error_text or "resourceexhausted" in error_name:
+            return {"provider_error": "gemini_rate_limited"}
+        if "401" in error_text or "403" in error_text or "permissiondenied" in error_name:
+            return {"provider_error": "gemini_auth_error"}
+        if "timeout" in error_text or "deadline" in error_text:
+            return {"provider_error": "gemini_timeout"}
+        if isinstance(e, requests.exceptions.ProxyError):
+            return {"provider_error": "gemini_proxy_error"}
+        if isinstance(e, requests.exceptions.ConnectionError):
+            return {"provider_error": "gemini_network_error"}
+        if isinstance(e, json.JSONDecodeError):
+            return {"provider_error": "gemini_invalid_json"}
+        return {"provider_error": "gemini_request_error"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -461,9 +521,10 @@ def _predict_food_cnn(image_bytes: bytes) -> Optional[dict]:
 
 def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
     """Prefer Gemini Vision and fall back to HF ViT when Gemini is unavailable."""
+    provider_errors = []
     if _gemini_model is not None:
         result = _predict_food_gemini(image_bytes)
-        if result is not None:
+        if result is not None and not result.get("provider_error"):
             # A deliberate "none" from the vision model is a non-food rejection,
             # not an outage for the classifier fallback to override.
             if str(result.get("food", "")).lower() == "none":
@@ -479,6 +540,8 @@ def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
                 "serving_g": result.get("serving_g"),
                 "model": "gemini_vision",
             }
+        if result and result.get("provider_error"):
+            provider_errors.append(result["provider_error"])
         logger.warning("Gemini Vision was unavailable; trying HF ViT fallback")
 
     result = _predict_food_vit(image_bytes)
@@ -488,11 +551,14 @@ def _predict_primary_food(image_bytes: bytes) -> Optional[dict]:
             "confidence": min(1.0, max(0.0, float(result.get("score", 0)))),
             "model": "huggingface_nateraw_food_vit",
         }
+    if result and result.get("provider_error"):
+        provider_errors.append(result["provider_error"])
     return {
         "food": None,
         "confidence": 0.0,
         "model": "primary_vision_unavailable",
         "provider_unavailable": True,
+        "provider_errors": provider_errors,
     }
 
 
@@ -507,6 +573,7 @@ def _food_prediction_audit(primary: Optional[dict], cnn: Optional[dict], decisio
         "cnn_model": cnn.get("model") if cnn else None,
         "final_decision": decision,
         "decision_reason": reason,
+        "provider_errors": primary.get("provider_errors", []) if primary else [],
     }
 
 
