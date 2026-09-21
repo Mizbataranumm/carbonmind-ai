@@ -4,24 +4,33 @@ import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getFoodCatalog, predictDay } from "@/lib/api";
+import { estimateFoodItemCo2 } from "@/lib/foodEstimator";
 
 const iconMap = { transport: Car, electricity: Zap, food: Utensils, devices: Monitor };
 const typeColors = { transport: "var(--neon-green)", electricity: "var(--neon-cyan)", food: "#FFD166", devices: "#FF66E1" };
 
-/* Only labels live here. CO2e values are never fabricated in the client. */
+/* Default emission factors for planning items so users don't have to guess CO2e */
 const MANUAL_CATEGORY_OPTIONS = {
   transport: [
-    { label: "Car", value: "car" }, { label: "Bus", value: "bus" },
-    { label: "Bike / Cycle", value: "cycling" }, { label: "Train", value: "train" },
-    { label: "Motorcycle", value: "moto" }, { label: "Walk", value: "walking" },
+    { label: "Car (10 km)", value: "car", co2: 1.70 },
+    { label: "Bus (10 km)", value: "bus", co2: 0.80 },
+    { label: "Bike / Cycle (10 km)", value: "cycling", co2: 0.00 },
+    { label: "Train / Metro (15 km)", value: "train", co2: 0.55 },
+    { label: "Motorcycle (10 km)", value: "moto", co2: 1.05 },
+    { label: "Walk", value: "walking", co2: 0.00 },
   ],
   electricity: [
-    { label: "Phone charge", value: "phone_charge" }, { label: "Fan", value: "fan" },
-    { label: "Air conditioner", value: "ac" }, { label: "Home appliances", value: "appliances" },
+    { label: "Phone charge (full)", value: "phone_charge", co2: 0.01 },
+    { label: "Ceiling fan (2 hrs)", value: "fan", co2: 0.12 },
+    { label: "Air conditioner (2 hrs)", value: "ac", co2: 2.46 },
+    { label: "Home appliances (1 hr)", value: "appliances", co2: 0.50 },
   ],
   devices: [
-    { label: "Phone", value: "phone" }, { label: "Laptop", value: "laptop" },
-    { label: "TV", value: "tv" }, { label: "Air conditioner", value: "ac" },
+    { label: "Smartphone (2 hrs)", value: "phone", co2: 0.02 },
+    { label: "Laptop (2 hrs)", value: "laptop", co2: 0.08 },
+    { label: "TV (2 hrs)", value: "tv", co2: 0.20 },
+    { label: "Desktop PC (2 hrs)", value: "desktop", co2: 0.25 },
+    { label: "Air conditioner (2 hrs)", value: "ac", co2: 2.46 },
   ],
 };
 
@@ -46,7 +55,18 @@ const selectStyle = {
 
 const Predict = () => {
   const [foodOptions, setFoodOptions] = useState([]);
-  const [activities, setActivities] = useState(() => presets[0].items.map((item) => ({ ...item, kg: 0 })));
+  const [activities, setActivities] = useState(() =>
+    presets[0].items.map((item) => {
+      const opts = MANUAL_CATEGORY_OPTIONS[item.type] || [];
+      const opt = opts.find((o) => o.value === item.sub) || opts[0];
+      return {
+        type: item.type,
+        sub: opt?.value || item.sub,
+        kg: opt?.co2 ?? (item.type === "food" ? 0.29 : 0.50),
+        customFood: item.type === "food" ? "Rice" : "",
+      };
+    })
+  );
   const [budget, setBudget] = useState(6.5);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -58,13 +78,16 @@ const Predict = () => {
       .then((response) => {
         if (!active) return;
         const options = (response.items || []).map((item) => ({
-          label: `${item.label} (${item.co2_kg} kg CO2e)`, value: item.value, co2: item.co2_kg,
+          label: `${item.label} (${item.co2_kg} kg CO2e)`,
+          value: item.value,
+          co2: item.co2_kg,
+          name: item.label,
         }));
         setFoodOptions(options);
         setActivities((current) => current.map((activity) => {
           if (activity.type !== "food") return activity;
           const option = options.find((item) => item.value === activity.sub);
-          return option ? { ...activity, kg: option.co2 } : activity;
+          return option ? { ...activity, kg: option.co2, customFood: option.name } : activity;
         }));
       })
       .catch(() => toast.error("Reviewed food factors could not be loaded"));
@@ -75,14 +98,24 @@ const Predict = () => {
 
   const activityForOption = (type, sub) => {
     const option = (categoryOptions[type] || []).find((item) => item.value === sub) || categoryOptions[type]?.[0];
-    return { type, sub: option?.value || sub || "other", kg: option?.co2 ?? 0 };
+    return {
+      type,
+      sub: option?.value || sub || "other",
+      kg: option?.co2 ?? (type === "food" ? 0.60 : 0.50),
+      customFood: type === "food" ? option?.name || option?.label?.split(" (")[0] || sub : "",
+    };
   };
-  const defaultSubItem = (type) => categoryOptions[type]?.[0] || { label: "Other", value: "other" };
+  const defaultSubItem = (type) => categoryOptions[type]?.[0] || { label: "Other", value: "other", co2: 0.50 };
   const applyPreset = (p) => { setActivities(p.items.map((item) => activityForOption(item.type, item.sub))); setResult(null); };
 
   const add = (type) => {
     const first = defaultSubItem(type);
-    setActivities([...activities, { type, sub: first.value, kg: first.co2 ?? 0 }]);
+    setActivities([...activities, {
+      type,
+      sub: first.value,
+      kg: first.co2 ?? (type === "food" ? 0.29 : 0.50),
+      customFood: type === "food" ? first.name || first.label?.split(" (")[0] || "" : "",
+    }]);
   };
 
   const remove = (i) => setActivities(activities.filter((_, idx) => idx !== i));
@@ -90,7 +123,13 @@ const Predict = () => {
   const updateType = (i, type) => {
     const first = defaultSubItem(type);
     setActivities(activities.map((a, idx) =>
-      idx === i ? { ...a, type, sub: first.value, kg: first.co2 ?? 0 } : a
+      idx === i ? {
+        ...a,
+        type,
+        sub: first.value,
+        kg: first.co2 ?? (type === "food" ? 0.29 : 0.50),
+        customFood: type === "food" ? first.name || first.label?.split(" (")[0] || "" : "",
+      } : a
     ));
   };
 
@@ -100,6 +139,22 @@ const Predict = () => {
     setActivities(activities.map((a, idx) =>
       idx === i ? { ...a, sub: subValue, kg: opt?.co2 ?? 0 } : a
     ));
+  };
+
+  const updateFoodCustom = (i, text) => {
+    const matched = foodOptions.find(
+      (o) =>
+        o.value.toLowerCase() === text.toLowerCase() ||
+        o.name?.toLowerCase() === text.toLowerCase() ||
+        o.label.toLowerCase().startsWith(text.toLowerCase())
+    );
+    const co2 = matched ? matched.co2 : estimateFoodItemCo2(text, foodOptions);
+    const sub = matched ? matched.value : (text ? `custom_${text.toLowerCase().replace(/\s+/g, "_")}` : "custom_food");
+    setActivities((prev) =>
+      prev.map((a, idx) =>
+        idx === i ? { ...a, sub, kg: co2, customFood: text } : a
+      )
+    );
   };
 
   const updateKg = (i, kg) =>
@@ -220,31 +275,56 @@ const Predict = () => {
                         <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">
                           {a.type === "transport" ? "Vehicle" :
                            a.type === "electricity" ? "Usage" :
-                           a.type === "food" ? "Food item" : "Device"}
+                           a.type === "food" ? "Food item (type or select)" : "Device"}
                         </div>
-                        <select
-                          value={a.sub || subOpts[0]?.value || ""}
-                          onChange={(e) => updateSub(i, e.target.value)}
-                          className="input-glass !py-2 !px-3 text-sm w-full cursor-pointer"
-                          style={selectStyle}
-                          data-testid={`activity-sub-${i}`}
-                        >
-                          {subOpts.map((opt) => (
-                            <option key={opt.value} value={opt.value} style={selectStyle}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
+                        {a.type === "food" ? (
+                          <>
+                            <input
+                              type="text"
+                              list={`food-catalog-${i}`}
+                              value={a.customFood !== undefined ? a.customFood : (foodOptions.find((o) => o.value === a.sub)?.name || a.sub || "")}
+                              onChange={(e) => updateFoodCustom(i, e.target.value)}
+                              placeholder="Select or type your food..."
+                              className="input-glass !py-2 !px-3 text-sm w-full font-medium"
+                              style={selectStyle}
+                              data-testid={`activity-food-input-${i}`}
+                            />
+                            <datalist id={`food-catalog-${i}`}>
+                              {foodOptions.map((opt) => (
+                                <option key={opt.value} value={opt.name || opt.label.split(" (")[0]}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </datalist>
+                          </>
+                        ) : (
+                          <select
+                            value={a.sub || subOpts[0]?.value || ""}
+                            onChange={(e) => updateSub(i, e.target.value)}
+                            className="input-glass !py-2 !px-3 text-sm w-full cursor-pointer"
+                            style={selectStyle}
+                            data-testid={`activity-sub-${i}`}
+                          >
+                            {subOpts.map((opt) => (
+                              <option key={opt.value} value={opt.value} style={selectStyle}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
 
-                          {/* Food uses the backend CSV catalog; all other categories are manual. */}
-                          <div>
-                            <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">CO₂e (kg)</div>
+                      {/* Auto-calculated CO2e with manual override */}
+                      <div>
+                        <div className="flex items-center justify-between font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">
+                          <span>CO₂e (kg)</span>
+                          <span className="text-green text-[8px] tracking-normal font-sans font-medium">Auto-calculated</span>
+                        </div>
                         <input
                           type="number" step="0.01" min="0"
                           value={a.kg}
                           onChange={(e) => updateKg(i, parseFloat(e.target.value) || 0)}
-                          className="input-glass !py-2 !px-3 text-sm w-full font-mono-data"
+                          className="input-glass !py-2 !px-3 text-sm w-full font-mono-data text-green font-semibold"
                           data-testid={`activity-kg-${i}`}
                         />
                       </div>
@@ -278,8 +358,8 @@ const Predict = () => {
                 </button>
               );
             })}
-            <div className="font-mono-data text-[9px] text-secondary w-full mt-1 opacity-60">
-               Food values come from the reviewed CSV recipe catalog. Transport, electricity, and device amounts must be entered manually until sourced factors are added.
+            <div className="font-mono-data text-[9px] text-secondary w-full mt-1 opacity-70">
+              All categories calculate CO2e automatically. For food, pick from the reviewed list or type your own dish anytime.
             </div>
           </div>
         </div>

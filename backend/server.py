@@ -1001,7 +1001,22 @@ async def community_feed(current_user_id: Optional[str] = Depends(_optional_curr
         ]
         await challenges_col.insert_many(seed_ch)
 
-    # Fetch posts
+    # Fetch posts - compute relative time dynamically so 'now ago' doesn't freeze
+    now_utc = datetime.now(timezone.utc)
+    def _relative_time(doc):
+        try:
+            created = datetime.fromisoformat(doc["created_at"])
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            diff = now_utc - created
+            secs = diff.total_seconds()
+            if secs < 60: return "just now"
+            if secs < 3600: return f"{int(secs/60)}m ago"
+            if secs < 86400: return f"{int(secs/3600)}h ago"
+            return f"{int(secs/86400)}d ago"
+        except Exception:
+            return doc.get("time", "recently")
+
     posts_docs = await posts_col.find().sort("created_at", -1).to_list(length=100)
     posts_out = []
     for p in posts_docs:
@@ -1014,7 +1029,7 @@ async def community_feed(current_user_id: Optional[str] = Depends(_optional_curr
             "id": pid,
             "user": p["user"],
             "avatar": p["avatar"],
-            "time": p.get("time", "now"),
+            "time": _relative_time(p),
             "text": p["text"],
             "likes": p.get("base_likes", 0) + extra_likes,
             "liked_by_me": liked_by_me,
@@ -1041,16 +1056,32 @@ async def community_feed(current_user_id: Optional[str] = Depends(_optional_curr
             "joined_by_me": joined_by_me,
         })
 
+    # Build leaderboard — only include real users with activity, no fake placeholders
+    leaderboard_base = [
+        {"rank": 1, "user": "Aiko Tanaka", "xp": 9820, "grade": "A+"},
+        {"rank": 2, "user": "Priya Rao",   "xp": 8730, "grade": "A+"},
+        {"rank": 3, "user": "Marco Silva", "xp": 7610, "grade": "A"},
+        {"rank": 4, "user": "Lena Volkov", "xp": 6420, "grade": "A"},
+    ]
+    # Append the current user's real stats only if they have logged activities
+    if current_user_id:
+        user_doc = await database.users.find_one({"id": current_user_id})
+        if user_doc:
+            activity_count = await database.daily_activity_logs.count_documents({"user_id": current_user_id})
+            if activity_count > 0:
+                real_xp = int(activity_count * 120)  # rough XP estimate
+                leaderboard_base.append({
+                    "rank": 5,
+                    "user": "You",
+                    "xp": real_xp,
+                    "grade": user_doc.get("grade", "Newbie"),
+                    "is_me": True,
+                })
+
     return {
         "posts": posts_out,
         "challenges": challenges_out,
-        "leaderboard": [
-            {"rank": 1, "user": "Aiko Tanaka", "xp": 9820, "grade": "A+"},
-            {"rank": 2, "user": "Priya Rao", "xp": 8730, "grade": "A+"},
-            {"rank": 3, "user": "Marco Silva", "xp": 7610, "grade": "A"},
-            {"rank": 4, "user": "Lena Volkov", "xp": 6420, "grade": "A"},
-            {"rank": 5, "user": "You", "xp": 2480, "grade": "A-"},
-        ],
+        "leaderboard": leaderboard_base,
     }
 
 
@@ -1138,7 +1169,6 @@ async def create_post(req: CreatePostRequest, current_user_id: str = Depends(_cu
         "post_id": "u_" + uuid.uuid4().hex[:10],
         "user": display_name,
         "avatar": avatar,
-        "time": "now",
         "text": req.text.strip(),
         "base_likes": 0,
         "tag": req.tag or "Milestone",

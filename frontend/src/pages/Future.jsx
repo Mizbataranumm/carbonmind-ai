@@ -19,12 +19,12 @@ const dietOptions = [
   { id: "vegan", label: "Vegan" },
 ];
 
-const defaultForm = { transport: "mixed", diet: "mixed", current_annual_co2: "", annual_reduction_percent: 5, horizon_years: 10 };
+const defaultForm = { transport: "mixed", diet: "mixed", current_annual_co2: "4.0", annual_reduction_percent: 5, horizon_years: 10 };
 
 const presets = [
   { id: "balanced", label: "Balanced routine", values: defaultForm },
-  { id: "lower-impact", label: "Lower-impact shift", values: { ...defaultForm, transport: "public", diet: "vegetarian", annual_reduction_percent: 8 } },
-  { id: "car", label: "Car-heavy routine", values: { ...defaultForm, transport: "car", diet: "mixed", annual_reduction_percent: 3 } },
+  { id: "lower-impact", label: "Lower-impact shift", values: { ...defaultForm, transport: "public", diet: "vegetarian", annual_reduction_percent: 8, current_annual_co2: "3.5" } },
+  { id: "car", label: "Car-heavy routine", values: { ...defaultForm, transport: "car", diet: "mixed", annual_reduction_percent: 3, current_annual_co2: "5.5" } },
 ];
 
 export default function Future() {
@@ -111,6 +111,22 @@ export default function Future() {
             <div>
               <label htmlFor="future-baseline" className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Current annual footprint</label>
               <input id="future-baseline" data-testid="input-baseline" type="number" min="0.01" step="0.01" required value={form.current_annual_co2} onChange={(event) => update("current_annual_co2", event.target.value)} className="input-glass mt-2" />
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {[
+                  { label: "India (2.2t)", val: "2.2" },
+                  { label: "Urban (4.0t)", val: "4.0" },
+                  { label: "Global (4.5t)", val: "4.5" },
+                ].map((bm) => (
+                  <button
+                    key={bm.val}
+                    type="button"
+                    onClick={() => update("current_annual_co2", bm.val)}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-widget border border-glass-border hover:border-green/50 text-secondary hover:text-main transition"
+                  >
+                    {bm.label}
+                  </button>
+                ))}
+              </div>
               <p className="mt-1 text-xs text-secondary">tonnes CO2e / year</p>
             </div>
             <div>

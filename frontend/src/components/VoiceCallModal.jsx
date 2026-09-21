@@ -36,7 +36,6 @@ export default function VoiceCallModal({ open, onClose, userName = "Explorer", t
       `Hi ${userName}. Here is your CarbonMind daily audio brief.`,
       `Your saved activity record totals ${Number(todayKg).toFixed(1)} kilograms of CO2 equivalent today. ${budgetMessage}`,
       `Your largest recorded category is ${topCategory}. ${tipFor(topCategory)}`,
-      "This briefing uses only your saved activity record. It is an audio summary, not a phone call or a two-way assistant.",
     ];
   }, [todayKg, topCategory, userName]);
 

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Car, CheckCircle, Loader2, Monitor, Utensils, X, Zap } from "lucide-react";
 import { estimateTransport, getTransportCatalog, saveDailyActivities } from "@/lib/api";
+import { estimateFoodItemCo2 } from "@/lib/foodEstimator";
 import { useUser } from "@/lib/UserContext";
 
 const categories = [
@@ -60,6 +61,7 @@ const freshForm = () => ({
   elecHours: "",
   // food
   foodItem: "chicken",
+  foodName: "Chicken",
   foodServings: "1",
   // devices
   devPreset: "laptop",
@@ -145,12 +147,12 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
   // ── Food: look up CO2e per serving
   useEffect(() => {
     if (form.type !== "food") return;
-    const preset = FOOD_PRESETS.find((f) => f.id === form.foodItem);
+    const preset = FOOD_PRESETS.find((f) => f.id === form.foodItem || f.label.toLowerCase().includes((form.foodName || "").toLowerCase()));
     const servings = Number(form.foodServings) || 1;
-    if (!preset) { setForm((c) => ({ ...c, kg: "" })); return; }
-    const co2 = +(preset.kg * servings).toFixed(3);
+    const co2PerServing = preset ? preset.kg : estimateFoodItemCo2(form.foodName, FOOD_PRESETS);
+    const co2 = +(co2PerServing * servings).toFixed(3);
     setForm((c) => ({ ...c, kg: String(co2) }));
-  }, [form.type, form.foodItem, form.foodServings]);
+  }, [form.type, form.foodItem, form.foodName, form.foodServings]);
 
   // ── Devices: watts × hours → kWh → CO2e
   useEffect(() => {
@@ -279,7 +281,11 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => setForm((c) => ({ ...freshForm(), type: item.id, label: c.label }))}
+                          onClick={() => setForm({
+                            ...freshForm(),
+                            type: item.id,
+                            transportFactorId: transportFactors[0]?.factor_id || "",
+                          })}
                           className={`flex items-center gap-2 rounded-xl border p-3 text-left text-sm transition ${active ? "border-green/50 bg-green/10 text-main" : "border-glass-border bg-widget text-secondary hover:border-green/30 hover:text-main"}`}
                         >
                           <Icon className={`h-4 w-4 ${active ? "text-green" : ""}`} />
@@ -369,15 +375,30 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
 
                 {/* ── Food helper fields */}
                 {form.type === "food" && (
-                  <fieldset className="grid grid-cols-2 gap-3">
-                    <Field label="Food item">
-                      <select
-                        value={form.foodItem}
-                        onChange={(e) => setForm((c) => ({ ...c, foodItem: e.target.value }))}
+                  <fieldset className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label="Food item (type or select)">
+                      <input
+                        type="text"
+                        list="modal-food-presets"
+                        value={form.foodName || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setForm((c) => ({
+                            ...c,
+                            foodName: val,
+                            label: c.label && c.label !== c.foodName ? c.label : val,
+                          }));
+                        }}
+                        placeholder="e.g. Chicken, Biryani, Salad..."
                         className="input-glass w-full"
-                      >
-                        {FOOD_PRESETS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-                      </select>
+                      />
+                      <datalist id="modal-food-presets">
+                        {FOOD_PRESETS.map((f) => (
+                          <option key={f.id} value={f.label.split(" (")[0]}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </datalist>
                     </Field>
                     <Field label="Servings">
                       <input
