@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
-import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2, CheckCircle } from "lucide-react";
+import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2, CheckCircle, Navigation } from "lucide-react";
 import { toast } from "sonner";
 import { getFoodCatalog, predictDay, saveDailyActivities } from "@/lib/api";
+import GpsCommuteModal from "@/components/GpsCommuteModal";
 import { estimateFoodItemCo2 } from "@/lib/foodEstimator";
 import { useUser } from "@/lib/UserContext";
 
@@ -172,6 +173,7 @@ const Predict = () => {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeGpsRowIndex, setActiveGpsRowIndex] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -505,9 +507,19 @@ const Predict = () => {
                              a.type === "electricity" ? (a.unit === "kWh" ? "Energy" : "Hours") :
                              a.type === "devices" ? "Duration" : "Quantity"}
                           </span>
-                          <span className="text-secondary text-[8px] tracking-normal font-sans font-medium uppercase">
-                            {a.unit || (a.type === "transport" ? "km" : "unit")}
-                          </span>
+                          {a.type === "transport" ? (
+                            <button
+                              onClick={() => setActiveGpsRowIndex(i)}
+                              className="text-[9px] text-green flex items-center gap-1 hover:text-[#00FFB2] transition bg-green/10 px-1.5 py-0.5 rounded"
+                              title="Auto-detect via GPS"
+                            >
+                              <Navigation className="h-2.5 w-2.5" /> GPS
+                            </button>
+                          ) : (
+                            <span className="text-secondary text-[8px] tracking-normal font-sans font-medium uppercase">
+                              {a.unit || "unit"}
+                            </span>
+                          )}
                         </div>
                         <div className="relative">
                           <input
@@ -680,6 +692,16 @@ const Predict = () => {
           </div>
         </motion.div>
       )}
+
+      <GpsCommuteModal
+        open={activeGpsRowIndex !== null}
+        onClose={() => setActiveGpsRowIndex(null)}
+        onDistanceDetected={(dist) => {
+          if (activeGpsRowIndex !== null) {
+            updateAmount(activeGpsRowIndex, dist);
+          }
+        }}
+      />
     </div>
   );
 };
