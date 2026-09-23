@@ -1,0 +1,9 @@
+{
+  "issues_found": [
+    "CLASS_ORDER_MISMATCH"
+  ],
+  "conclusion": "BUG_FOUND",
+  "class_order_match": false,
+  "fc_output_correct": true,
+  "diagnosis": "Pipeline bugs found: ['CLASS_ORDER_MISMATCH']"
+}

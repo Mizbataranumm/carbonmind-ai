@@ -1,0 +1,770 @@
+{
+  "dataset_analysis": {
+    "total_rows": 10000,
+    "exact_duplicates": 0,
+    "feature_only_duplicates": 0,
+    "missing_values": {
+      "Body Type": 0,
+      "Sex": 0,
+      "Diet": 0,
+      "How Often Shower": 0,
+      "Heating Energy Source": 0,
+      "Transport": 0,
+      "Vehicle Type": 6721,
+      "Social Activity": 0,
+      "Monthly Grocery Bill": 0,
+      "Frequency of Traveling by Air": 0,
+      "Vehicle Monthly Distance Km": 0,
+      "Waste Bag Size": 0,
+      "Waste Bag Weekly Count": 0,
+      "How Long TV PC Daily Hour": 0,
+      "How Many New Clothes Monthly": 0,
+      "How Long Internet Daily Hour": 0,
+      "Energy efficiency": 0,
+      "Recycling": 0,
+      "Cooking_With": 0,
+      "CarbonEmission": 0
+    },
+    "target_stats": {
+      "count": 10000,
+      "mean": 2269.1473,
+      "std": 1017.675246575969,
+      "min": 306.0,
+      "25%": 1538.0,
+      "50%": 2080.0,
+      "75%": 2768.0,
+      "max": 8377.0,
+      "skewness": 1.1580722842415405,
+      "kurtosis": 1.7337617043824118,
+      "unique_values": 3509
+    },
+    "feature_summaries": {
+      "Body Type": {
+        "type": "categorical",
+        "categories": [
+          "overweight",
+          "obese",
+          "underweight",
+          "normal"
+        ],
+        "counts": {
+          "underweight": 2540,
+          "obese": 2500,
+          "overweight": 2487,
+          "normal": 2473
+        }
+      },
+      "Sex": {
+        "type": "categorical",
+        "categories": [
+          "female",
+          "male"
+        ],
+        "counts": {
+          "female": 5007,
+          "male": 4993
+        }
+      },
+      "Diet": {
+        "type": "categorical",
+        "categories": [
+          "pescatarian",
+          "vegetarian",
+          "omnivore",
+          "vegan"
+        ],
+        "counts": {
+          "pescatarian": 2554,
+          "vegan": 2497,
+          "omnivore": 2492,
+          "vegetarian": 2457
+        }
+      },
+      "How Often Shower": {
+        "type": "categorical",
+        "categories": [
+          "daily",
+          "less frequently",
+          "more frequently",
+          "twice a day"
+        ],
+        "counts": {
+          "daily": 2546,
+          "twice a day": 2516,
+          "less frequently": 2487,
+          "more frequently": 2451
+        }
+      },
+      "Heating Energy Source": {
+        "type": "categorical",
+        "categories": [
+          "coal",
+          "natural gas",
+          "wood",
+          "electricity"
+        ],
+        "counts": {
+          "electricity": 2552,
+          "coal": 2523,
+          "wood": 2463,
+          "natural gas": 2462
+        }
+      },
+      "Transport": {
+        "type": "categorical",
+        "categories": [
+          "public",
+          "walk/bicycle",
+          "private"
+        ],
+        "counts": {
+          "walk/bicycle": 3427,
+          "public": 3294,
+          "private": 3279
+        }
+      },
+      "Vehicle Type": {
+        "type": "categorical",
+        "categories": [
+          "nan",
+          "petrol",
+          "diesel",
+          "hybrid",
+          "lpg",
+          "electric"
+        ],
+        "counts": {
+          "lpg": 697,
+          "electric": 671,
+          "petrol": 647,
+          "hybrid": 642,
+          "diesel": 622
+        }
+      },
+      "Social Activity": {
+        "type": "categorical",
+        "categories": [
+          "often",
+          "never",
+          "sometimes"
+        ],
+        "counts": {
+          "never": 3406,
+          "often": 3319,
+          "sometimes": 3275
+        }
+      },
+      "Monthly Grocery Bill": {
+        "type": "numeric",
+        "min": 50.0,
+        "max": 299.0,
+        "mean": 173.8752,
+        "unique": 250,
+        "discrete_steps": [
+          56.0,
+          59.0,
+          114.0,
+          135.0,
+          138.0,
+          144.0,
+          157.0,
+          200.0,
+          230.0,
+          266.0
+        ]
+      },
+      "Frequency of Traveling by Air": {
+        "type": "categorical",
+        "categories": [
+          "frequently",
+          "rarely",
+          "never",
+          "very frequently"
+        ],
+        "counts": {
+          "very frequently": 2540,
+          "frequently": 2524,
+          "rarely": 2477,
+          "never": 2459
+        }
+      },
+      "Vehicle Monthly Distance Km": {
+        "type": "numeric",
+        "min": 0.0,
+        "max": 9999.0,
+        "mean": 2031.4859,
+        "unique": 4003,
+        "discrete_steps": [
+          9.0,
+          54.0,
+          74.0,
+          210.0,
+          440.0,
+          658.0,
+          1376.0,
+          2472.0,
+          5363.0,
+          8457.0
+        ]
+      },
+      "Waste Bag Size": {
+        "type": "categorical",
+        "categories": [
+          "large",
+          "extra large",
+          "small",
+          "medium"
+        ],
+        "counts": {
+          "small": 2525,
+          "large": 2501,
+          "extra large": 2500,
+          "medium": 2474
+        }
+      },
+      "Waste Bag Weekly Count": {
+        "type": "numeric",
+        "min": 1.0,
+        "max": 7.0,
+        "mean": 4.0246,
+        "unique": 7,
+        "discrete_steps": [
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0
+        ]
+      },
+      "How Long TV PC Daily Hour": {
+        "type": "numeric",
+        "min": 0.0,
+        "max": 24.0,
+        "mean": 12.1392,
+        "unique": 25,
+        "discrete_steps": [
+          3.0,
+          5.0,
+          7.0,
+          8.0,
+          9.0,
+          12.0,
+          14.0,
+          18.0,
+          20.0,
+          22.0
+        ]
+      },
+      "How Many New Clothes Monthly": {
+        "type": "numeric",
+        "min": 0.0,
+        "max": 50.0,
+        "mean": 25.109,
+        "unique": 51,
+        "discrete_steps": [
+          5.0,
+          11.0,
+          18.0,
+          23.0,
+          26.0,
+          27.0,
+          31.0,
+          38.0,
+          39.0,
+          47.0
+        ]
+      },
+      "How Long Internet Daily Hour": {
+        "type": "numeric",
+        "min": 0.0,
+        "max": 24.0,
+        "mean": 11.8891,
+        "unique": 25,
+        "discrete_steps": [
+          1.0,
+          4.0,
+          5.0,
+          6.0,
+          7.0,
+          9.0,
+          15.0,
+          18.0,
+          19.0,
+          21.0
+        ]
+      },
+      "Energy efficiency": {
+        "type": "categorical",
+        "categories": [
+          "No",
+          "Sometimes",
+          "Yes"
+        ],
+        "counts": {
+          "Sometimes": 3463,
+          "Yes": 3316,
+          "No": 3221
+        }
+      },
+      "Recycling": {
+        "type": "categorical",
+        "categories": [
+          "['Metal']",
+          "['Paper', 'Plastic', 'Glass', 'Metal']",
+          "['Paper']",
+          "['Paper', 'Glass', 'Metal']",
+          "[]",
+          "['Paper', 'Plastic', 'Glass']",
+          "['Glass']",
+          "['Paper', 'Plastic']",
+          "['Plastic']",
+          "['Plastic', 'Glass', 'Metal']",
+          "['Paper', 'Plastic', 'Metal']",
+          "['Paper', 'Glass']",
+          "['Paper', 'Metal']",
+          "['Glass', 'Metal']",
+          "['Plastic', 'Glass']",
+          "['Plastic', 'Metal']"
+        ],
+        "counts": {
+          "[]": 675,
+          "['Paper', 'Plastic', 'Metal']": 648,
+          "['Paper', 'Glass', 'Metal']": 647,
+          "['Glass', 'Metal']": 645,
+          "['Paper', 'Plastic', 'Glass', 'Metal']": 637,
+          "['Plastic', 'Glass']": 633,
+          "['Paper', 'Plastic']": 633,
+          "['Plastic', 'Metal']": 630,
+          "['Plastic', 'Glass', 'Metal']": 626,
+          "['Metal']": 625,
+          "['Paper']": 619,
+          "['Paper', 'Glass']": 616,
+          "['Plastic']": 602,
+          "['Paper', 'Metal']": 589,
+          "['Paper', 'Plastic', 'Glass']": 588,
+          "['Glass']": 587
+        }
+      },
+      "Cooking_With": {
+        "type": "categorical",
+        "categories": [
+          "['Stove', 'Oven']",
+          "['Stove', 'Microwave']",
+          "['Oven', 'Microwave']",
+          "['Microwave', 'Grill', 'Airfryer']",
+          "['Oven']",
+          "['Stove', 'Oven', 'Microwave']",
+          "['Grill', 'Airfryer']",
+          "['Stove']",
+          "['Stove', 'Oven', 'Microwave', 'Grill', 'Airfryer']",
+          "['Oven', 'Microwave', 'Grill', 'Airfryer']",
+          "['Stove', 'Grill', 'Airfryer']",
+          "['Oven', 'Grill', 'Airfryer']",
+          "['Microwave']",
+          "['Stove', 'Oven', 'Grill', 'Airfryer']",
+          "['Stove', 'Microwave', 'Grill', 'Airfryer']",
+          "[]"
+        ],
+        "counts": {
+          "['Stove', 'Oven']": 670,
+          "['Stove', 'Microwave', 'Grill', 'Airfryer']": 652,
+          "['Oven', 'Microwave']": 649,
+          "['Oven', 'Microwave', 'Grill', 'Airfryer']": 638,
+          "['Stove', 'Oven', 'Microwave', 'Grill', 'Airfryer']": 637,
+          "['Stove', 'Grill', 'Airfryer']": 628,
+          "['Stove', 'Oven', 'Microwave']": 628,
+          "['Stove', 'Microwave']": 625,
+          "['Oven', 'Grill', 'Airfryer']": 625,
+          "['Microwave', 'Grill', 'Airfryer']": 623,
+          "['Microwave']": 621,
+          "['Oven']": 607,
+          "['Stove']": 605,
+          "[]": 603,
+          "['Stove', 'Oven', 'Grill', 'Airfryer']": 596,
+          "['Grill', 'Airfryer']": 593
+        }
+      }
+    },
+    "linear_fit_analysis": {
+      "ols_r2_on_full_data": 0.9340112267507132,
+      "ols_mae_kg": 175.14720312710847,
+      "ridge_r2_on_full_data": 0.9340108081004931,
+      "ridge_mae_kg": 175.12806367257326,
+      "interpretation": "A simple linear model achieves R2 = 0.9340 and MAE = 175.15 kg CO2e, confirming that the dataset target was constructed primarily from additive linear emission components plus interaction terms/noise, consistent with synthetic data generators."
+    }
+  },
+  "cross_validation_5_fold": {
+    "median_baseline": {
+      "feature_count": 19,
+      "features": [
+        "Body Type",
+        "Sex",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 767.0659,
+      "mae_std": 6.8904,
+      "rmse_mean": 1035.063,
+      "rmse_std": 15.8667,
+      "r2_mean": -0.035,
+      "r2_std": 0.0095,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 763.716,
+          "rmse": 1041.5708,
+          "r2": -0.0434
+        },
+        {
+          "fold": 2,
+          "mae": 763.816,
+          "rmse": 1030.8771,
+          "r2": -0.0323
+        },
+        {
+          "fold": 3,
+          "mae": 775.8515,
+          "rmse": 1037.4872,
+          "r2": -0.0313
+        },
+        {
+          "fold": 4,
+          "mae": 759.319,
+          "rmse": 1011.1262,
+          "r2": -0.0225
+        },
+        {
+          "fold": 5,
+          "mae": 772.627,
+          "rmse": 1054.2539,
+          "r2": -0.0455
+        }
+      ]
+    },
+    "hist_gradient_19": {
+      "feature_count": 19,
+      "features": [
+        "Body Type",
+        "Sex",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 91.0291,
+      "mae_std": 1.5912,
+      "rmse_mean": 124.197,
+      "rmse_std": 3.3045,
+      "r2_mean": 0.9851,
+      "r2_std": 0.0006,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 92.0471,
+          "rmse": 124.0734,
+          "r2": 0.9852
+        },
+        {
+          "fold": 2,
+          "mae": 89.7587,
+          "rmse": 121.2361,
+          "r2": 0.9857
+        },
+        {
+          "fold": 3,
+          "mae": 89.1396,
+          "rmse": 123.2661,
+          "r2": 0.9854
+        },
+        {
+          "fold": 4,
+          "mae": 91.202,
+          "rmse": 122.6016,
+          "r2": 0.985
+        },
+        {
+          "fold": 5,
+          "mae": 92.9982,
+          "rmse": 129.808,
+          "r2": 0.9841
+        }
+      ]
+    },
+    "xgboost_19": {
+      "feature_count": 19,
+      "features": [
+        "Body Type",
+        "Sex",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 96.0724,
+      "mae_std": 1.4736,
+      "rmse_mean": 133.4665,
+      "rmse_std": 3.5031,
+      "r2_mean": 0.9828,
+      "r2_std": 0.0006,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 96.4874,
+          "rmse": 131.7518,
+          "r2": 0.9833
+        },
+        {
+          "fold": 2,
+          "mae": 96.2635,
+          "rmse": 132.6767,
+          "r2": 0.9829
+        },
+        {
+          "fold": 3,
+          "mae": 93.774,
+          "rmse": 132.5591,
+          "r2": 0.9832
+        },
+        {
+          "fold": 4,
+          "mae": 95.9797,
+          "rmse": 130.7633,
+          "r2": 0.9829
+        },
+        {
+          "fold": 5,
+          "mae": 97.8573,
+          "rmse": 139.5814,
+          "r2": 0.9817
+        }
+      ]
+    },
+    "lightgbm_19_full": {
+      "feature_count": 19,
+      "features": [
+        "Body Type",
+        "Sex",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 88.3138,
+      "mae_std": 1.4223,
+      "rmse_mean": 121.6969,
+      "rmse_std": 3.9944,
+      "r2_mean": 0.9857,
+      "r2_std": 0.0008,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 87.5424,
+          "rmse": 119.6738,
+          "r2": 0.9862
+        },
+        {
+          "fold": 2,
+          "mae": 87.311,
+          "rmse": 117.7977,
+          "r2": 0.9865
+        },
+        {
+          "fold": 3,
+          "mae": 87.6265,
+          "rmse": 122.5819,
+          "r2": 0.9856
+        },
+        {
+          "fold": 4,
+          "mae": 88.3218,
+          "rmse": 120.275,
+          "r2": 0.9855
+        },
+        {
+          "fold": 5,
+          "mae": 90.7671,
+          "rmse": 128.156,
+          "r2": 0.9845
+        }
+      ]
+    },
+    "lightgbm_18_no_sex": {
+      "feature_count": 18,
+      "features": [
+        "Body Type",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 177.5997,
+      "mae_std": 3.8811,
+      "rmse_mean": 224.7875,
+      "rmse_std": 6.6783,
+      "r2_mean": 0.9512,
+      "r2_std": 0.0021,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 180.9385,
+          "rmse": 227.0599,
+          "r2": 0.9504
+        },
+        {
+          "fold": 2,
+          "mae": 175.2067,
+          "rmse": 223.3501,
+          "r2": 0.9515
+        },
+        {
+          "fold": 3,
+          "mae": 175.0731,
+          "rmse": 220.7124,
+          "r2": 0.9533
+        },
+        {
+          "fold": 4,
+          "mae": 174.1624,
+          "rmse": 217.7672,
+          "r2": 0.9526
+        },
+        {
+          "fold": 5,
+          "mae": 182.6176,
+          "rmse": 235.048,
+          "r2": 0.948
+        }
+      ]
+    },
+    "hist_gradient_18_no_sex": {
+      "feature_count": 18,
+      "features": [
+        "Body Type",
+        "Diet",
+        "How Often Shower",
+        "Heating Energy Source",
+        "Transport",
+        "Vehicle Type",
+        "Social Activity",
+        "Monthly Grocery Bill",
+        "Frequency of Traveling by Air",
+        "Vehicle Monthly Distance Km",
+        "Waste Bag Size",
+        "Waste Bag Weekly Count",
+        "How Long TV PC Daily Hour",
+        "How Many New Clothes Monthly",
+        "How Long Internet Daily Hour",
+        "Energy efficiency",
+        "Recycling",
+        "Cooking_With"
+      ],
+      "mae_mean": 179.619,
+      "mae_std": 3.6243,
+      "rmse_mean": 227.5582,
+      "rmse_std": 5.4732,
+      "r2_mean": 0.95,
+      "r2_std": 0.0018,
+      "folds": [
+        {
+          "fold": 1,
+          "mae": 181.4304,
+          "rmse": 228.1049,
+          "r2": 0.95
+        },
+        {
+          "fold": 2,
+          "mae": 178.6261,
+          "rmse": 226.6084,
+          "r2": 0.9501
+        },
+        {
+          "fold": 3,
+          "mae": 175.3635,
+          "rmse": 223.0628,
+          "r2": 0.9523
+        },
+        {
+          "fold": 4,
+          "mae": 177.8546,
+          "rmse": 223.4341,
+          "r2": 0.9501
+        },
+        {
+          "fold": 5,
+          "mae": 184.8202,
+          "rmse": 236.5806,
+          "r2": 0.9473
+        }
+      ]
+    }
+  }
+}

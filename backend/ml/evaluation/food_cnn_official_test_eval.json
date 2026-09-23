@@ -1,0 +1,19 @@
+{
+  "evaluation_dataset": "Food-101 Official Held-Out Test Partition (meta/test.txt)",
+  "classes_evaluated": 101,
+  "total_test_samples": 1010,
+  "samples_per_class": 10,
+  "model_architecture": "ResNet-18",
+  "checkpoint_file": "backend\\ml\\models\\cnn_food_model.pt",
+  "checkpoint_metadata_recorded_best_accuracy": 4.0,
+  "metrics": {
+    "top1_accuracy": 0.01089,
+    "top5_accuracy": 0.05941,
+    "macro_precision": 0.00094,
+    "macro_recall": 0.01089,
+    "macro_f1": 0.00172,
+    "random_guess_baseline_top1": 0.0099,
+    "random_guess_baseline_top5": 0.0495
+  },
+  "diagnosis": "The model achieves Top-1 Accuracy = 1.09% and Top-5 Accuracy = 5.94%. Because random chance among 101 classes is 0.99% Top-1 and 4.95% Top-5, the existing checkpoint is confirmed to be severely undertrained (consistent with its recorded 4.0% training accuracy). Without GPU compute to run 20-30 epochs on the 75,750 training images, the local CNN cannot function as an autonomous food classifier."
+}

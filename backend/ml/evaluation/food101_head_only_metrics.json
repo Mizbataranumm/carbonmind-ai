@@ -1,0 +1,309 @@
+{
+  "model_name": "food101_resnet18_head_only",
+  "status": "candidate_not_yet_product_approved",
+  "generated_at": "2026-09-21T18:51:16.382774+00:00",
+  "training_config": {
+    "architecture": "resnet18",
+    "backbone": "frozen_imagenet_pretrained",
+    "head": "trained_fc_512_to_101",
+    "max_train_per_class": 200,
+    "training_images_used": 17170,
+    "val_images": 3030,
+    "test_images_official": 25250,
+    "epochs": 10,
+    "best_epoch": 10,
+    "best_val_acc": 0.48746,
+    "lr_head": 0.01,
+    "device": "cpu"
+  },
+  "dataset": {
+    "source": "Food-101 official split (meta/train.txt + meta/test.txt)",
+    "num_classes": 101,
+    "training_constraint": "CPU-only; max 200/class from official 750"
+  },
+  "test_metrics": {
+    "total_samples": 25250,
+    "top1_accuracy": 0.5255,
+    "top5_accuracy": 0.78281,
+    "macro_f1": 0.52149,
+    "macro_precision": 0.52483,
+    "macro_recall": 0.5255,
+    "per_class_accuracy": [
+      0.212,
+      0.48,
+      0.54,
+      0.532,
+      0.436,
+      0.42,
+      0.672,
+      0.692,
+      0.288,
+      0.388,
+      0.308,
+      0.592,
+      0.56,
+      0.468,
+      0.464,
+      0.256,
+      0.324,
+      0.488,
+      0.384,
+      0.552,
+      0.656,
+      0.48,
+      0.356,
+      0.616,
+      0.652,
+      0.54,
+      0.316,
+      0.608,
+      0.572,
+      0.728,
+      0.68,
+      0.664,
+      0.832,
+      0.956,
+      0.66,
+      0.72,
+      0.4,
+      0.28,
+      0.608,
+      0.272,
+      0.704,
+      0.668,
+      0.432,
+      0.524,
+      0.62,
+      0.7,
+      0.436,
+      0.428,
+      0.58,
+      0.356,
+      0.324,
+      0.68,
+      0.524,
+      0.452,
+      0.776,
+      0.668,
+      0.268,
+      0.372,
+      0.448,
+      0.304,
+      0.708,
+      0.54,
+      0.444,
+      0.856,
+      0.704,
+      0.78,
+      0.416,
+      0.224,
+      0.708,
+      0.832,
+      0.728,
+      0.472,
+      0.568,
+      0.392,
+      0.444,
+      0.772,
+      0.784,
+      0.208,
+      0.712,
+      0.512,
+      0.424,
+      0.536,
+      0.208,
+      0.608,
+      0.448,
+      0.556,
+      0.776,
+      0.408,
+      0.688,
+      0.412,
+      0.616,
+      0.732,
+      0.576,
+      0.228,
+      0.576,
+      0.552,
+      0.284,
+      0.62,
+      0.404,
+      0.152,
+      0.552
+    ],
+    "random_chance_top1": 0.0099,
+    "random_chance_top5": 0.0495
+  },
+  "error_analysis": {
+    "worst_10_classes": [
+      [
+        "tuna_tartare",
+        0.152
+      ],
+      [
+        "pork_chop",
+        0.208
+      ],
+      [
+        "ravioli",
+        0.208
+      ],
+      [
+        "apple_pie",
+        0.212
+      ],
+      [
+        "omelette",
+        0.224
+      ],
+      [
+        "steak",
+        0.228
+      ],
+      [
+        "ceviche",
+        0.256
+      ],
+      [
+        "huevos_rancheros",
+        0.268
+      ],
+      [
+        "foie_gras",
+        0.272
+      ],
+      [
+        "filet_mignon",
+        0.28
+      ]
+    ],
+    "best_10_classes": [
+      [
+        "spaghetti_carbonara",
+        0.732
+      ],
+      [
+        "pho",
+        0.772
+      ],
+      [
+        "hot_and_sour_soup",
+        0.776
+      ],
+      [
+        "sashimi",
+        0.776
+      ],
+      [
+        "mussels",
+        0.78
+      ],
+      [
+        "pizza",
+        0.784
+      ],
+      [
+        "dumplings",
+        0.832
+      ],
+      [
+        "oysters",
+        0.832
+      ],
+      [
+        "macarons",
+        0.856
+      ],
+      [
+        "edamame",
+        0.956
+      ]
+    ]
+  },
+  "epoch_log": [
+    {
+      "epoch": 1,
+      "train_loss": 4.12982,
+      "train_acc": 0.25614,
+      "val_acc": 0.35941,
+      "lr": 0.009755
+    },
+    {
+      "epoch": 2,
+      "train_loss": 3.50561,
+      "train_acc": 0.36838,
+      "val_acc": 0.39538,
+      "lr": 0.009045
+    },
+    {
+      "epoch": 3,
+      "train_loss": 3.38956,
+      "train_acc": 0.39924,
+      "val_acc": 0.39109,
+      "lr": 0.007939
+    },
+    {
+      "epoch": 4,
+      "train_loss": 3.17042,
+      "train_acc": 0.42621,
+      "val_acc": 0.39208,
+      "lr": 0.006545
+    },
+    {
+      "epoch": 5,
+      "train_loss": 2.98452,
+      "train_acc": 0.45259,
+      "val_acc": 0.41287,
+      "lr": 0.005
+    },
+    {
+      "epoch": 6,
+      "train_loss": 2.73261,
+      "train_acc": 0.48835,
+      "val_acc": 0.42739,
+      "lr": 0.003455
+    },
+    {
+      "epoch": 7,
+      "train_loss": 2.52244,
+      "train_acc": 0.5297,
+      "val_acc": 0.45083,
+      "lr": 0.002061
+    },
+    {
+      "epoch": 8,
+      "train_loss": 2.35392,
+      "train_acc": 0.5629,
+      "val_acc": 0.47129,
+      "lr": 0.000955
+    },
+    {
+      "epoch": 9,
+      "train_loss": 2.22196,
+      "train_acc": 0.59418,
+      "val_acc": 0.47195,
+      "lr": 0.000245
+    },
+    {
+      "epoch": 10,
+      "train_loss": 2.15434,
+      "train_acc": 0.6187,
+      "val_acc": 0.48746,
+      "lr": 0.0
+    }
+  ],
+  "previous_baseline": {
+    "top1_accuracy": 0.01089,
+    "top5_accuracy": 0.05941,
+    "macro_f1": 0.00172,
+    "checkpoint": "cnn_food_model.pt",
+    "note": "< 5 epochs training, CPU only"
+  },
+  "limitations": [
+    "CPU-only training; max 200 images/class used (official split has 750/class).",
+    "Frozen backbone: backbone features are ImageNet pretrained but not fine-tuned to food.",
+    "Food-101 benchmark does not represent real-world mobile-camera food photos.",
+    "Per-class accuracy on official test split only; no real-world phone-camera evaluation."
+  ],
+  "checkpoint": "backend\\ml\\models\\food101_head_only_best.pt"
+}

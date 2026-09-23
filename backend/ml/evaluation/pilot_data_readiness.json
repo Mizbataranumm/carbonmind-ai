@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-09-23T02:48:04.534017Z",
+  "database": "mongodb://localhost:27017/carbonmind",
+  "total_daily_logs": 1,
+  "demo_logs": 1,
+  "real_logs": 0,
+  "unique_real_users": 0,
+  "unique_demo_users": 1,
+  "user_day_counts": {},
+  "user_max_streaks": {},
+  "model_readiness": {
+    "partial_day_ml": {
+      "requires": "Each user needs 8+ consecutive days (7 prior + 1 prediction day)",
+      "current_qualifying_users": 0,
+      "minimum_examples_needed": 50,
+      "status": "INSUFFICIENT_DATA"
+    },
+    "weekly_holt_winters": {
+      "requires": "At least 1 user with 14+ consecutive daily observations",
+      "current_qualifying_users": 0,
+      "status": "INSUFFICIENT_DATA"
+    },
+    "lstm_weekly": {
+      "requires": "At least 1 user with 45+ consecutive daily observations",
+      "current_qualifying_users": 0,
+      "status": "INSUFFICIENT_DATA"
+    }
+  },
+  "verdict": "NO real participant observations exist. All activity logs belong to demo accounts. No temporal ML model (partial-day, weekly, LSTM) can be trained or evaluated. The system is correctly gated to prevent serving unvalidated model outputs."
+}

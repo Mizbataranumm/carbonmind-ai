@@ -82,7 +82,7 @@ try:
     import torch
     from torch import nn
     from torchvision.models import resnet18
-    from torchvision.transforms import Compose, Normalize, Resize, ToTensor
+    from torchvision.transforms import CenterCrop, Compose, Normalize, Resize, ToTensor
     HAS_TORCH = True
 except ImportError:
     torch = None
@@ -501,8 +501,14 @@ def _predict_food_cnn(image_bytes: bytes) -> Optional[dict]:
         return None
     try:
         image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        # Standard ImageNet test-time preprocessing:
+        #   Resize shortest side to 256 (preserves aspect ratio) then
+        #   centre-crop to 224×224 — matches Food-101 / ImageNet convention.
+        #   Bug fix: the previous Resize((224, 224)) forced a square warp
+        #   which distorted the images and hurt classification accuracy.
         transform = Compose([
-            Resize((224, 224)),
+            Resize(256),
+            CenterCrop(224),
             ToTensor(),
             Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
