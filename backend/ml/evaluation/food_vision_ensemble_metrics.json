@@ -1,0 +1,233 @@
+{
+  "model_name": "production_primary_local_resnet18_ensemble",
+  "status": "candidate_not_product_validated",
+  "manifest": "backend\\ml\\evaluation\\test_manifest.csv",
+  "image_count": 20,
+  "metrics": {
+    "primary_alone": {
+      "evaluated_images": 0,
+      "top1_accuracy": null,
+      "macro_f1": null
+    },
+    "cnn_alone": {
+      "evaluated_images": 20,
+      "correct_images": 16,
+      "top1_accuracy": 0.8,
+      "macro_f1": 0.63636
+    },
+    "ensemble": {
+      "evaluated_images": 0,
+      "top1_accuracy": null,
+      "macro_f1": null
+    }
+  },
+  "provider_unavailable_images": 20,
+  "rows": [
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\red_velvet_cake_3749302.jpg",
+      "label": "red_velvet_cake",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "red velvet cake",
+      "cnn_confidence": 0.8577777147293091,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\carrot_cake_3175778.jpg",
+      "label": "carrot_cake",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "carrot cake",
+      "cnn_confidence": 0.6796383857727051,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\beef_carpaccio_1864287.jpg",
+      "label": "beef_carpaccio",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "beef carpaccio",
+      "cnn_confidence": 0.8658340573310852,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\takoyaki_1615290.jpg",
+      "label": "takoyaki",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "takoyaki",
+      "cnn_confidence": 0.7687118649482727,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\falafel_125492.jpg",
+      "label": "falafel",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "falafel",
+      "cnn_confidence": 0.7552579641342163,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\dumplings_1343111.jpg",
+      "label": "dumplings",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "dumplings",
+      "cnn_confidence": 0.9515895247459412,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\cup_cakes_1889695.jpg",
+      "label": "cup_cakes",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "cup cakes",
+      "cnn_confidence": 0.9712554216384888,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\chicken_curry_194828.jpg",
+      "label": "chicken_curry",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "nachos",
+      "cnn_confidence": 0.07668399065732956,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\tacos_3029995.jpg",
+      "label": "tacos",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "tacos",
+      "cnn_confidence": 0.2279532551765442,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\caprese_salad_2353043.jpg",
+      "label": "caprese_salad",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "caprese salad",
+      "cnn_confidence": 0.17942996323108673,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\seaweed_salad_3385157.jpg",
+      "label": "seaweed_salad",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "seaweed salad",
+      "cnn_confidence": 0.9324999451637268,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\takoyaki_1206992.jpg",
+      "label": "takoyaki",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "takoyaki",
+      "cnn_confidence": 0.9926445484161377,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\paella_2500393.jpg",
+      "label": "paella",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "bibimbap",
+      "cnn_confidence": 0.5030442476272583,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\caesar_salad_239163.jpg",
+      "label": "caesar_salad",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "caesar salad",
+      "cnn_confidence": 0.9208481311798096,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\pork_chop_240531.jpg",
+      "label": "pork_chop",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "steak",
+      "cnn_confidence": 0.4322701692581177,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\hot_dog_1843336.jpg",
+      "label": "hot_dog",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "hot dog",
+      "cnn_confidence": 0.5628301501274109,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\beef_tartare_1571778.jpg",
+      "label": "beef_tartare",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "beef tartare",
+      "cnn_confidence": 0.25835248827934265,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\beef_carpaccio_720185.jpg",
+      "label": "beef_carpaccio",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "beef carpaccio",
+      "cnn_confidence": 0.9729092121124268,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\cannoli_1982314.jpg",
+      "label": "cannoli",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "strawberry shortcake",
+      "cnn_confidence": 0.2602449655532837,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    },
+    {
+      "path": "C:\\Users\\Admin\\carbonmind-ai\\backend\\ml\\evaluation\\test_images\\croque_madame_336993.jpg",
+      "label": "croque_madame",
+      "primary_result": null,
+      "primary_confidence": 0.0,
+      "cnn_result": "croque madame",
+      "cnn_confidence": 0.3444315195083618,
+      "ensemble_result": null,
+      "decision_reason": "low_confidence"
+    }
+  ],
+  "limitations": [
+    "Only labels supplied by the manifest are evaluated; this is not a representative field study.",
+    "Provider score and local-CNN score are not calibrated probabilities.",
+    "Macro-F1 is label-level F1 on this small supplied set and is unstable when classes have one example.",
+    "Do not make general accuracy claims until this is run on a representative, held-out phone-camera and non-food set."
+  ]
+}
