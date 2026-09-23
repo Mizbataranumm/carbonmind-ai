@@ -17,6 +17,7 @@ const ELECTRICITY_FACTOR = 0.82; // kg CO2e per kWh
 
 // ── Device wattage presets (watts)
 const DEVICE_PRESETS = [
+  { id: "kwh_direct",   label: "Direct kWh (Meter / Bill)", watts: 1000, isKwh: true },
   { id: "laptop",       label: "Laptop",             watts: 45 },
   { id: "desktop",      label: "Desktop PC",          watts: 150 },
   { id: "smartphone",   label: "Smartphone charging", watts: 10 },
@@ -133,13 +134,13 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
     return () => { active = false; };
   }, [form.type, form.transportFactorId, form.distanceKm, form.passengers]);
 
-  // ── Electricity: calculate kWh → CO2e from device + hours
+  // ── Electricity: calculate kWh → CO2e from device + hours (or direct kWh)
   useEffect(() => {
     if (form.type !== "electricity") return;
     const preset = DEVICE_PRESETS.find((d) => d.id === form.elecDevice);
-    const hours = Number(form.elecHours);
-    if (!preset || !hours || hours <= 0) { setForm((c) => ({ ...c, kg: "" })); return; }
-    const kwh = (preset.watts * hours) / 1000;
+    const amount = Number(form.elecHours);
+    if (!preset || !amount || amount <= 0) { setForm((c) => ({ ...c, kg: "" })); return; }
+    const kwh = preset.isKwh ? amount : (preset.watts * amount) / 1000;
     const co2 = +(kwh * ELECTRICITY_FACTOR).toFixed(3);
     setForm((c) => ({ ...c, kg: String(co2) }));
   }, [form.type, form.elecDevice, form.elecHours]);
@@ -352,7 +353,7 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                 {/* ── Electricity helper fields */}
                 {form.type === "electricity" && (
                   <fieldset className="grid grid-cols-2 gap-3">
-                    <Field label="Appliance">
+                    <Field label="Appliance or Source">
                       <select
                         value={form.elecDevice}
                         onChange={(e) => setForm((c) => ({ ...c, elecDevice: e.target.value }))}
@@ -361,12 +362,12 @@ export default function LogActivityModal({ open, onClose, onSaved }) {
                         {DEVICE_PRESETS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
                       </select>
                     </Field>
-                    <Field label="Hours used">
+                    <Field label={DEVICE_PRESETS.find((d) => d.id === form.elecDevice)?.isKwh ? "Electricity used (kWh)" : "Hours used"}>
                       <input
                         type="number" min="0.1" step="0.1" inputMode="decimal"
                         value={form.elecHours}
                         onChange={(e) => setForm((c) => ({ ...c, elecHours: e.target.value }))}
-                        placeholder="e.g. 2"
+                        placeholder={DEVICE_PRESETS.find((d) => d.id === form.elecDevice)?.isKwh ? "e.g. 5" : "e.g. 2"}
                         className="input-glass w-full font-mono-data"
                       />
                     </Field>

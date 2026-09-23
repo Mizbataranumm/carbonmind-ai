@@ -926,9 +926,8 @@ async def save_monthly_goal(req: SaveMonthlyGoalRequest, current_user_id: str = 
     result = await _database_or_503().users.update_one(
         {"id": req.user_id},
         {"$set": {"monthly_goal": {"target_kg": req.monthly_target_kg, "updated_at": now}}},
+        upsert=True,
     )
-    if not result.matched_count:
-        raise HTTPException(status_code=404, detail="Account not found.")
     return {"status": "saved", "monthly_target_kg": round(req.monthly_target_kg, 2), "updated_at": now}
 
 

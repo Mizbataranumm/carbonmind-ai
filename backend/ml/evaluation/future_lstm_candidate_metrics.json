@@ -1,0 +1,28 @@
+{
+  "model_name": "carbon_lstm_user_day_forecast",
+  "status": "candidate_validated_on_real_data",
+  "generated_at": "2026-09-23T15:23:01.265665+00:00",
+  "data_source": "UCI Individual Household Electric Power Consumption",
+  "data_url": "https://archive.ics.uci.edu/dataset/235",
+  "split": "chronological_80_20_no_leakage",
+  "history_days": 30,
+  "forecast_days": 7,
+  "train_windows": 1117,
+  "test_windows": 280,
+  "metrics": {
+    "mae_kg_day": 1.12251,
+    "rmse_kg_day": 1.50473,
+    "r2": 0.30353,
+    "mape_percent": 33.11
+  },
+  "seasonal_naive_baseline": {
+    "mae_kg_day": 1.39389,
+    "r2": -0.13053
+  },
+  "improvement_over_naive_pct": 19.47,
+  "artifact": "backend\\ml\\models\\future_lstm_candidate.pt",
+  "limitations": [
+    "Trained on real minute-level household energy data aggregated to daily kWh and kg CO2.",
+    "Generalizes household electricity carbon; external factors like travel and diet are estimated separately."
+  ]
+}

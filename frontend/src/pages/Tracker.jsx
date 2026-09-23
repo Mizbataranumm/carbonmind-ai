@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
-import { Car, Zap, Utensils, Monitor, Bike, TrendingDown, TrendingUp, Activity } from "lucide-react";
+import { Car, Zap, Utensils, Monitor, Bike, TrendingDown, TrendingUp, Activity, Plus } from "lucide-react";
 import { getTrackerLive } from "@/lib/api";
 import { useUser } from "@/lib/UserContext";
 import MonthlyGoalCard from "@/components/MonthlyGoalCard";
@@ -10,6 +11,7 @@ const iconMap = { car: Car, zap: Zap, utensils: Utensils, monitor: Monitor, bike
 
 const Tracker = () => {
   const { user } = useUser();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -53,9 +55,18 @@ const Tracker = () => {
             <div className="font-display text-2xl mt-1">Today&apos;s activity history</div>
             <p className="text-sm text-secondary mt-1">Completed activities saved to your account, grouped through the day.</p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green/10 border border-green/25">
-            <span className="h-2 w-2 rounded-full bg-green animate-pulse" style={{ boxShadow: "0 0 10px #00FFB2" }} />
-            <span className="font-mono-data text-xs text-green">saved record</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/predict")}
+              className="btn-primary inline-flex items-center gap-2 !py-2 !px-4 text-xs font-medium"
+              data-testid="tracker-log-btn"
+            >
+              <Plus className="h-4 w-4" /> Log Day Activities
+            </button>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green/10 border border-green/25">
+              <span className="h-2 w-2 rounded-full bg-green animate-pulse" style={{ boxShadow: "0 0 10px #00FFB2" }} />
+              <span className="font-mono-data text-xs text-green">saved record</span>
+            </div>
           </div>
         </div>
         <div className="h-[230px] mt-5">
@@ -117,7 +128,18 @@ const Tracker = () => {
             <Activity className="h-4 w-4 text-cyan" />
           </div>
           <div className="space-y-2">
-            {data.activities.length === 0 && <div className="text-sm text-secondary py-6 text-center">No activities recorded today.</div>}
+            {data.activities.length === 0 && (
+              <div className="text-center py-8 px-4 border border-dashed border-glass-border rounded-xl">
+                <p className="text-sm text-secondary">No activities saved today yet.</p>
+                <p className="text-xs text-secondary/70 mt-1 mb-4">Log your morning commute, meals, or electricity usage to see today's carbon footprint.</p>
+                <button
+                  onClick={() => navigate("/predict")}
+                  className="btn-primary inline-flex items-center gap-2 !py-2.5 !px-5 text-xs font-medium"
+                >
+                  <Plus className="h-4 w-4" /> Log Today's Activities
+                </button>
+              </div>
+            )}
             {data.activities.map((a) => {
               const Icon = iconMap[a.icon] || Car;
               return (

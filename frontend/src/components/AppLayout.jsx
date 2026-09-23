@@ -8,10 +8,10 @@ import { getCarbonStats } from "@/lib/api";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
-  { to: "/tracker", label: "Activity record", icon: Activity, testid: "nav-tracker" },
-  { to: "/scan", label: "Food estimate", icon: ScanLine, testid: "nav-scan" },
-  { to: "/predict", label: "Daily scenario", icon: TrendingUp, testid: "nav-predict" },
-  { to: "/future", label: "Future plan", icon: Sparkles, testid: "nav-future" },
+  { to: "/predict", label: "Log & Plan Day", icon: TrendingUp, testid: "nav-predict" },
+  { to: "/tracker", label: "Daily Tracker", icon: Activity, testid: "nav-tracker" },
+  { to: "/scan", label: "Food Scanner", icon: ScanLine, testid: "nav-scan" },
+  { to: "/future", label: "Future Forecast", icon: Sparkles, testid: "nav-future" },
   { to: "/community", label: "Community", icon: Users, testid: "nav-community" },
   { to: "/challenges", label: "Challenges", icon: Award, testid: "nav-challenges" },
   { to: "/certificate", label: "Certificate", icon: Award, testid: "nav-certificate" },

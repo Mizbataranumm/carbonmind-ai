@@ -1,76 +1,177 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from "recharts";
-import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2 } from "lucide-react";
+import { AlertTriangle, Car, Zap, Utensils, Monitor, Sparkles, TrendingUp, Coffee, Home, ShoppingCart, Trash2, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getFoodCatalog, predictDay } from "@/lib/api";
+import { getFoodCatalog, predictDay, saveDailyActivities } from "@/lib/api";
 import { estimateFoodItemCo2 } from "@/lib/foodEstimator";
+import { useUser } from "@/lib/UserContext";
 
 const iconMap = { transport: Car, electricity: Zap, food: Utensils, devices: Monitor };
 const typeColors = { transport: "var(--neon-green)", electricity: "var(--neon-cyan)", food: "#FFD166", devices: "#FF66E1" };
 
-/* Default emission factors for planning items so users don't have to guess CO2e */
-const MANUAL_CATEGORY_OPTIONS = {
-  transport: [
-    { label: "Car (10 km)", value: "car", co2: 1.70 },
-    { label: "Bus (10 km)", value: "bus", co2: 0.80 },
-    { label: "Bike / Cycle (10 km)", value: "cycling", co2: 0.00 },
-    { label: "Train / Metro (15 km)", value: "train", co2: 0.55 },
-    { label: "Motorcycle (10 km)", value: "moto", co2: 1.05 },
-    { label: "Walk", value: "walking", co2: 0.00 },
-  ],
-  electricity: [
-    { label: "Phone charge (full)", value: "phone_charge", co2: 0.01 },
-    { label: "Ceiling fan (2 hrs)", value: "fan", co2: 0.12 },
-    { label: "Air conditioner (2 hrs)", value: "ac", co2: 2.46 },
-    { label: "Home appliances (1 hr)", value: "appliances", co2: 0.50 },
-  ],
-  devices: [
-    { label: "Smartphone (2 hrs)", value: "phone", co2: 0.02 },
-    { label: "Laptop (2 hrs)", value: "laptop", co2: 0.08 },
-    { label: "TV (2 hrs)", value: "tv", co2: 0.20 },
-    { label: "Desktop PC (2 hrs)", value: "desktop", co2: 0.25 },
-    { label: "Air conditioner (2 hrs)", value: "ac", co2: 2.46 },
-  ],
-};
-
-/* ── Presets ──────────────────────────────────────────────────── */
-const presets = [
-  { id: "commute", label: "Typical commute", icon: Coffee, items: [
-    { type: "transport", sub: "car" }, { type: "electricity", sub: "fan" }, { type: "food", sub: "rice" },
-  ]},
-  { id: "wfh", label: "Work from home", icon: Home, items: [
-    { type: "electricity", sub: "ac" }, { type: "devices", sub: "laptop" }, { type: "food", sub: "garden_salad" },
-  ]},
-  { id: "errands", label: "Weekend errands", icon: ShoppingCart, items: [
-    { type: "transport", sub: "car" }, { type: "food", sub: "chicken_biryani" },
-  ]},
+/* ── Standard Catalogs with Emission Factors ── */
+export const TRANSPORT_CATALOG = [
+  { value: "car_petrol", label: "Car (Petrol)", factor: 0.170, defaultAmount: 10, unit: "km" },
+  { value: "car_diesel", label: "Car (Diesel)", factor: 0.173, defaultAmount: 10, unit: "km" },
+  { value: "car_ev", label: "Electric Car (EV)", factor: 0.030, defaultAmount: 10, unit: "km" },
+  { value: "bus", label: "Bus (Local / Public)", factor: 0.080, defaultAmount: 10, unit: "km" },
+  { value: "moto", label: "Motorcycle / Scooter", factor: 0.105, defaultAmount: 10, unit: "km" },
+  { value: "auto", label: "Auto Rickshaw", factor: 0.070, defaultAmount: 6, unit: "km" },
+  { value: "train", label: "Train / Metro", factor: 0.035, defaultAmount: 15, unit: "km" },
+  { value: "cycling", label: "Bicycle / Cycle", factor: 0.000, defaultAmount: 5, unit: "km" },
+  { value: "walking", label: "Walking", factor: 0.000, defaultAmount: 2, unit: "km" },
+  { value: "flight_domestic", label: "Flight (Domestic)", factor: 0.245, defaultAmount: 400, unit: "km" },
+  { value: "flight_intl", label: "Flight (International)", factor: 0.190, defaultAmount: 1200, unit: "km" },
 ];
 
-/* ── Dark-theme-safe select style ─────────────────────────────── */
+export const ELECTRICITY_CATALOG = [
+  { value: "grid_kwh", label: "Electricity Usage (direct kWh)", factor: 0.82, defaultAmount: 2.5, unit: "kWh" },
+  { value: "ac", label: "Air Conditioner (1.5 kW)", factor: 1.23, defaultAmount: 2, unit: "hrs" },
+  { value: "fan", label: "Ceiling Fan (75W)", factor: 0.06, defaultAmount: 4, unit: "hrs" },
+  { value: "geyser", label: "Water Heater / Geyser (2 kW)", factor: 1.64, defaultAmount: 0.5, unit: "hrs" },
+  { value: "fridge", label: "Refrigerator", factor: 0.12, defaultAmount: 6, unit: "hrs" },
+  { value: "washing", label: "Washing Machine", factor: 0.41, defaultAmount: 1, unit: "hrs" },
+  { value: "lighting", label: "LED / Room Lights", factor: 0.03, defaultAmount: 4, unit: "hrs" },
+  { value: "appliances", label: "Home Appliances", factor: 0.50, defaultAmount: 2, unit: "hrs" },
+];
+
+export const DEVICE_CATALOG = [
+  { value: "laptop", label: "Laptop", factor: 0.04, defaultAmount: 3, unit: "hrs" },
+  { value: "smartphone", label: "Smartphone Charging", factor: 0.01, defaultAmount: 2, unit: "hrs" },
+  { value: "desktop", label: "Desktop PC", factor: 0.12, defaultAmount: 3, unit: "hrs" },
+  { value: "tv", label: "Television (LED)", factor: 0.08, defaultAmount: 2, unit: "hrs" },
+  { value: "monitor", label: "External Display / Monitor", factor: 0.03, defaultAmount: 4, unit: "hrs" },
+];
+
+/* ── Fallback Heuristics for Custom Free-Text ── */
+function estimateCustomTransportFactor(text) {
+  const t = (text || "").toLowerCase();
+  if (t.includes("walk") || t.includes("cycle") || t.includes("bike") || t.includes("foot")) return 0.0;
+  if (t.includes("train") || t.includes("metro") || t.includes("subway") || t.includes("rail")) return 0.035;
+  if (t.includes("ev") || t.includes("electric") || t.includes("tesla") || t.includes("nexon")) return 0.030;
+  if (t.includes("auto") || t.includes("rickshaw") || t.includes("tuk")) return 0.070;
+  if (t.includes("bus")) return 0.080;
+  if (t.includes("moto") || t.includes("scooter") || t.includes("activa")) return 0.105;
+  if (t.includes("diesel")) return 0.173;
+  if (t.includes("flight") || t.includes("plane") || t.includes("air")) return 0.220;
+  return 0.170; // standard car default
+}
+
+function estimateCustomElectricityFactor(text, unit) {
+  const t = (text || "").toLowerCase();
+  if (unit === "kWh" || t.includes("kwh") || t.includes("unit") || t.includes("meter")) return 0.82;
+  if (t.includes("ac") || t.includes("air con") || t.includes("cooling")) return 1.23;
+  if (t.includes("geyser") || t.includes("heater")) return 1.64;
+  if (t.includes("fan")) return 0.06;
+  if (t.includes("fridge") || t.includes("refrigerator")) return 0.12;
+  if (t.includes("wash")) return 0.41;
+  if (t.includes("light") || t.includes("led") || t.includes("bulb")) return 0.03;
+  return 0.50;
+}
+
+function estimateCustomDeviceFactor(text) {
+  const t = (text || "").toLowerCase();
+  if (t.includes("phone") || t.includes("mobile") || t.includes("tablet")) return 0.01;
+  if (t.includes("laptop") || t.includes("macbook")) return 0.04;
+  if (t.includes("desktop") || t.includes("pc") || t.includes("gaming")) return 0.12;
+  if (t.includes("tv") || t.includes("television")) return 0.08;
+  return 0.04;
+}
+
+/* ── Calculate CO2e from Activity Amount & Type ── */
+function calculateActivityKg(activity, foodOptions) {
+  const amount = Number(activity.amount) || 0;
+  if (amount <= 0) return 0;
+
+  if (activity.type === "transport") {
+    const item = TRANSPORT_CATALOG.find(
+      (o) => o.value === activity.sub || o.label.toLowerCase() === (activity.customText || "").toLowerCase()
+    );
+    const factor = item ? item.factor : estimateCustomTransportFactor(activity.customText || activity.sub);
+    return +(amount * factor).toFixed(2);
+  }
+
+  if (activity.type === "electricity") {
+    const item = ELECTRICITY_CATALOG.find(
+      (o) => o.value === activity.sub || o.label.toLowerCase() === (activity.customText || "").toLowerCase()
+    );
+    const factor = item ? item.factor : estimateCustomElectricityFactor(activity.customText || activity.sub, activity.unit);
+    return +(amount * factor).toFixed(2);
+  }
+
+  if (activity.type === "devices") {
+    const item = DEVICE_CATALOG.find(
+      (o) => o.value === activity.sub || o.label.toLowerCase() === (activity.customText || "").toLowerCase()
+    );
+    const factor = item ? item.factor : estimateCustomDeviceFactor(activity.customText || activity.sub);
+    return +(amount * factor).toFixed(2);
+  }
+
+  if (activity.type === "food") {
+    const matched = (foodOptions || []).find(
+      (o) =>
+        o.value.toLowerCase() === (activity.sub || "").toLowerCase() ||
+        o.name?.toLowerCase() === (activity.customText || "").toLowerCase() ||
+        o.label.toLowerCase().startsWith((activity.customText || "").toLowerCase())
+    );
+    const co2PerServing = matched ? matched.co2 : estimateFoodItemCo2(activity.customText || activity.sub, foodOptions || []);
+    return +(amount * (co2PerServing || 0.29)).toFixed(2);
+  }
+
+  return 0.50;
+}
+
+/* ── Realistic Quick Planning Presets ── */
+const presets = [
+  {
+    id: "commute",
+    label: "Typical commute",
+    icon: Coffee,
+    items: [
+      { type: "transport", sub: "car_petrol", customText: "Car (Petrol)", amount: 12, unit: "km", kg: 2.04 },
+      { type: "electricity", sub: "fan", customText: "Ceiling Fan (75W)", amount: 4, unit: "hrs", kg: 0.24 },
+      { type: "food", sub: "rice", customText: "Rice", amount: 1, unit: "servings", kg: 0.16 },
+    ],
+  },
+  {
+    id: "wfh",
+    label: "Work from home",
+    icon: Home,
+    items: [
+      { type: "electricity", sub: "ac", customText: "Air Conditioner (1.5 kW)", amount: 3, unit: "hrs", kg: 3.69 },
+      { type: "devices", sub: "laptop", customText: "Laptop", amount: 4, unit: "hrs", kg: 0.16 },
+      { type: "food", sub: "garden_salad", customText: "Salad", amount: 1, unit: "servings", kg: 0.22 },
+    ],
+  },
+  {
+    id: "errands",
+    label: "Weekend errands",
+    icon: ShoppingCart,
+    items: [
+      { type: "transport", sub: "car_petrol", customText: "Car (Petrol)", amount: 25, unit: "km", kg: 4.25 },
+      { type: "food", sub: "chicken_biryani", customText: "Chicken Biryani", amount: 1, unit: "servings", kg: 1.15 },
+    ],
+  },
+];
+
 const selectStyle = {
   color: "var(--text-primary)",
   background: "var(--bg-secondary)",
 };
 
 const Predict = () => {
+  const { user } = useUser();
+  const navigate = useNavigate();
   const [foodOptions, setFoodOptions] = useState([]);
   const [activities, setActivities] = useState(() =>
-    presets[0].items.map((item) => {
-      const opts = MANUAL_CATEGORY_OPTIONS[item.type] || [];
-      const opt = opts.find((o) => o.value === item.sub) || opts[0];
-      return {
-        type: item.type,
-        sub: opt?.value || item.sub,
-        kg: opt?.co2 ?? (item.type === "food" ? 0.29 : 0.50),
-        customFood: item.type === "food" ? "Rice" : "",
-      };
-    })
+    presets[0].items.map((item) => ({ ...item }))
   );
   const [budget, setBudget] = useState(6.5);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const categoryOptions = useMemo(() => ({ ...MANUAL_CATEGORY_OPTIONS, food: foodOptions }), [foodOptions]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -84,91 +185,162 @@ const Predict = () => {
           name: item.label,
         }));
         setFoodOptions(options);
-        setActivities((current) => current.map((activity) => {
-          if (activity.type !== "food") return activity;
-          const option = options.find((item) => item.value === activity.sub);
-          return option ? { ...activity, kg: option.co2, customFood: option.name } : activity;
-        }));
       })
       .catch(() => toast.error("Reviewed food factors could not be loaded"));
     return () => { active = false; };
   }, []);
 
-  const morningTotal = useMemo(() => activities.reduce((s, a) => s + (parseFloat(a.kg) || 0), 0), [activities]);
+  const morningTotal = useMemo(
+    () => activities.reduce((s, a) => s + (parseFloat(a.kg) || 0), 0),
+    [activities]
+  );
 
-  const activityForOption = (type, sub) => {
-    const option = (categoryOptions[type] || []).find((item) => item.value === sub) || categoryOptions[type]?.[0];
-    return {
-      type,
-      sub: option?.value || sub || "other",
-      kg: option?.co2 ?? (type === "food" ? 0.60 : 0.50),
-      customFood: type === "food" ? option?.name || option?.label?.split(" (")[0] || sub : "",
-    };
+  const applyPreset = (p) => {
+    setActivities(p.items.map((item) => ({ ...item })));
+    setResult(null);
   };
-  const defaultSubItem = (type) => categoryOptions[type]?.[0] || { label: "Other", value: "other", co2: 0.50 };
-  const applyPreset = (p) => { setActivities(p.items.map((item) => activityForOption(item.type, item.sub))); setResult(null); };
 
   const add = (type) => {
-    const first = defaultSubItem(type);
-    setActivities([...activities, {
+    let defaultItem;
+    if (type === "transport") defaultItem = TRANSPORT_CATALOG[0];
+    else if (type === "electricity") defaultItem = ELECTRICITY_CATALOG[0];
+    else if (type === "devices") defaultItem = DEVICE_CATALOG[0];
+    else defaultItem = { value: "rice", label: "Rice", defaultAmount: 1, unit: "servings", factor: 0.16 };
+
+    const newActivity = {
       type,
-      sub: first.value,
-      kg: first.co2 ?? (type === "food" ? 0.29 : 0.50),
-      customFood: type === "food" ? first.name || first.label?.split(" (")[0] || "" : "",
-    }]);
+      sub: defaultItem.value,
+      customText: defaultItem.label,
+      amount: defaultItem.defaultAmount,
+      unit: defaultItem.unit,
+      kg: +(defaultItem.defaultAmount * (defaultItem.factor || 0.2)).toFixed(2),
+    };
+    newActivity.kg = calculateActivityKg(newActivity, foodOptions);
+    setActivities([...activities, newActivity]);
   };
 
   const remove = (i) => setActivities(activities.filter((_, idx) => idx !== i));
 
   const updateType = (i, type) => {
-    const first = defaultSubItem(type);
-    setActivities(activities.map((a, idx) =>
-      idx === i ? {
-        ...a,
-        type,
-        sub: first.value,
-        kg: first.co2 ?? (type === "food" ? 0.29 : 0.50),
-        customFood: type === "food" ? first.name || first.label?.split(" (")[0] || "" : "",
-      } : a
-    ));
-  };
+    let defaultItem;
+    if (type === "transport") defaultItem = TRANSPORT_CATALOG[0];
+    else if (type === "electricity") defaultItem = ELECTRICITY_CATALOG[0];
+    else if (type === "devices") defaultItem = DEVICE_CATALOG[0];
+    else defaultItem = { value: "rice", label: "Rice", defaultAmount: 1, unit: "servings", factor: 0.16 };
 
-  const updateSub = (i, subValue) => {
-    const opts = categoryOptions[activities[i].type] || [];
-    const opt = opts.find((o) => o.value === subValue);
-    setActivities(activities.map((a, idx) =>
-      idx === i ? { ...a, sub: subValue, kg: opt?.co2 ?? 0 } : a
-    ));
-  };
-
-  const updateFoodCustom = (i, text) => {
-    const matched = foodOptions.find(
-      (o) =>
-        o.value.toLowerCase() === text.toLowerCase() ||
-        o.name?.toLowerCase() === text.toLowerCase() ||
-        o.label.toLowerCase().startsWith(text.toLowerCase())
-    );
-    const co2 = matched ? matched.co2 : estimateFoodItemCo2(text, foodOptions);
-    const sub = matched ? matched.value : (text ? `custom_${text.toLowerCase().replace(/\s+/g, "_")}` : "custom_food");
     setActivities((prev) =>
-      prev.map((a, idx) =>
-        idx === i ? { ...a, sub, kg: co2, customFood: text } : a
-      )
+      prev.map((a, idx) => {
+        if (idx !== i) return a;
+        const updated = {
+          ...a,
+          type,
+          sub: defaultItem.value,
+          customText: defaultItem.label,
+          amount: defaultItem.defaultAmount,
+          unit: defaultItem.unit,
+        };
+        updated.kg = calculateActivityKg(updated, foodOptions);
+        return updated;
+      })
     );
   };
 
-  const updateKg = (i, kg) =>
-    setActivities(activities.map((a, idx) => idx === i ? { ...a, kg } : a));
+  const updateCustomText = (i, text) => {
+    setActivities((prev) =>
+      prev.map((a, idx) => {
+        if (idx !== i) return a;
+        let matchedCatalog;
+        if (a.type === "transport") matchedCatalog = TRANSPORT_CATALOG.find((o) => o.label.toLowerCase() === text.toLowerCase() || o.value === text);
+        else if (a.type === "electricity") matchedCatalog = ELECTRICITY_CATALOG.find((o) => o.label.toLowerCase() === text.toLowerCase() || o.value === text);
+        else if (a.type === "devices") matchedCatalog = DEVICE_CATALOG.find((o) => o.label.toLowerCase() === text.toLowerCase() || o.value === text);
+        else if (a.type === "food") matchedCatalog = foodOptions.find((o) => o.name?.toLowerCase() === text.toLowerCase() || o.value === text);
+
+        const updated = {
+          ...a,
+          customText: text,
+          sub: matchedCatalog ? matchedCatalog.value : (text ? `custom_${text.toLowerCase().replace(/\s+/g, "_")}` : a.sub),
+          unit: matchedCatalog?.unit || a.unit,
+        };
+        updated.kg = calculateActivityKg(updated, foodOptions);
+        return updated;
+      })
+    );
+  };
+
+  const updateAmount = (i, amount) => {
+    setActivities((prev) =>
+      prev.map((a, idx) => {
+        if (idx !== i) return a;
+        const updated = { ...a, amount };
+        updated.kg = calculateActivityKg(updated, foodOptions);
+        return updated;
+      })
+    );
+  };
+
+  const updateKg = (i, kg) => {
+    setActivities((prev) =>
+      prev.map((a, idx) => (idx === i ? { ...a, kg } : a))
+    );
+  };
 
   const run = async () => {
-    if (activities.length === 0) { toast.error("Add at least one morning activity"); return; }
+    if (activities.length === 0) {
+      toast.error("Add at least one morning activity");
+      return;
+    }
     setLoading(true);
     try {
-      const r = await predictDay({ morning_activities: activities, daily_budget_kg: budget, observation_hours: 2 });
+      const payload = {
+        morning_activities: activities.map((a) => ({
+          type: a.type,
+          kg: parseFloat(a.kg) || 0,
+        })),
+        daily_budget_kg: budget,
+        observation_hours: 2,
+      };
+      const r = await predictDay(payload);
       setResult(r);
       setTimeout(() => document.getElementById("predict-result-anchor")?.scrollIntoView({ behavior: "smooth" }), 100);
-    } catch { toast.error("Prediction failed"); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error("Prediction failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveToToday = async () => {
+    if (!user?.id) {
+      toast.error("Please sign in to save activities");
+      return;
+    }
+    if (activities.length === 0) {
+      toast.error("Add at least one activity to save");
+      return;
+    }
+    setSaving(true);
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const payload = {
+        user_id: user.id,
+        day: todayStr,
+        append: true,
+        activities: activities.map((a) => ({
+          type: a.type,
+          label: `${a.customText || a.sub} (${a.amount} ${a.unit || ""})`.trim(),
+          kg: parseFloat(a.kg) || 0,
+          source: "manual_entry",
+        })),
+      };
+      await saveDailyActivities(payload);
+      toast.success("Saved all activities to today's record!");
+      navigate("/tracker");
+    } catch (err) {
+      console.error("Failed to save:", err);
+      toast.error(err?.response?.data?.detail || "Could not save activities to your record");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -177,15 +349,20 @@ const Predict = () => {
       <div className="glass p-4 sm:p-6 lg:p-7 glass-hover">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Planning workspace</div>
-            <h2 className="font-display text-2xl sm:text-3xl mt-1">Plan your day</h2>
+            <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">// Day Logger & Planner</div>
+            <h2 className="font-display text-2xl sm:text-3xl mt-1">Log & Plan your day</h2>
             <p className="text-sm text-secondary mt-2 max-w-2xl">
-              Explore a transparent end-of-day projection from a representative two-hour window. Planning here never adds items to your activity record.
+              Enter what you did from morning to evening (travel in km, electricity in kWh/hrs, food, devices). Calculate your exact emissions and save them straight to your activity record in one click!
             </p>
           </div>
-          <span className="font-mono-data text-[10px] uppercase tracking-widest px-2 py-1 rounded-full bg-green/10 text-green border border-green/25">
-            No activity saved
-          </span>
+          <button
+            onClick={saveToToday}
+            disabled={saving || activities.length === 0}
+            className="font-mono-data text-xs px-3.5 py-2 rounded-full bg-green/10 text-green border border-green/30 hover:bg-green/20 transition inline-flex items-center gap-2 font-medium"
+            data-testid="header-save-btn"
+          >
+            <CheckCircle className="h-3.5 w-3.5" /> {saving ? "Saving..." : "Save to Today's Record"}
+          </button>
         </div>
 
         {/* Quick presets */}
@@ -206,7 +383,7 @@ const Predict = () => {
                   <div className="font-medium text-sm">{p.label}</div>
                 </div>
                 <div className="font-mono-data text-[10px] text-secondary mt-1.5">
-                  {p.items.length} activities · review amounts before projection
+                  {p.items.length} activities · customized km, kWh & meals
                 </div>
               </button>
             ))}
@@ -228,7 +405,7 @@ const Predict = () => {
             </div>
           </div>
 
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-2.5">
             {activities.length === 0 && (
               <div className="text-sm text-secondary p-6 text-center border border-dashed border-glass-border rounded-xl">
                 Add a scenario item or choose a preset.
@@ -237,7 +414,20 @@ const Predict = () => {
             {activities.map((a, i) => {
               const Icon = iconMap[a.type] || Car;
               const color = typeColors[a.type];
-              const subOpts = categoryOptions[a.type] || [];
+              const datalistId = `catalog-${a.type}-${i}`;
+
+              // Determine options for datalist
+              let options = [];
+              if (a.type === "transport") options = TRANSPORT_CATALOG;
+              else if (a.type === "electricity") options = ELECTRICITY_CATALOG;
+              else if (a.type === "devices") options = DEVICE_CATALOG;
+              else if (a.type === "food") options = foodOptions.length > 0 ? foodOptions : [
+                { value: "rice", label: "Rice (1 cup)", name: "Rice" },
+                { value: "biryani", label: "Chicken Biryani", name: "Chicken Biryani" },
+                { value: "roti", label: "Roti / Chapati", name: "Roti" },
+                { value: "salad", label: "Salad", name: "Salad" },
+              ];
+
               return (
                 <motion.div
                   key={i}
@@ -247,14 +437,16 @@ const Predict = () => {
                   data-testid={`activity-row-${i}`}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                    <div className="h-10 w-10 rounded-lg border flex items-center justify-center flex-shrink-0"
-                         style={{ background: `${color}15`, borderColor: `${color}40` }}>
+                    <div
+                      className="h-10 w-10 rounded-lg border flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${color}15`, borderColor: `${color}40` }}
+                    >
                       <Icon className="h-5 w-5" style={{ color }} />
                     </div>
 
-                    <div className="w-full min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {/* Category */}
-                      <div>
+                    <div className="w-full min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                      {/* Category - 3 cols */}
+                      <div className="sm:col-span-3">
                         <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">Category</div>
                         <select
                           value={a.type}
@@ -270,58 +462,81 @@ const Predict = () => {
                         </select>
                       </div>
 
-                      {/* Sub-item */}
-                      <div>
+                      {/* Sub-item: Type or Select with datalist - 4 cols */}
+                      <div className="sm:col-span-4">
                         <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">
-                          {a.type === "transport" ? "Vehicle" :
-                           a.type === "electricity" ? "Usage" :
-                           a.type === "food" ? "Food item (type or select)" : "Device"}
+                          {a.type === "transport" ? "Vehicle / Mode" :
+                           a.type === "electricity" ? "Appliance or Grid" :
+                           a.type === "food" ? "Food Item" : "Device"}
                         </div>
-                        {a.type === "food" ? (
-                          <>
-                            <input
-                              type="text"
-                              list={`food-catalog-${i}`}
-                              value={a.customFood !== undefined ? a.customFood : (foodOptions.find((o) => o.value === a.sub)?.name || a.sub || "")}
-                              onChange={(e) => updateFoodCustom(i, e.target.value)}
-                              placeholder="Select or type your food..."
-                              className="input-glass !py-2 !px-3 text-sm w-full font-medium"
-                              style={selectStyle}
-                              data-testid={`activity-food-input-${i}`}
-                            />
-                            <datalist id={`food-catalog-${i}`}>
-                              {foodOptions.map((opt) => (
-                                <option key={opt.value} value={opt.name || opt.label.split(" (")[0]}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </datalist>
-                          </>
-                        ) : (
-                          <select
-                            value={a.sub || subOpts[0]?.value || ""}
-                            onChange={(e) => updateSub(i, e.target.value)}
-                            className="input-glass !py-2 !px-3 text-sm w-full cursor-pointer"
+                        <div className="relative">
+                          <input
+                            type="text"
+                            list={datalistId}
+                            value={a.customText || ""}
+                            onChange={(e) => updateCustomText(i, e.target.value)}
+                            placeholder={
+                              a.type === "transport" ? "Pick or type vehicle..." :
+                              a.type === "electricity" ? "Pick or type usage..." :
+                              a.type === "food" ? "Pick or type food..." : "Pick or type device..."
+                            }
+                            className="input-glass !py-2 !px-3 text-sm w-full font-medium"
                             style={selectStyle}
                             data-testid={`activity-sub-${i}`}
-                          >
-                            {subOpts.map((opt) => (
-                              <option key={opt.value} value={opt.value} style={selectStyle}>
+                          />
+                          <datalist id={datalistId}>
+                            {options.map((opt) => (
+                              <option
+                                key={opt.value}
+                                value={opt.name || opt.label.split(" (")[0]}
+                              >
                                 {opt.label}
                               </option>
                             ))}
-                          </select>
-                        )}
+                          </datalist>
+                        </div>
                       </div>
 
-                      {/* Auto-calculated CO2e with manual override */}
-                      <div>
+                      {/* Quantity / Unit column: km, kWh, hrs, servings - 3 cols */}
+                      <div className="sm:col-span-3">
+                        <div className="flex items-center justify-between font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">
+                          <span>
+                            {a.type === "transport" ? "Distance" :
+                             a.type === "electricity" ? (a.unit === "kWh" ? "Energy" : "Hours") :
+                             a.type === "devices" ? "Duration" : "Quantity"}
+                          </span>
+                          <span className="text-secondary text-[8px] tracking-normal font-sans font-medium uppercase">
+                            {a.unit || (a.type === "transport" ? "km" : "unit")}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step={a.unit === "servings" ? "1" : "0.5"}
+                            min="0"
+                            value={a.amount !== undefined ? a.amount : 1}
+                            onChange={(e) => updateAmount(i, parseFloat(e.target.value) || 0)}
+                            className="input-glass !py-2 !pl-3 !pr-9 text-sm w-full font-mono-data font-medium"
+                            style={selectStyle}
+                            placeholder={a.type === "transport" ? "km" : a.type === "electricity" ? "kWh/hrs" : "qty"}
+                            data-testid={`activity-amount-${i}`}
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 font-mono-data text-[10px] text-secondary/80 pointer-events-none uppercase font-semibold">
+                            {a.unit || (a.type === "transport" ? "km" : "unit")}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Auto-calculated CO2e with manual override - 2 cols */}
+                      <div className="sm:col-span-2">
                         <div className="flex items-center justify-between font-mono-data text-[9px] uppercase tracking-widest text-secondary mb-1">
                           <span>CO₂e (kg)</span>
-                          <span className="text-green text-[8px] tracking-normal font-sans font-medium">Auto-calculated</span>
+                          <span className="text-green text-[8px] tracking-normal font-sans font-medium">Auto</span>
                         </div>
                         <input
-                          type="number" step="0.01" min="0"
+                          type="number"
+                          step="0.01"
+                          min="0"
                           value={a.kg}
                           onChange={(e) => updateKg(i, parseFloat(e.target.value) || 0)}
                           className="input-glass !py-2 !px-3 text-sm w-full font-mono-data text-green font-semibold"
@@ -334,6 +549,7 @@ const Predict = () => {
                       onClick={() => remove(i)}
                       className="self-end sm:self-auto h-9 w-9 rounded-lg bg-widget border border-glass-border hover:bg-[#FF4D4D]/10 hover:border-[#FF4D4D]/30 hover:text-[#FF4D4D] text-secondary transition flex items-center justify-center"
                       data-testid={`activity-remove-${i}`}
+                      title="Remove activity"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -345,7 +561,7 @@ const Predict = () => {
 
           <div className="flex flex-wrap gap-2 pt-4 mt-4 border-t border-glass-border">
             <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary w-full mb-1">Add activity</div>
-            {["transport", "electricity", "food", "devices"].map(t => {
+            {["transport", "electricity", "food", "devices"].map((t) => {
               const Icon = iconMap[t];
               return (
                 <button
@@ -358,8 +574,8 @@ const Predict = () => {
                 </button>
               );
             })}
-            <div className="font-mono-data text-[9px] text-secondary w-full mt-1 opacity-70">
-              All categories calculate CO2e automatically. For food, pick from the reviewed list or type your own dish anytime.
+            <div className="font-mono-data text-[9px] text-secondary w-full mt-2 opacity-70">
+              💡 Tip: Enter exact travel distances in <span className="text-green">km</span> and electricity in <span className="text-cyan">kWh or hours</span>. You can also pick from the list or type any custom item freely!
             </div>
           </div>
         </div>
@@ -390,14 +606,25 @@ const Predict = () => {
             <div className="text-[11px] text-secondary mt-1">Scales the observed activity rate to the remaining day.</div>
           </div>
 
-          <button
-            onClick={run}
-            disabled={loading}
-            className="btn-primary w-full inline-flex items-center justify-center gap-2 !py-3.5"
-            data-testid="predict-btn"
-          >
-            {loading ? "Calculating..." : (<>Project end of day <Sparkles className="h-4 w-4" /></>)}
-          </button>
+          <div className="space-y-2.5">
+            <button
+              onClick={run}
+              disabled={loading}
+              className="btn-primary w-full inline-flex items-center justify-center gap-2 !py-3.5"
+              data-testid="predict-btn"
+            >
+              {loading ? "Calculating..." : (<>Project end of day <Sparkles className="h-4 w-4" /></>)}
+            </button>
+
+            <button
+              onClick={saveToToday}
+              disabled={saving || activities.length === 0}
+              className="w-full inline-flex items-center justify-center gap-2 !py-3.5 px-4 rounded-xl border border-green/40 bg-green/10 text-green hover:bg-green/20 transition font-medium text-sm"
+              data-testid="save-all-to-record-btn"
+            >
+              {saving ? "Saving to record..." : (<>Save to Today's Record <CheckCircle className="h-4 w-4" /></>)}
+            </button>
+          </div>
         </div>
       </div>
 
