@@ -102,7 +102,7 @@ const Community = () => {
         {/* Post composer */}
         <div className="glass p-5 glass-hover" data-testid="post-composer">
           <div className="flex items-start gap-3">
-            <img src={user?.avatar} alt={user?.name} className="h-10 w-10 rounded-full bg-[#0d1f27] border border-glass-border" />
+            <img src={user?.avatar} alt={user?.name} className="h-10 w-10 rounded-full bg-[#0d1f27] object-cover object-center border border-glass-border" />
             <div className="flex-1">
               <textarea
                 value={newPostText}
@@ -145,7 +145,7 @@ const Community = () => {
             data-testid={`post-${p.id}`}
           >
             <div className="flex items-start gap-4">
-              <img src={p.avatar} alt={p.user} className="h-11 w-11 rounded-full bg-[#0d1f27] border border-glass-border" />
+              <img src={p.avatar} alt={p.user} className="h-11 w-11 rounded-full bg-[#0d1f27] object-cover object-center border border-glass-border" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <div>

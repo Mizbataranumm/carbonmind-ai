@@ -274,7 +274,7 @@ const Profile = () => {
               <img
                 src={user.avatar}
                 alt={user.name}
-                className="h-28 w-28 rounded-full object-cover border-4 group-hover:brightness-75 transition-all"
+                className="h-28 w-28 rounded-full object-cover object-center border-4 group-hover:brightness-75 transition-all"
                 style={{ borderColor: "var(--app-bg)", background: "var(--glass-bg)" }}
               />
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">

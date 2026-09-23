@@ -18,7 +18,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export const demoLogin = (name) => api.post("/auth/demo-login", { name }).then(r => r.data);
+export const demoLogin = (name, sessionId) => api.post("/auth/demo-login", { name, session_id: sessionId }).then(r => r.data);
 export const registerUser = (name, email, password, privacyConsent) => api.post("/auth/register", { name, email, password, privacy_consent: privacyConsent }).then(r => r.data);
 export const loginUser = (email, password) => api.post("/auth/login", { email, password }).then(r => r.data);
 export const getCarbonStats = (userId) => api.get("/carbon/stats", { params: { user_id: userId } }).then(r => r.data);

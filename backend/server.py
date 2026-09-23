@@ -114,6 +114,7 @@ async def startup_event():
 # ====== Models ======
 class DemoLoginRequest(BaseModel):
     name: Optional[str] = "Eco Explorer"
+    session_id: Optional[str] = None
 
 class RegisterRequest(BaseModel):
     name: str
@@ -423,13 +424,12 @@ async def save_lifestyle_profile(req: SaveLifestyleProfileRequest, current_user_
 # ====== Auth ======
 @api_router.post("/auth/demo-login", response_model=UserProfile)
 async def demo_login(req: DemoLoginRequest):
+    demo_id = req.session_id if (req.session_id and req.session_id.startswith("demo-")) else f"demo-{uuid.uuid4()}"
     user = {
-        # Do not share a demo identity between visitors. A shared ID would make
-        # one visitor's activities visible to another visitor's demo session.
-        "id": f"demo-{uuid.uuid4()}",
+        "id": demo_id,
         "name": (req.name or "Eco Explorer").strip() or "Eco Explorer",
         "email": "demo-session@carbonmind.ai",
-        "avatar": "/avatars/avatar_emily.png",
+        "avatar": "/avatars/profile_avatar_1.png",
         "carbon_aura": "#00FFB2",
         "streak": 14,
         "xp": 2480,
@@ -459,7 +459,7 @@ async def register(req: RegisterRequest):
         "name": req.name.strip(),
         "email": req.email.lower(),
         "password": _hash_password(req.password),
-        "avatar": "/avatars/avatar_sofia.png",
+        "avatar": "/avatars/profile_avatar_4.png",
         "carbon_aura": "#9EABBC",
         "streak": 0,
         "xp": 0,

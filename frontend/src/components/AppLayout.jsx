@@ -161,7 +161,7 @@ const AppLayout = () => {
             className="group flex items-center gap-3 p-2 rounded-2xl hover:bg-glass-hover-bg transition-colors cursor-pointer"
           >
             <div className="relative">
-              <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full bg-panel object-cover border border-glass-border" />
+              <img src={user.avatar} alt={user.name} className="h-10 w-10 rounded-full bg-panel object-cover object-center border border-glass-border" />
               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green rounded-full flex items-center justify-center border-2 border-app text-app opacity-0 group-hover:opacity-100 transition-opacity">
                 <Plus className="h-3 w-3" />
               </div>
