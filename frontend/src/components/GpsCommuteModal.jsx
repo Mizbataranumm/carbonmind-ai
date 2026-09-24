@@ -14,9 +14,9 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
   const timerRef = useRef(null);
   const prevCoordsRef = useRef(null);
 
-  // Clear tracking on close
+  // Only reset when modal closes AND we are NOT actively tracking
   useEffect(() => {
-    if (!open) {
+    if (!open && status !== "tracking") {
       if (watchIdRef.current !== null) {
         navigator.geolocation?.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -30,7 +30,7 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
       setElapsedSeconds(0);
       setErrorMessage("");
     }
-  }, [open]);
+  }, [open, status]);
 
   // Start live GPS tracking (triggers browser location permission prompt!)
   const startTracking = async () => {
@@ -101,8 +101,7 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
   };
 
   const applyDistance = () => {
-    const finalKm = totalKm > 0 ? totalKm : 1.0;
-    onDistanceDetected(finalKm);
+    onDistanceDetected(totalKm);
     onClose();
   };
 
@@ -123,9 +122,13 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
         className="w-full max-w-md p-6 rounded-2xl glass border border-glass-border relative text-main overflow-hidden"
       >
         <button
-          onClick={onClose}
-          className="absolute right-4 top-4 text-secondary hover:text-main transition p-1"
+          onClick={() => {
+            if (status === "tracking") return; // Block close while GPS is active
+            onClose();
+          }}
+          className={`absolute right-4 top-4 transition p-1 ${status === "tracking" ? "text-secondary/30 cursor-not-allowed" : "text-secondary hover:text-main"}`}
           aria-label="Close"
+          title={status === "tracking" ? "Stop the trip first before closing" : "Close"}
         >
           <X className="h-5 w-5" />
         </button>
@@ -197,9 +200,14 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
               <div>
                 <p className="text-xs uppercase tracking-widest font-mono-data text-secondary">Trip Finished</p>
                 <div className="font-mono-data text-4xl font-bold text-green mt-1">
-                  {totalKm > 0 ? totalKm.toFixed(2) : "1.00"} <span className="text-base text-secondary">km</span>
+                  {totalKm.toFixed(2)} <span className="text-base text-secondary">km</span>
                 </div>
-                <p className="text-xs text-secondary mt-1">Ready to insert into your travel activity row.</p>
+                {totalKm <= 0 && (
+                  <p className="text-xs text-[#FFD166] mt-1">No movement detected. You can still enter distance manually.</p>
+                )}
+                {totalKm > 0 && (
+                  <p className="text-xs text-secondary mt-1">Ready to insert into your travel activity row.</p>
+                )}
               </div>
             </div>
           )}
@@ -236,13 +244,24 @@ export default function GpsCommuteModal({ open, onClose, onDistanceDetected }) {
           )}
 
           {status === "finished" && (
-            <button
-              onClick={applyDistance}
-              className="btn-primary w-full inline-flex items-center justify-center gap-2 !py-3 font-medium text-sm"
-              data-testid="apply-gps-btn"
-            >
-              <Check className="h-4 w-4" /> Apply {totalKm > 0 ? totalKm.toFixed(2) : "1.0"} km to Travel
-            </button>
+            <>
+              {totalKm > 0 ? (
+                <button
+                  onClick={applyDistance}
+                  className="btn-primary w-full inline-flex items-center justify-center gap-2 !py-3 font-medium text-sm"
+                  data-testid="apply-gps-btn"
+                >
+                  <Check className="h-4 w-4" /> Apply {totalKm.toFixed(2)} km to Travel
+                </button>
+              ) : (
+                <button
+                  onClick={onClose}
+                  className="w-full inline-flex items-center justify-center gap-2 !py-3 rounded-xl border border-glass-border bg-widget text-secondary hover:text-main transition font-medium text-sm"
+                >
+                  Close — enter distance manually instead
+                </button>
+              )}
+            </>
           )}
 
           {status === "error" && (
