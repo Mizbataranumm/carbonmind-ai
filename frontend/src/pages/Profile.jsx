@@ -460,17 +460,29 @@ const Profile = () => {
         </div>
 
         {annualResult?.fourteen_feature_ensemble && (
-          <div className="mt-5 grid sm:grid-cols-3 gap-3" aria-label="14-feature annual model comparison">
-            {[
-              ["HistGradientBoosting", annualResult.fourteen_feature_ensemble.hist_gradient_prediction_kg_year],
-              ["LightGBM", annualResult.fourteen_feature_ensemble.lightgbm_prediction_kg_year],
-              ["R2-weighted ensemble", annualResult.fourteen_feature_ensemble.ensemble_prediction_kg_year],
-            ].map(([label, value]) => (
-              <div key={label} className="border border-glass-border bg-widget rounded-lg p-3">
-                <div className="font-mono-data text-[9px] uppercase tracking-widest text-secondary">{label}</div>
-                <div className="font-mono-data text-lg text-cyan mt-1">{value} <span className="text-xs text-secondary">kg CO2e / yr</span></div>
+          <div className="mt-5 rounded-xl border border-green/30 bg-green/5 p-5" aria-label="Annual carbon estimate result">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <div className="font-mono-data text-[10px] uppercase tracking-widest text-green">Your estimated annual footprint</div>
+                <div className="font-mono-data text-4xl text-green mt-2">
+                  {annualResult.fourteen_feature_ensemble.ensemble_prediction_kg_year}
+                  <span className="text-sm text-secondary ml-2">kg CO₂e / year</span>
+                </div>
+                <div className="font-mono-data text-lg text-cyan mt-1">
+                  ≈ {(annualResult.fourteen_feature_ensemble.ensemble_prediction_kg_year / 1000).toFixed(2)} tonnes / year
+                </div>
               </div>
-            ))}
+              <div className="text-right">
+                <div className="font-mono-data text-[10px] uppercase tracking-widest text-secondary">Daily equivalent</div>
+                <div className="font-mono-data text-2xl text-cyan mt-1">
+                  {(annualResult.fourteen_feature_ensemble.ensemble_prediction_kg_year / 365).toFixed(1)}
+                  <span className="text-xs text-secondary ml-1">kg / day</span>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-secondary mt-3 leading-relaxed">
+              Based on your lifestyle choices above. India average: ~2,200 kg/yr · Global average: ~4,500 kg/yr
+            </p>
           </div>
         )}
 
