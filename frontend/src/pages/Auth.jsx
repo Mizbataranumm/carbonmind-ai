@@ -23,9 +23,12 @@ const Auth = () => {
   const handleDemo = useCallback(async () => {
     setLoading(true);
     try {
-      const savedDemoId = localStorage.getItem("cm_demo_id") || "demo-123";
+      let savedDemoId = localStorage.getItem("cm_demo_id");
+      if (!savedDemoId || savedDemoId === "demo-123") {
+        savedDemoId = "demo-" + Math.random().toString(36).substring(2, 10);
+        localStorage.setItem("cm_demo_id", savedDemoId);
+      }
       const u = await demoLogin("Eco Explorer", savedDemoId);
-      localStorage.setItem("cm_demo_id", u.id);
       setUser(u);
       toast.success("Demo workspace ready", { description: "Your demo calculations and history are saved." });
       navigate("/dashboard");

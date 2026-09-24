@@ -674,9 +674,26 @@ async def _daily_logs(user_id: str, start: date, end: date) -> List[dict]:
     logs = await _database_or_503().daily_activity_logs.find(
         {"user_id": user_id, "day": {"$gte": start.isoformat(), "$lte": end.isoformat()}}
     ).to_list(length=400)
-    if logs or not _is_demo_user(user_id):
+    
+    if not _is_demo_user(user_id):
         return logs
-    return [log for log in _demo_activity_logs(end, user_id) if start.isoformat() <= log["day"] <= end.isoformat()]
+        
+    demo_logs = [log for log in _demo_activity_logs(end, user_id) if start.isoformat() <= log["day"] <= end.isoformat()]
+    
+    saved_days = {log["day"]: log for log in logs}
+    merged_logs = []
+    for d_log in demo_logs:
+        if d_log["day"] in saved_days:
+            merged_logs.append(saved_days[d_log["day"]])
+        else:
+            merged_logs.append(d_log)
+            
+    demo_days = {log["day"] for log in demo_logs}
+    for log in logs:
+        if log["day"] not in demo_days:
+            merged_logs.append(log)
+            
+    return merged_logs
 
 
 def build_monthly_goal_progress(logs: List[dict], target_kg: Optional[float], today: date) -> dict:
