@@ -100,6 +100,10 @@ RECIPES: dict[str, Recipe] = {
     "milk": Recipe("Milk", 250, {"Milk": 250}),
     "apples": Recipe("Apples", 182, {"Apples": 182}),
     "bananas": Recipe("Bananas", 118, {"Bananas": 118}),
+    "chocolate_cookies": Recipe(
+        "Chocolate sandwich cookies", 60,
+        {"Wheat & Rye": 30, "Dark Chocolate": 15, "Cane Sugar": 10, "Sunflower Oil": 5},
+    ),
 }
 
 
@@ -133,6 +137,13 @@ RECIPE_ALIASES = {
     "apples": "apples",
     "banana": "bananas",
     "bananas": "bananas",
+    "chocolate_sandwich_cookies": "chocolate_cookies",
+    "chocolate_cookies": "chocolate_cookies",
+    "chocolate_sandwich_cookie": "chocolate_cookies",
+    "cookies": "chocolate_cookies",
+    "cookie": "chocolate_cookies",
+    "biscuit": "chocolate_cookies",
+    "biscuits": "chocolate_cookies",
 }
 
 
